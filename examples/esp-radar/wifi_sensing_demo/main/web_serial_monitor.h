@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_radar.h"
 #include "esp_wifi_sensing.h"
 
 #ifdef __cplusplus
@@ -37,6 +38,13 @@ typedef struct {
     size_t peer_num;                             /**< Number of valid entries in `peers`. */
     uint32_t stream_period_ms;                   /**< Streaming period in milliseconds. Set `0` to use the default. */
 } web_serial_monitor_config_t;
+
+/**
+ * @brief Optional CSI callback passed to the sensing component.
+ *
+ * The callback is idle until the browser requests the CSI stream.
+ */
+void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info);
 
 /**
  * @brief Start the lightweight serial protocol used by the browser monitor.

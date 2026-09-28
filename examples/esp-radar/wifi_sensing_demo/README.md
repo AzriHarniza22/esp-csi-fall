@@ -64,6 +64,12 @@ The serial monitor also exposes the main runtime controls used by the demo:
 - `HMSCMD SET_AMPLITUDE_LOG on`
 - `HMSCMD SET_AMPLITUDE_LOG off`
 - `HMSCMD SET_CFG <peer> motion_sensitivity=<float> active_jitter_min=<float> active_filter_ms=<ms>`
+- `HMSCMD WIFI_CONFIG_HEX <ssid_hex> <password_hex>`
+- `HMSCMD WIFI_DISCONNECT`
+- `HMSCMD WIFI_INFO`
+- `HMSCMD START_CSI_STREAM`
+- `HMSCMD STOP_CSI_STREAM`
+- `HMSCMD SET_CSI_PERIOD <20..1000>`
 
 Here `<peer>` can be either the demo name (`AP`, `MAC_1`, `MAC_2`) or the peer
 MAC string.
@@ -84,6 +90,19 @@ python3 -m http.server
 ```
 
 Then open `http://127.0.0.1:8000/web_serial_monitor.html`.
+
+The browser monitor includes a Wi-Fi Configuration panel for runtime-only
+connection changes. The password is sent as UTF-8 hex over the command channel,
+cleared from the form after submission, and is not printed in device logs.
+
+The Raw CSI panel is disabled by default to keep low-spec computers responsive.
+Start it explicitly when needed, choose a period of 20-1000 ms, and select
+amplitude, real, or imaginary display. Each selected subcarrier is drawn as an
+individual curve over the bounded CSI history, matching the `console_test`
+visualization model. Step `5` is the low-cost view used by `console_test`; step
+`1` draws every available subcarrier (for example, all 52 LLTF subcarriers).
+CSI frames are sent as base64 with a sequence number, source MAC, RSSI, raw
+length, data type, and dropped-frame counter.
 
 ## Demo Behavior
 

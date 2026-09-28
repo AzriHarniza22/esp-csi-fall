@@ -21,6 +21,7 @@
 #include "esp_event.h"
 
 #include "esp_wifi_sensing.h"
+#include "esp_radar.h"
 
 #include "protocol_examples_common.h"
 #include "led_control.h"
@@ -178,6 +179,12 @@ static void demo_init(void)
     ESP_ERROR_CHECK(esp_wifi_sensing_fsm_register_event_cb(s_hms, ESP_WIFI_SENSING_FSM_EVENT_ACTIVE, on_motion_event, NULL));
     ESP_ERROR_CHECK(esp_wifi_sensing_fsm_register_event_cb(s_hms, ESP_WIFI_SENSING_FSM_EVENT_INACTIVE, on_motion_event, NULL));
     ESP_ERROR_CHECK(esp_wifi_sensing_fsm_control(s_hms, ESP_WIFI_SENSING_FSM_CTRL_START, NULL));
+
+    esp_radar_config_t radar_cfg = {0};
+    ESP_ERROR_CHECK(esp_radar_get_config(&radar_cfg));
+    radar_cfg.csi_config.csi_filtered_cb = web_serial_monitor_csi_callback;
+    radar_cfg.csi_config.csi_filtered_cb_ctx = NULL;
+    ESP_ERROR_CHECK(esp_radar_change_config(&radar_cfg));
 
     ESP_LOGI(TAG,
              "default config: motion_detection_sensitivity=%.3f active_jitter_min=%.3f hold=%" PRIu32 "ms confirm=%d ping=%" PRIu32 "Hz",

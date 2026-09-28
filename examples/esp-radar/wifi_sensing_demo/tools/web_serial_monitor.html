@@ -286,6 +286,46 @@
       gap: 12px;
     }
 
+    .wifi-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .wifi-status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .csi-toolbar {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .csi-toolbar label {
+      min-width: 130px;
+    }
+
+    .csi-toolbar label.csi-step-control {
+      min-width: 150px;
+    }
+
+    select {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+    }
+
+    .csi-status {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
     label {
       display: flex;
       flex-direction: column;
@@ -390,6 +430,23 @@
       </section>
 
       <section class="panel section">
+        <h2 id="wifiPanelTitle">Wi-Fi Configuration</h2>
+        <div style="height: 8px;"></div>
+        <form id="wifiForm" class="wifi-form" autocomplete="off">
+          <label><span id="wifiSsidLabel">SSID</span><input id="wifiSsidInput" type="text" maxlength="32" autocomplete="off" /></label>
+          <label><span id="wifiPasswordLabel">Password</span><input id="wifiPasswordInput" type="password" maxlength="64" autocomplete="new-password" /></label>
+        </form>
+        <div style="height: 10px;"></div>
+        <div id="wifiStatusText" class="wifi-status">Not connected</div>
+        <div style="height: 10px;"></div>
+        <div class="button-row">
+          <button id="wifiConnectBtn">Connect Wi-Fi</button>
+          <button id="wifiDisconnectBtn" class="secondary">Disconnect Wi-Fi</button>
+          <button id="wifiInfoBtn" class="secondary">Refresh Status</button>
+        </div>
+      </section>
+
+      <section class="panel section">
         <h2 id="eventLogTitle">Event Log</h2>
         <pre id="eventLog"></pre>
       </section>
@@ -420,6 +477,25 @@
       <section class="panel section">
         <h2 id="currentStateTitle">Current State</h2>
         <div id="motionStatGrid" class="stat-grid"></div>
+      </section>
+
+      <section class="panel chart-card">
+        <div class="chart-head">
+          <div>
+            <h2 id="csiPanelTitle">Raw CSI</h2>
+            <div id="csiPanelDesc" class="muted">Each selected subcarrier is drawn as its own curve across the CSI history. Step 5 matches console_test's light view; step 1 draws all subcarriers.</div>
+          </div>
+        </div>
+        <div class="csi-toolbar">
+          <label><span id="csiPeriodLabel">Period (ms)</span><input id="csiPeriodInput" type="number" min="20" max="1000" step="10" value="100" /></label>
+          <label><span id="csiViewLabel">View</span><select id="csiViewSelect"><option value="amplitude">Amplitude</option><option value="real">Real</option><option value="imaginary">Imaginary</option></select></label>
+          <label class="csi-step-control"><span id="csiStepLabel">Subcarrier step</span><select id="csiStepSelect"><option value="5">5 (light)</option><option value="1">1 (all)</option></select></label>
+          <button id="startCsiBtn">Start CSI</button>
+          <button id="stopCsiBtn" class="secondary">Stop CSI</button>
+        </div>
+        <div id="csiStatusText" class="csi-status">CSI stream stopped</div>
+        <div style="height: 10px;"></div>
+        <canvas id="csiChart" width="1200" height="280"></canvas>
       </section>
 
       <section class="panel section">
@@ -612,6 +688,30 @@
         trainActionDiscardOutlier: "discard outlier",
         trainActionCollectSample: "collect sample",
         trainActionAccumulateBackground: "accumulate bg",
+        wifiPanelTitle: "Wi-Fi Configuration",
+        wifiSsidLabel: "SSID",
+        wifiPasswordLabel: "Password",
+        wifiConnectBtn: "Connect Wi-Fi",
+        wifiDisconnectBtn: "Disconnect Wi-Fi",
+        wifiInfoBtn: "Refresh Status",
+        wifiNotConnected: "Not connected",
+        wifiConnected: "Connected",
+        wifiInvalid: "Enter an SSID and password.",
+        logWifiUpdated: "Wi-Fi configuration sent",
+        csiPanelTitle: "Raw CSI",
+        csiPanelDesc: "Each selected subcarrier is drawn as its own curve across the CSI history. Step 5 matches console_test's light view; step 1 draws all subcarriers.",
+        csiPeriodLabel: "Period (ms)",
+        csiViewLabel: "View",
+        csiStepLabel: "Subcarrier step",
+        csiAmplitude: "Amplitude",
+        csiReal: "Real",
+        csiImaginary: "Imaginary",
+        startCsiBtn: "Start CSI",
+        stopCsiBtn: "Stop CSI",
+        csiStopped: "CSI stream stopped",
+        csiRunning: "CSI stream active",
+        csiFrames: "frames",
+        csiDropped: "dropped",
         yes: "yes",
         no: "no",
         logTrainNoPeer: "Select a channel before running train commands.",
@@ -711,6 +811,30 @@
         trainActionDiscardOutlier: "异常丢弃",
         trainActionCollectSample: "采集模板",
         trainActionAccumulateBackground: "累计背景",
+        wifiPanelTitle: "Wi-Fi 配置",
+        wifiSsidLabel: "SSID",
+        wifiPasswordLabel: "密码",
+        wifiConnectBtn: "连接 Wi-Fi",
+        wifiDisconnectBtn: "断开 Wi-Fi",
+        wifiInfoBtn: "刷新状态",
+        wifiNotConnected: "未连接",
+        wifiConnected: "已连接",
+        wifiInvalid: "请输入 SSID 和密码。",
+        logWifiUpdated: "Wi-Fi 配置已发送",
+        csiPanelTitle: "原始 CSI",
+        csiPanelDesc: "每个选中的子载波都会在 CSI 历史上绘制独立曲线。步长 5 接近 console_test 的轻量视图；步长 1 绘制全部子载波。",
+        csiPeriodLabel: "周期（毫秒）",
+        csiViewLabel: "视图",
+        csiStepLabel: "子载波步长",
+        csiAmplitude: "幅度",
+        csiReal: "实部",
+        csiImaginary: "虚部",
+        startCsiBtn: "开始 CSI",
+        stopCsiBtn: "停止 CSI",
+        csiStopped: "CSI 流已停止",
+        csiRunning: "CSI 流运行中",
+        csiFrames: "帧",
+        csiDropped: "丢弃",
         yes: "是",
         no: "否",
         logTrainNoPeer: "请先选择一个通道再执行训练命令。",
@@ -759,10 +883,25 @@
     const trainTimerText = document.getElementById("trainTimerText");
     const eventLogEl = document.getElementById("eventLog");
     const rawDataLogEl = document.getElementById("rawDataLog");
+    const wifiSsidInput = document.getElementById("wifiSsidInput");
+    const wifiPasswordInput = document.getElementById("wifiPasswordInput");
+    const wifiStatusText = document.getElementById("wifiStatusText");
     const mainChart = document.getElementById("mainChart");
     const wanderChart = document.getElementById("wanderChart");
+    const csiChart = document.getElementById("csiChart");
     const mainLegend = document.getElementById("mainLegend");
     const wanderLegend = document.getElementById("wanderLegend");
+    const csiPeriodInput = document.getElementById("csiPeriodInput");
+    const csiViewSelect = document.getElementById("csiViewSelect");
+    const csiStepSelect = document.getElementById("csiStepSelect");
+    const csiStatusText = document.getElementById("csiStatusText");
+
+    let csiStreamActive = false;
+    let csiFrameCount = 0;
+    let csiDroppedCount = 0;
+    const CSI_HISTORY_LENGTH = 180;
+    let csiHistory = [];
+    let csiSubcarrierCount = 0;
 
     const configInputs = {
       motion_sensitivity: document.getElementById("cfgSensitivity"),
@@ -806,6 +945,22 @@
       document.getElementById("amplitudeToggleLabel").textContent = t("amplitudeToggleLabel");
       document.getElementById("applyRadarBtn").textContent = t("applyRadarBtn");
       document.getElementById("channelsTitle").textContent = t("channelsTitle");
+      document.getElementById("wifiPanelTitle").textContent = t("wifiPanelTitle");
+      document.getElementById("wifiSsidLabel").textContent = t("wifiSsidLabel");
+      document.getElementById("wifiPasswordLabel").textContent = t("wifiPasswordLabel");
+      document.getElementById("wifiConnectBtn").textContent = t("wifiConnectBtn");
+      document.getElementById("wifiDisconnectBtn").textContent = t("wifiDisconnectBtn");
+      document.getElementById("wifiInfoBtn").textContent = t("wifiInfoBtn");
+      document.getElementById("csiPanelTitle").textContent = t("csiPanelTitle");
+      document.getElementById("csiPanelDesc").textContent = t("csiPanelDesc");
+      document.getElementById("csiPeriodLabel").textContent = t("csiPeriodLabel");
+      document.getElementById("csiViewLabel").textContent = t("csiViewLabel");
+      document.getElementById("csiStepLabel").textContent = t("csiStepLabel");
+      document.getElementById("csiViewSelect").options[0].textContent = t("csiAmplitude");
+      document.getElementById("csiViewSelect").options[1].textContent = t("csiReal");
+      document.getElementById("csiViewSelect").options[2].textContent = t("csiImaginary");
+      document.getElementById("startCsiBtn").textContent = t("startCsiBtn");
+      document.getElementById("stopCsiBtn").textContent = t("stopCsiBtn");
       document.getElementById("eventLogTitle").textContent = t("eventLogTitle");
       document.getElementById("targetLabel").textContent = t("targetLabel");
       document.getElementById("selectedPeerLabel").textContent = t("selectedPeerLabel");
@@ -827,7 +982,11 @@
       document.getElementById("footerNote").innerHTML = t("footerNote");
       updateConfigFormPlaceholder();
       setConnected(!!port);
+      if (!wifiStatusText.textContent || wifiStatusText.textContent === t("wifiConnected")) {
+        wifiStatusText.textContent = t("wifiNotConnected");
+      }
       renderTrainAutomationStatus();
+      renderCsiStatus();
     }
 
     function toggleLanguage() {
@@ -867,6 +1026,154 @@
         rawLogCharCount -= (removedLine?.length || 0) + 1;
       }
       scheduleRawLogRender();
+    }
+
+    function encodeUtf8Hex(value) {
+      return Array.from(new TextEncoder().encode(value), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function decodeBase64Bytes(value) {
+      const binary = atob(value);
+      const bytes = new Int8Array(binary.length);
+      for (let index = 0; index < binary.length; index++) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return bytes;
+    }
+
+    function renderCsiStatus() {
+      const state = csiStreamActive ? t("csiRunning") : t("csiStopped");
+      csiStatusText.textContent = `${state} · ${csiFrameCount} ${t("csiFrames")} · ${csiDroppedCount} ${t("csiDropped")}`;
+    }
+
+    function drawCsiChart() {
+      const ctx = csiChart.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const width = csiChart.clientWidth;
+      const height = csiChart.clientHeight;
+      if (csiChart.width !== Math.floor(width * dpr) || csiChart.height !== Math.floor(height * dpr)) {
+        csiChart.width = Math.floor(width * dpr);
+        csiChart.height = Math.floor(height * dpr);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      if (!csiHistory.length || !csiSubcarrierCount) {
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillText(t("noData"), 56, 38);
+        return;
+      }
+
+      const padding = { top: 18, right: 20, bottom: 28, left: 52 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const view = csiViewSelect.value;
+      const readValue = (sample) => {
+        if (view === "real") {
+          return sample[0];
+        }
+        if (view === "imaginary") {
+          return sample[1];
+        }
+        return Math.hypot(sample[0], sample[1]);
+      };
+      const values = csiHistory.flat().map(readValue);
+      let min = view === "amplitude" ? 0 : Math.min(...values);
+      let max = Math.max(...values);
+      if (min === max) {
+        min -= 1;
+        max += 1;
+      }
+      const margin = (max - min) * 0.08;
+      if (view !== "amplitude") {
+        min -= margin;
+      }
+      max += margin;
+
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let index = 0; index <= 4; index++) {
+        const y = padding.top + (plotHeight * index) / 4;
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + plotWidth, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.font = "12px sans-serif";
+      for (let index = 0; index <= 4; index++) {
+        const value = max - ((max - min) * index) / 4;
+        ctx.fillText(value.toFixed(1), 8, padding.top + (plotHeight * index) / 4 + 4);
+      }
+
+      const step = Number(csiStepSelect.value) || 5;
+      for (let subcarrier = 0; subcarrier < csiSubcarrierCount; subcarrier += step) {
+        ctx.beginPath();
+        ctx.strokeStyle = `hsl(${(subcarrier * 360) / Math.max(csiSubcarrierCount, 1)}, 82%, 68%)`;
+        ctx.lineWidth = step === 1 ? 1 : 1.5;
+        csiHistory.forEach((frame, frameIndex) => {
+          const value = readValue(frame[subcarrier]);
+          if (!Number.isFinite(value)) {
+            return;
+          }
+          const x = padding.left + (plotWidth * frameIndex) / Math.max(csiHistory.length - 1, 1);
+          const y = padding.top + ((max - value) / (max - min)) * plotHeight;
+          if (frameIndex === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+      }
+    }
+
+    function handleWifiMessage(msg) {
+      if (!msg.connected) {
+        wifiStatusText.textContent = t("wifiNotConnected");
+        return;
+      }
+      const details = [t("wifiConnected")];
+      if (msg.ssid) {
+        details.push(msg.ssid);
+      }
+      if (msg.rssi !== undefined) {
+        details.push(`RSSI ${msg.rssi} dBm`);
+      }
+      if (msg.channel !== undefined) {
+        details.push(`CH ${msg.channel}`);
+      }
+      wifiStatusText.textContent = details.join(" · ");
+    }
+
+    async function connectWifi() {
+      const ssid = wifiSsidInput.value.trim();
+      const password = wifiPasswordInput.value;
+      if (!ssid || !password) {
+        logEvent(t("wifiInvalid"));
+        return;
+      }
+      await sendCommand(`WIFI_CONFIG_HEX ${encodeUtf8Hex(ssid)} ${encodeUtf8Hex(password)}`);
+      wifiPasswordInput.value = "";
+      logEvent(t("logWifiUpdated"));
+    }
+
+    async function disconnectWifi() {
+      await sendCommand("WIFI_DISCONNECT");
+    }
+
+    async function startCsiStream() {
+      const period = Math.min(1000, Math.max(20, Number(csiPeriodInput.value) || 100));
+      csiPeriodInput.value = String(period);
+      await sendCommand(`SET_CSI_PERIOD ${period}`);
+      await sendCommand("START_CSI_STREAM");
+      csiStreamActive = true;
+      renderCsiStatus();
+    }
+
+    async function stopCsiStream() {
+      await sendCommand("STOP_CSI_STREAM");
+      csiStreamActive = false;
+      renderCsiStatus();
     }
 
     function clearRawLines() {
@@ -1320,6 +1627,28 @@
       } else if (msg.type === "runtime") {
         appInfo = { ...appInfo, ...msg };
         amplitudeLogCheckbox.checked = !!msg.amplitude_log_enabled;
+      } else if (msg.type === "wifi") {
+        handleWifiMessage(msg);
+      } else if (msg.type === "csi") {
+        const bytes = decodeBase64Bytes(msg.data || "");
+        const frame = [];
+        const sampleBytes = Number(msg.data_type) === 1 ? 2 : 1;
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        for (let index = 0; index + sampleBytes * 2 <= bytes.length; index += sampleBytes * 2) {
+          const real = sampleBytes === 2 ? view.getInt16(index, true) : bytes[index];
+          const imaginary = sampleBytes === 2 ? view.getInt16(index + sampleBytes, true) : bytes[index + 1];
+          frame.push([real, imaginary]);
+        }
+        if (frame.length) {
+          csiSubcarrierCount = frame.length;
+          csiHistory.push(frame);
+          while (csiHistory.length > CSI_HISTORY_LENGTH) {
+            csiHistory.shift();
+          }
+        }
+        csiFrameCount++;
+        csiDroppedCount = Number(msg.dropped || 0);
+        renderCsiStatus();
       } else if (msg.type === "config") {
         const peer = ensurePeer(msg.peer, msg.mac);
         peer.cfg = msg;
@@ -1373,6 +1702,7 @@
         await sendCommand("HELLO");
         await sendCommand("GET_RUNTIME");
         await sendCommand("GET_CFG ALL");
+        await sendCommand("WIFI_INFO");
       } catch (error) {
         logEvent(`${t("logConnectFailed")}: ${error.message}`);
       }
@@ -1380,6 +1710,9 @@
 
     async function disconnectSerial() {
       try {
+        if (csiStreamActive && writer) {
+          await stopCsiStream();
+        }
         if (trainAutomation.phase === "running" && trainAutomation.peer && writer) {
           await sendTrainCommand("TRAIN_STOP", trainAutomation.peer);
         }
@@ -1555,6 +1888,21 @@
       document.getElementById("trainStopBtn").addEventListener("click", handleManualTrainStop);
       document.getElementById("trainRemoveBtn").addEventListener("click", handleTrainRemove);
       document.getElementById("applyRadarBtn").addEventListener("click", () => applyRadarConfig());
+      document.getElementById("wifiConnectBtn").addEventListener("click", (event) => {
+        event.preventDefault();
+        connectWifi();
+      });
+      document.getElementById("wifiDisconnectBtn").addEventListener("click", (event) => {
+        event.preventDefault();
+        disconnectWifi();
+      });
+      document.getElementById("wifiInfoBtn").addEventListener("click", () => sendCommand("WIFI_INFO"));
+      document.getElementById("startCsiBtn").addEventListener("click", startCsiStream);
+      document.getElementById("stopCsiBtn").addEventListener("click", stopCsiStream);
+      csiViewSelect.addEventListener("change", () => {
+        drawCsiChart();
+      });
+      csiStepSelect.addEventListener("change", drawCsiChart);
       document.getElementById("clearRawLogBtn").addEventListener("click", clearRawLines);
       document.getElementById("applyConfigBtn").addEventListener("click", (event) => {
         event.preventDefault();
@@ -1572,6 +1920,7 @@
         return;
       }
       redrawTimer = window.setInterval(renderAll, 120);
+      window.setInterval(drawCsiChart, 120);
     }
 
     bindEvents();

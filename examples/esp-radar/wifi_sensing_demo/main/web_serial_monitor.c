@@ -24,6 +24,8 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
+#include "mbedtls/base64.h"
 #include "sdkconfig.h"
 
 #include "web_serial_monitor.h"
@@ -36,6 +38,9 @@
 #define WEB_SERIAL_TX_BUF_SIZE       1024
 #define WEB_SERIAL_RX_POLL_BUF_SIZE  64
 #define WEB_SERIAL_DEFAULT_PERIOD_MS 50
+#define WEB_SERIAL_CSI_DEFAULT_PERIOD_MS 100
+#define WEB_SERIAL_CSI_MAX_RAW_LEN 512
+#define WEB_SERIAL_CSI_MAX_ENCODED_LEN (((WEB_SERIAL_CSI_MAX_RAW_LEN + 2) / 3) * 4 + 1)
 
 static const char *TAG = "web_serial_monitor";
 
@@ -51,6 +56,10 @@ typedef struct {
     web_serial_monitor_peer_t peers[WEB_SERIAL_MONITOR_MAX_PEERS];
     size_t peer_num;
     uint32_t stream_period_ms;
+    bool csi_stream_enabled;
+    uint32_t csi_stream_period_ms;
+    int64_t csi_last_emit_us;
+    uint32_t csi_dropped_count;
     TaskHandle_t task;
 #if CONFIG_SOC_USB_SERIAL_JTAG_SUPPORTED
     bool usb_driver_owned;
@@ -60,6 +69,82 @@ typedef struct {
 static web_serial_monitor_ctx_t s_ctx = {0};
 
 static void handle_command(char *line);
+static void send_ack(const char *cmd, bool ok, const char *detail);
+
+static int hex_value(char ch)
+{
+    if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+    }
+    return -1;
+}
+
+static esp_err_t decode_hex_string(const char *encoded, uint8_t *decoded, size_t decoded_size, size_t *decoded_len)
+{
+    if (!encoded || !decoded || !decoded_len) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    size_t encoded_len = strlen(encoded);
+    if ((encoded_len % 2) != 0 || encoded_len / 2 >= decoded_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    for (size_t i = 0; i < encoded_len / 2; i++) {
+        int high = hex_value(encoded[i * 2]);
+        int low = hex_value(encoded[i * 2 + 1]);
+        if (high < 0 || low < 0) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        decoded[i] = (uint8_t)((high << 4) | low);
+    }
+    *decoded_len = encoded_len / 2;
+    decoded[*decoded_len] = '\0';
+    return ESP_OK;
+}
+
+static void handle_wifi_config_hex(char *args)
+{
+    char *saveptr = NULL;
+    char *ssid_hex = strtok_r(args, " ", &saveptr);
+    char *password_hex = strtok_r(NULL, " ", &saveptr);
+    uint8_t ssid[33] = {0};
+    uint8_t password[65] = {0};
+    size_t ssid_len = 0;
+    size_t password_len = 0;
+
+    if (!ssid_hex || !password_hex ||
+        decode_hex_string(ssid_hex, ssid, sizeof(ssid), &ssid_len) != ESP_OK ||
+        decode_hex_string(password_hex, password, sizeof(password), &password_len) != ESP_OK ||
+        ssid_len == 0 || ssid_len > 32 || password_len > 64) {
+        send_ack("WIFI_CONFIG", false, "invalid hex credentials");
+        return;
+    }
+
+    wifi_config_t config = {0};
+    esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &config);
+    if (err == ESP_OK) {
+        memcpy(config.sta.ssid, ssid, ssid_len);
+        memcpy(config.sta.password, password, password_len);
+        err = esp_wifi_set_config(WIFI_IF_STA, &config);
+    }
+    if (err == ESP_OK) {
+        err = esp_wifi_disconnect();
+        if (err == ESP_ERR_WIFI_NOT_CONNECT) {
+            err = ESP_OK;
+        }
+    }
+    if (err == ESP_OK) {
+        err = esp_wifi_connect();
+    }
+    send_ack("WIFI_CONFIG", err == ESP_OK, esp_err_to_name(err));
+}
 
 static esp_err_t configure_stdin_nonblocking(void)
 {
@@ -244,6 +329,39 @@ static int write_line(const char *fmt, ...)
     return written;
 }
 
+void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info)
+{
+    (void)ctx;
+    if (!info || !s_ctx.initialized || !s_ctx.csi_stream_enabled || !info->raw_data || info->raw_len == 0) {
+        return;
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    if (s_ctx.csi_last_emit_us > 0 &&
+        now_us - s_ctx.csi_last_emit_us < (int64_t)s_ctx.csi_stream_period_ms * 1000LL) {
+        s_ctx.csi_dropped_count++;
+        return;
+    }
+    if (info->raw_len > WEB_SERIAL_CSI_MAX_RAW_LEN) {
+        s_ctx.csi_dropped_count++;
+        return;
+    }
+
+    char encoded[WEB_SERIAL_CSI_MAX_ENCODED_LEN] = {0};
+    size_t encoded_len = 0;
+    if (mbedtls_base64_encode((unsigned char *)encoded, sizeof(encoded) - 1, &encoded_len,
+                              (const unsigned char *)info->raw_data, info->raw_len) != 0) {
+        s_ctx.csi_dropped_count++;
+        return;
+    }
+    encoded[encoded_len] = '\0';
+    s_ctx.csi_last_emit_us = now_us;
+    (void)write_line(
+        "{\"type\":\"csi\",\"seq\":%" PRIu32 ",\"mac\":\"" MACSTR "\",\"rssi\":%d,\"raw_len\":%u,\"data_type\":%d,\"dropped\":%" PRIu32 ",\"data\":\"%s\"}\n",
+        info->seq_id, MAC2STR(info->mac), info->rx_ctrl_info.rssi, info->raw_len,
+        (int)info->data_type, s_ctx.csi_dropped_count, encoded);
+}
+
 static void send_error(const char *message)
 {
     if (!message) {
@@ -269,6 +387,19 @@ static void send_runtime_config(void)
     (void)write_line("{\"type\":\"runtime\",\"amplitude_log_enabled\":%s}\n", enabled ? "true" : "false");
 }
 
+static void send_wifi_info(void)
+{
+    wifi_ap_record_t ap_info = {0};
+    esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
+    if (err != ESP_OK) {
+        (void)write_line("{\"type\":\"wifi\",\"connected\":false,\"bssid\":\"\"}\n");
+        return;
+    }
+    (void)write_line(
+        "{\"type\":\"wifi\",\"connected\":true,\"bssid\":\"" MACSTR "\",\"channel\":%u,\"rssi\":%d}\n",
+        MAC2STR(ap_info.bssid), ap_info.primary, ap_info.rssi);
+}
+
 static void send_hello(void)
 {
     char peers_json[256] = {0};
@@ -289,10 +420,12 @@ static void send_hello(void)
     (void)esp_wifi_sensing_fsm_get_amplitude_log_enabled(s_ctx.fsm, &enabled);
     /* Send enough metadata for the web page to populate its initial UI state. */
     (void)write_line(
-        "{\"type\":\"hello\",\"transport\":\"stdio\",\"target\":\"%s\",\"stream_period_ms\":%" PRIu32 ",\"amplitude_log_enabled\":%s,\"peers\":[%s]}\n",
+        "{\"type\":\"hello\",\"transport\":\"stdio\",\"target\":\"%s\",\"stream_period_ms\":%" PRIu32 ",\"amplitude_log_enabled\":%s,\"csi_stream_enabled\":%s,\"csi_stream_period_ms\":%" PRIu32 ",\"peers\":[%s]}\n",
         CONFIG_IDF_TARGET,
         s_ctx.stream_period_ms,
         enabled ? "true" : "false",
+        s_ctx.csi_stream_enabled ? "true" : "false",
+        s_ctx.csi_stream_period_ms,
         peers_json);
 }
 
@@ -470,6 +603,31 @@ static void handle_command(char *line)
         return;
     }
 
+    if (strcmp(cmd, "START_CSI_STREAM") == 0) {
+        s_ctx.csi_stream_enabled = true;
+        s_ctx.csi_last_emit_us = 0;
+        s_ctx.csi_dropped_count = 0;
+        send_ack("START_CSI_STREAM", true, "csi stream enabled");
+        return;
+    }
+
+    if (strcmp(cmd, "STOP_CSI_STREAM") == 0) {
+        s_ctx.csi_stream_enabled = false;
+        send_ack("STOP_CSI_STREAM", true, "csi stream disabled");
+        return;
+    }
+
+    if (strncmp(cmd, "SET_CSI_PERIOD ", 15) == 0) {
+        uint32_t period_ms = (uint32_t)strtoul(cmd + 15, NULL, 10);
+        if (period_ms < 20 || period_ms > 1000) {
+            send_ack("SET_CSI_PERIOD", false, "period must be 20..1000 ms");
+            return;
+        }
+        s_ctx.csi_stream_period_ms = period_ms;
+        send_ack("SET_CSI_PERIOD", true, "period updated");
+        return;
+    }
+
     if (strcmp(cmd, "FSM_START") == 0) {
         esp_err_t err = esp_wifi_sensing_fsm_control(s_ctx.fsm, ESP_WIFI_SENSING_FSM_CTRL_START, NULL);
         send_ack("FSM_START", err == ESP_OK, esp_err_to_name(err));
@@ -512,6 +670,26 @@ static void handle_command(char *line)
     if (strcmp(cmd, "GET_RUNTIME") == 0) {
         send_runtime_config();
         send_ack("GET_RUNTIME", true, "runtime");
+        return;
+    }
+
+    if (strcmp(cmd, "WIFI_INFO") == 0) {
+        send_wifi_info();
+        send_ack("WIFI_INFO", true, "wifi");
+        return;
+    }
+
+    if (strncmp(cmd, "WIFI_CONFIG_HEX ", 16) == 0) {
+        handle_wifi_config_hex(cmd + 16);
+        return;
+    }
+
+    if (strcmp(cmd, "WIFI_DISCONNECT") == 0) {
+        esp_err_t err = esp_wifi_disconnect();
+        if (err == ESP_ERR_WIFI_NOT_CONNECT) {
+            err = ESP_OK;
+        }
+        send_ack("WIFI_DISCONNECT", err == ESP_OK, esp_err_to_name(err));
         return;
     }
 
@@ -669,6 +847,7 @@ static void web_serial_monitor_task(void *arg)
     /* Emit an initial snapshot so the browser can render immediately after connecting. */
     send_hello();
     send_runtime_config();
+    send_wifi_info();
     send_all_configs();
 
     while (true) {
@@ -700,6 +879,8 @@ esp_err_t web_serial_monitor_init(const web_serial_monitor_config_t *config)
     memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.initialized = true;
     s_ctx.stream_enabled = true;
+    s_ctx.csi_stream_enabled = false;
+    s_ctx.csi_stream_period_ms = WEB_SERIAL_CSI_DEFAULT_PERIOD_MS;
     s_ctx.fsm = config->fsm;
     s_ctx.peer_num = config->peer_num;
     s_ctx.stream_period_ms = (config->stream_period_ms > 0) ? config->stream_period_ms : WEB_SERIAL_DEFAULT_PERIOD_MS;
