@@ -87,3 +87,6 @@ docs/docusaurus/website/node_modules
 **/managed_components/
 **/*.lock
 **/.vscode
+
+# tool cache (lokal saja)
+.serena/

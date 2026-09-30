@@ -16,6 +16,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 #if CONFIG_SOC_USB_SERIAL_JTAG_SUPPORTED
 #include "driver/usb_serial_jtag.h"
@@ -23,19 +24,25 @@
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "mbedtls/base64.h"
 #include "sdkconfig.h"
 
 #include "web_serial_monitor.h"
+#include "wifi_runtime_manager.h"
 
 #define WEB_SERIAL_PREFIX            "HMS:"
 #define WEB_SERIAL_COMMAND_PREFIX    "HMSCMD "
-#define WEB_SERIAL_TASK_STACK_SIZE   4096
+#define WEB_SERIAL_TASK_STACK_SIZE   6144
 #define WEB_SERIAL_TASK_PRIORITY     4
 #define WEB_SERIAL_LINE_BUF_SIZE     512
-#define WEB_SERIAL_TX_BUF_SIZE       1024
+/*
+ * A full sample line with three MAC strings and the FSM's float fields reaches
+ * roughly 900 bytes, so 1 KiB left no margin and truncation produced invalid JSON.
+ */
+#define WEB_SERIAL_TX_BUF_SIZE       2048
 #define WEB_SERIAL_RX_POLL_BUF_SIZE  64
 #define WEB_SERIAL_DEFAULT_PERIOD_MS 50
 #define WEB_SERIAL_CSI_DEFAULT_PERIOD_MS 100
@@ -51,6 +58,8 @@ static const char *TAG = "web_serial_monitor";
  */
 typedef struct {
     bool initialized;
+    /* Sensing is bound lazily: the monitor runs before Wi-Fi so boot states are visible. */
+    bool sensing_ready;
     bool stream_enabled;
     esp_wifi_sensing_fsm_handle_t fsm;
     web_serial_monitor_peer_t peers[WEB_SERIAL_MONITOR_MAX_PEERS];
@@ -60,6 +69,10 @@ typedef struct {
     uint32_t csi_stream_period_ms;
     int64_t csi_last_emit_us;
     uint32_t csi_dropped_count;
+    /* A reconfiguration is in flight, so the GUI must keep its buttons disabled. */
+    bool wifi_busy;
+    /* Messages dropped because they exceeded WEB_SERIAL_TX_BUF_SIZE. */
+    uint32_t truncated_msg_count;
     TaskHandle_t task;
 #if CONFIG_SOC_USB_SERIAL_JTAG_SUPPORTED
     bool usb_driver_owned;
@@ -70,6 +83,10 @@ static web_serial_monitor_ctx_t s_ctx = {0};
 
 static void handle_command(char *line);
 static void send_ack(const char *cmd, bool ok, const char *detail);
+static void send_wifi_result(const char *cmd, esp_err_t err, const wifi_runtime_info_t *info);
+static void send_wifi_info(void);
+static void send_hello(void);
+static void send_all_configs(void);
 
 static int hex_value(char ch)
 {
@@ -119,31 +136,41 @@ static void handle_wifi_config_hex(char *args)
     size_t ssid_len = 0;
     size_t password_len = 0;
 
-    if (!ssid_hex || !password_hex ||
+    if (!ssid_hex ||
         decode_hex_string(ssid_hex, ssid, sizeof(ssid), &ssid_len) != ESP_OK ||
-        decode_hex_string(password_hex, password, sizeof(password), &password_len) != ESP_OK ||
-        ssid_len == 0 || ssid_len > 32 || password_len > 64) {
-        send_ack("WIFI_CONFIG", false, "invalid hex credentials");
+        ssid_len == 0 || ssid_len > 32) {
+        send_ack("WIFI_CONFIG", false, "invalid hex ssid");
         return;
     }
 
-    wifi_config_t config = {0};
-    esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &config);
-    if (err == ESP_OK) {
-        memcpy(config.sta.ssid, ssid, ssid_len);
-        memcpy(config.sta.password, password, password_len);
-        err = esp_wifi_set_config(WIFI_IF_STA, &config);
-    }
-    if (err == ESP_OK) {
-        err = esp_wifi_disconnect();
-        if (err == ESP_ERR_WIFI_NOT_CONNECT) {
-            err = ESP_OK;
+    /* An omitted password is valid and means an open network. */
+    if (password_hex) {
+        if (decode_hex_string(password_hex, password, sizeof(password), &password_len) != ESP_OK ||
+            password_len > 64) {
+            send_ack("WIFI_CONFIG", false, "invalid hex password");
+            return;
         }
     }
-    if (err == ESP_OK) {
-        err = esp_wifi_connect();
+
+    if (s_ctx.wifi_busy) {
+        send_ack("WIFI_CONFIG", false, "another wifi operation is in progress");
+        return;
     }
-    send_ack("WIFI_CONFIG", err == ESP_OK, esp_err_to_name(err));
+    s_ctx.wifi_busy = true;
+
+    /* The manager owns the disconnect/reconnect ordering; this only supplies credentials. */
+    wifi_runtime_info_t info = {0};
+    esp_err_t err = wifi_runtime_manager_set_credentials((const char *)ssid,
+                                                         password_len ? (const char *)password : NULL,
+                                                         &info);
+
+    s_ctx.wifi_busy = false;
+
+    if (err != ESP_OK) {
+        send_wifi_result("WIFI_CONFIG", err, &info);
+        return;
+    }
+    send_wifi_result("WIFI_CONFIG", ESP_OK, &info);
 }
 
 static esp_err_t configure_stdin_nonblocking(void)
@@ -300,39 +327,68 @@ static const web_serial_monitor_peer_t *find_peer_by_name_or_mac(const char *tok
     return NULL;
 }
 
+/*
+ * The line buffer must not live on a caller's stack: this runs from the 4 KiB
+ * monitor task and from the esp_radar CSI callback, and a 2 KiB stack buffer
+ * overflowed both. It is heap-allocated once and guarded so concurrent
+ * fwrite() calls cannot interleave two messages into one line.
+ */
+static char *s_tx_line = NULL;
+static SemaphoreHandle_t s_tx_lock = NULL;
+
 static int write_line(const char *fmt, ...)
 {
-    char line[WEB_SERIAL_TX_BUF_SIZE] = {0};
-    /* Prefix structured messages so ordinary ESP logs can coexist on the same port. */
-    int prefix_len = snprintf(line, sizeof(line), "%s", WEB_SERIAL_PREFIX);
-    if (prefix_len <= 0 || prefix_len >= (int)sizeof(line)) {
+    if (!s_tx_line || !s_tx_lock) {
         return 0;
+    }
+
+    if (xSemaphoreTake(s_tx_lock, pdMS_TO_TICKS(50)) != pdTRUE) {
+        return 0;
+    }
+
+    int result = 0;
+    char *line = s_tx_line;
+    line[0] = '\0';
+
+    /* Prefix structured messages so ordinary ESP logs can coexist on the same port. */
+    int prefix_len = snprintf(line, WEB_SERIAL_TX_BUF_SIZE, "%s", WEB_SERIAL_PREFIX);
+    if (prefix_len <= 0 || prefix_len >= WEB_SERIAL_TX_BUF_SIZE) {
+        goto done;
     }
 
     va_list args;
     va_start(args, fmt);
-    int body_len = vsnprintf(line + prefix_len, sizeof(line) - prefix_len, fmt, args);
+    int body_len = vsnprintf(line + prefix_len, WEB_SERIAL_TX_BUF_SIZE - prefix_len, fmt, args);
     va_end(args);
     if (body_len < 0) {
-        return 0;
+        goto done;
     }
 
     int total_len = prefix_len + body_len;
-    if (total_len >= (int)sizeof(line)) {
-        total_len = sizeof(line) - 1;
-        line[total_len - 1] = '\n';
-        line[total_len] = '\0';
+    if (total_len >= WEB_SERIAL_TX_BUF_SIZE) {
+        /*
+         * Truncating would emit invalid JSON and desync the browser parser, so the
+         * message is dropped and counted instead.
+         */
+        s_ctx.truncated_msg_count++;
+        ESP_LOGW(TAG, "dropped oversized message: need=%d capacity=%d",
+                 total_len, WEB_SERIAL_TX_BUF_SIZE);
+        goto done;
     }
 
-    int written = (int)fwrite(line, 1, total_len, stdout);
+    result = (int)fwrite(line, 1, total_len, stdout);
     fflush(stdout);
-    return written;
+
+done:
+    xSemaphoreGive(s_tx_lock);
+    return result;
 }
 
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info)
 {
     (void)ctx;
-    if (!info || !s_ctx.initialized || !s_ctx.csi_stream_enabled || !info->raw_data || info->raw_len == 0) {
+    if (!info || !s_ctx.initialized || !s_ctx.sensing_ready ||
+            !s_ctx.csi_stream_enabled || !info->raw_data || info->raw_len == 0) {
         return;
     }
 
@@ -381,23 +437,100 @@ static void send_ack(const char *cmd, bool ok, const char *detail)
 static void send_runtime_config(void)
 {
     bool enabled = false;
+    if (!s_ctx.sensing_ready) {
+        (void)write_line("{\"type\":\"runtime\",\"amplitude_log_enabled\":false,\"sensing_ready\":false}\n");
+        return;
+    }
     if (esp_wifi_sensing_fsm_get_amplitude_log_enabled(s_ctx.fsm, &enabled) != ESP_OK) {
         return;
     }
-    (void)write_line("{\"type\":\"runtime\",\"amplitude_log_enabled\":%s}\n", enabled ? "true" : "false");
+    (void)write_line("{\"type\":\"runtime\",\"amplitude_log_enabled\":%s,\"sensing_ready\":true}\n",
+                     enabled ? "true" : "false");
+}
+
+/* Escapes the bytes of an SSID so control characters cannot break the JSON line. */
+static void ssid_to_json(const uint8_t *ssid, uint8_t ssid_len, char *out, size_t out_size)
+{
+    size_t used = 0;
+    for (uint8_t i = 0; i < ssid_len && (used + 7) < out_size; i++) {
+        uint8_t ch = ssid[i];
+        if (ch == '"' || ch == '\\') {
+            used += (size_t)snprintf(out + used, out_size - used, "\\%c", ch);
+        } else if (ch < 0x20 || ch == 0x7f) {
+            used += (size_t)snprintf(out + used, out_size - used, "\\u%04x", ch);
+        } else {
+            out[used++] = (char)ch;
+        }
+    }
+    out[used] = '\0';
+}
+
+void web_serial_monitor_notify_wifi_state(void)
+{
+    if (!s_ctx.initialized) {
+        return;
+    }
+    send_wifi_info();
 }
 
 static void send_wifi_info(void)
 {
-    wifi_ap_record_t ap_info = {0};
-    esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
-    if (err != ESP_OK) {
-        (void)write_line("{\"type\":\"wifi\",\"connected\":false,\"bssid\":\"\"}\n");
-        return;
-    }
+    wifi_runtime_info_t info = {0};
+    wifi_runtime_manager_get_info(&info);
+
+    char ssid_json[96] = {0};
+    ssid_to_json(info.ssid, info.ssid_len, ssid_json, sizeof(ssid_json));
+
     (void)write_line(
-        "{\"type\":\"wifi\",\"connected\":true,\"bssid\":\"" MACSTR "\",\"channel\":%u,\"rssi\":%d}\n",
-        MAC2STR(ap_info.bssid), ap_info.primary, ap_info.rssi);
+        "{\"type\":\"wifi\",\"state\":\"%s\",\"connected\":%s,\"has_ip\":%s,"
+        "\"bssid\":\"" MACSTR "\",\"ssid\":\"%s\",\"channel\":%u,\"rssi\":%d,\"ip\":\"%s\","
+        "\"reason\":%u,\"reason_name\":\"%s\"}\n",
+        wifi_runtime_state_name(info.state),
+        info.connected ? "true" : "false",
+        info.has_ip ? "true" : "false",
+        MAC2STR(info.bssid),
+        ssid_json,
+        info.channel,
+        info.rssi,
+        info.ip,
+        info.reason,
+        wifi_runtime_reason_name(info.reason));
+}
+
+/* Reports the terminal result of a Wi-Fi command together with the reason code. */
+static void send_wifi_result(const char *cmd, esp_err_t err, const wifi_runtime_info_t *info)
+{
+    wifi_runtime_info_t snapshot = {0};
+    if (info) {
+        snapshot = *info;
+    } else {
+        wifi_runtime_manager_get_info(&snapshot);
+    }
+
+    char ssid_json[96] = {0};
+    ssid_to_json(snapshot.ssid, snapshot.ssid_len, ssid_json, sizeof(ssid_json));
+
+    if (err != ESP_OK) {
+        (void)write_line(
+            "{\"type\":\"wifi_result\",\"cmd\":\"%s\",\"ok\":false,\"detail\":\"%s\","
+            "\"state\":\"%s\",\"reason\":%u,\"reason_name\":\"%s\"}\n",
+            cmd ? cmd : "",
+            esp_err_to_name(err),
+            wifi_runtime_state_name(snapshot.state),
+            snapshot.reason,
+            wifi_runtime_reason_name(snapshot.reason));
+    } else {
+        (void)write_line(
+            "{\"type\":\"wifi_result\",\"cmd\":\"%s\",\"ok\":true,\"state\":\"%s\","
+            "\"bssid\":\"" MACSTR "\",\"ssid\":\"%s\",\"channel\":%u,\"rssi\":%d,\"ip\":\"%s\"}\n",
+            cmd ? cmd : "",
+            wifi_runtime_state_name(snapshot.state),
+            MAC2STR(snapshot.bssid),
+            ssid_json,
+            snapshot.channel,
+            snapshot.rssi,
+            snapshot.ip);
+    }
 }
 
 static void send_hello(void)
@@ -417,21 +550,24 @@ static void send_hello(void)
     }
 
     bool enabled = false;
-    (void)esp_wifi_sensing_fsm_get_amplitude_log_enabled(s_ctx.fsm, &enabled);
+    if (s_ctx.sensing_ready) {
+        (void)esp_wifi_sensing_fsm_get_amplitude_log_enabled(s_ctx.fsm, &enabled);
+    }
     /* Send enough metadata for the web page to populate its initial UI state. */
     (void)write_line(
-        "{\"type\":\"hello\",\"transport\":\"stdio\",\"target\":\"%s\",\"stream_period_ms\":%" PRIu32 ",\"amplitude_log_enabled\":%s,\"csi_stream_enabled\":%s,\"csi_stream_period_ms\":%" PRIu32 ",\"peers\":[%s]}\n",
+        "{\"type\":\"hello\",\"transport\":\"stdio\",\"target\":\"%s\",\"stream_period_ms\":%" PRIu32 ",\"amplitude_log_enabled\":%s,\"csi_stream_enabled\":%s,\"csi_stream_period_ms\":%" PRIu32 ",\"sensing_ready\":%s,\"peers\":[%s]}\n",
         CONFIG_IDF_TARGET,
         s_ctx.stream_period_ms,
         enabled ? "true" : "false",
         s_ctx.csi_stream_enabled ? "true" : "false",
         s_ctx.csi_stream_period_ms,
+        s_ctx.sensing_ready ? "true" : "false",
         peers_json);
 }
 
 static void send_channel_config(const web_serial_monitor_peer_t *peer)
 {
-    if (!peer) {
+    if (!peer || !s_ctx.sensing_ready) {
         return;
     }
 
@@ -462,7 +598,7 @@ static void send_all_configs(void)
 
 static void send_channel_sample(const web_serial_monitor_peer_t *peer)
 {
-    if (!peer) {
+    if (!peer || !s_ctx.sensing_ready) {
         return;
     }
 
@@ -584,6 +720,38 @@ static void handle_command(char *line)
 
     /* The command grammar stays intentionally small to keep the demo debuggable from a plain terminal. */
     char *cmd = line + strlen(WEB_SERIAL_COMMAND_PREFIX);
+
+    /*
+     * Wi-Fi commands are always allowed, even before sensing is up, because the
+     * browser may need to fix the AP before the FSM can ever start.
+     */
+    if (strncmp(cmd, "WIFI_", 5) == 0) {
+        if (strcmp(cmd, "WIFI_INFO") == 0) {
+            send_wifi_info();
+            send_ack("WIFI_INFO", true, "wifi");
+            return;
+        }
+        if (strncmp(cmd, "WIFI_CONFIG_HEX ", 16) == 0) {
+            handle_wifi_config_hex(cmd + 16);
+            return;
+        }
+        if (strcmp(cmd, "WIFI_DISCONNECT") == 0) {
+            esp_err_t err = wifi_runtime_manager_disconnect();
+            send_wifi_result("WIFI_DISCONNECT", err, NULL);
+            return;
+        }
+        if (strcmp(cmd, "WIFI_RECONNECT") == 0) {
+            esp_err_t err = wifi_runtime_manager_reconnect();
+            send_wifi_result("WIFI_RECONNECT", err, NULL);
+            return;
+        }
+    }
+
+    if (!s_ctx.sensing_ready) {
+        send_ack(cmd, false, "sensing not ready");
+        return;
+    }
+
     if (strcmp(cmd, "HELLO") == 0) {
         send_hello();
         send_runtime_config();
@@ -670,26 +838,6 @@ static void handle_command(char *line)
     if (strcmp(cmd, "GET_RUNTIME") == 0) {
         send_runtime_config();
         send_ack("GET_RUNTIME", true, "runtime");
-        return;
-    }
-
-    if (strcmp(cmd, "WIFI_INFO") == 0) {
-        send_wifi_info();
-        send_ack("WIFI_INFO", true, "wifi");
-        return;
-    }
-
-    if (strncmp(cmd, "WIFI_CONFIG_HEX ", 16) == 0) {
-        handle_wifi_config_hex(cmd + 16);
-        return;
-    }
-
-    if (strcmp(cmd, "WIFI_DISCONNECT") == 0) {
-        esp_err_t err = esp_wifi_disconnect();
-        if (err == ESP_ERR_WIFI_NOT_CONNECT) {
-            err = ESP_OK;
-        }
-        send_ack("WIFI_DISCONNECT", err == ESP_OK, esp_err_to_name(err));
         return;
     }
 
@@ -854,7 +1002,7 @@ static void web_serial_monitor_task(void *arg)
         poll_rx_and_handle_commands();
 
         int64_t now_us = esp_timer_get_time();
-        if (s_ctx.stream_enabled &&
+        if (s_ctx.stream_enabled && s_ctx.sensing_ready &&
                 (last_stream_us == 0 || (now_us - last_stream_us) >= ((int64_t)s_ctx.stream_period_ms * 1000LL))) {
             last_stream_us = now_us;
             for (size_t i = 0; i < s_ctx.peer_num; i++) {
@@ -866,28 +1014,39 @@ static void web_serial_monitor_task(void *arg)
     }
 }
 
-esp_err_t web_serial_monitor_init(const web_serial_monitor_config_t *config)
+esp_err_t web_serial_monitor_init(void)
 {
-    if (!config || !config->fsm || !config->peers || config->peer_num == 0 ||
-            config->peer_num > WEB_SERIAL_MONITOR_MAX_PEERS) {
-        return ESP_ERR_INVALID_ARG;
-    }
     if (s_ctx.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
 
     memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.initialized = true;
-    s_ctx.stream_enabled = true;
+    s_ctx.sensing_ready = false;
+    s_ctx.stream_enabled = false;
     s_ctx.csi_stream_enabled = false;
     s_ctx.csi_stream_period_ms = WEB_SERIAL_CSI_DEFAULT_PERIOD_MS;
-    s_ctx.fsm = config->fsm;
-    s_ctx.peer_num = config->peer_num;
-    s_ctx.stream_period_ms = (config->stream_period_ms > 0) ? config->stream_period_ms : WEB_SERIAL_DEFAULT_PERIOD_MS;
-    memcpy(s_ctx.peers, config->peers, config->peer_num * sizeof(web_serial_monitor_peer_t));
+    s_ctx.stream_period_ms = WEB_SERIAL_DEFAULT_PERIOD_MS;
+
+    s_tx_line = malloc(WEB_SERIAL_TX_BUF_SIZE);
+    if (!s_tx_line) {
+        memset(&s_ctx, 0, sizeof(s_ctx));
+        return ESP_ERR_NO_MEM;
+    }
+    s_tx_lock = xSemaphoreCreateMutex();
+    if (!s_tx_lock) {
+        free(s_tx_line);
+        s_tx_line = NULL;
+        memset(&s_ctx, 0, sizeof(s_ctx));
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_err_t err = configure_command_inputs();
     if (err != ESP_OK) {
+        vSemaphoreDelete(s_tx_lock);
+        s_tx_lock = NULL;
+        free(s_tx_line);
+        s_tx_line = NULL;
         memset(&s_ctx, 0, sizeof(s_ctx));
         return err;
     }
@@ -900,11 +1059,46 @@ esp_err_t web_serial_monitor_init(const web_serial_monitor_config_t *config)
                                 &s_ctx.task);
     if (ok != pdPASS) {
         cleanup_command_inputs();
+        vSemaphoreDelete(s_tx_lock);
+        s_tx_lock = NULL;
+        free(s_tx_line);
+        s_tx_line = NULL;
         memset(&s_ctx, 0, sizeof(s_ctx));
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "web serial monitor started, input=%s, output=stdio, period=%" PRIu32 "ms",
-             input_mode_name(), s_ctx.stream_period_ms);
+    ESP_LOGI(TAG, "web serial monitor transport started, input=%s, output=stdio",
+             input_mode_name());
+    return ESP_OK;
+}
+
+esp_err_t web_serial_monitor_attach_sensing(const web_serial_monitor_config_t *config)
+{
+    if (!config || !config->fsm || !config->peers || config->peer_num == 0 ||
+            config->peer_num > WEB_SERIAL_MONITOR_MAX_PEERS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ctx.initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (s_ctx.sensing_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    s_ctx.fsm = config->fsm;
+    s_ctx.peer_num = config->peer_num;
+    s_ctx.stream_period_ms = (config->stream_period_ms > 0) ? config->stream_period_ms : WEB_SERIAL_DEFAULT_PERIOD_MS;
+    memcpy(s_ctx.peers, config->peers, config->peer_num * sizeof(web_serial_monitor_peer_t));
+    s_ctx.sensing_ready = true;
+    s_ctx.stream_enabled = true;
+
+    ESP_LOGI(TAG, "sensing attached, peers=%u, period=%" PRIu32 "ms",
+             (unsigned)s_ctx.peer_num, s_ctx.stream_period_ms);
+
+    /* Republish the full snapshot so the browser reflects the new AP without a reconnect. */
+    send_hello();
+    send_runtime_config();
+    send_wifi_info();
+    send_all_configs();
     return ESP_OK;
 }

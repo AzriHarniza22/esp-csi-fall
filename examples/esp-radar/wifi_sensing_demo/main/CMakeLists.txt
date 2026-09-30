@@ -8,6 +8,7 @@ set(reqs esp_wifi_sensing
 idf_component_register(SRCS "app_main.c"
                             "led_control.c"
                             "web_serial_monitor.c"
+                            "wifi_runtime_manager.c"
                        INCLUDE_DIRS "."
                        REQUIRES ${reqs}
                        PRIV_REQUIRES esp_driver_usb_serial_jtag)

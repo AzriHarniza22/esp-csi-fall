@@ -437,7 +437,14 @@
           <label><span id="wifiPasswordLabel">Password</span><input id="wifiPasswordInput" type="password" maxlength="64" autocomplete="new-password" /></label>
         </form>
         <div style="height: 10px;"></div>
+        <div class="status-pill">
+          <span id="wifiStateLabel">Status</span>
+          <strong id="wifiStateText">-</strong>
+        </div>
+        <div style="height: 8px;"></div>
         <div id="wifiStatusText" class="wifi-status">Not connected</div>
+        <div style="height: 6px;"></div>
+        <div id="wifiReasonText" class="wifi-status"></div>
         <div style="height: 10px;"></div>
         <div class="button-row">
           <button id="wifiConnectBtn">Connect Wi-Fi</button>
@@ -696,8 +703,24 @@
         wifiInfoBtn: "Refresh Status",
         wifiNotConnected: "Not connected",
         wifiConnected: "Connected",
-        wifiInvalid: "Enter an SSID and password.",
+        wifiInvalid: "Enter an SSID.",
         logWifiUpdated: "Wi-Fi configuration sent",
+        wifiStateLabel: "Status",
+        wifiStateBooting: "Booting",
+        wifiStateConfiguring: "Applying configuration",
+        wifiStateDisconnecting: "Disconnecting",
+        wifiStateConnecting: "Connecting",
+        wifiStateConnected: "Associated",
+        wifiStateGotIp: "Connected",
+        wifiStateFailed: "Failed",
+        wifiStateDisconnected: "Disconnected",
+        wifiReasonLabel: "Reason",
+        wifiBssidLabel: "BSSID",
+        wifiChannelLabel: "CH",
+        wifiRssiLabel: "RSSI",
+        wifiIpLabel: "IP",
+        logWifiOk: "Wi-Fi connected",
+        logWifiFailed: "Wi-Fi failed",
         csiPanelTitle: "Raw CSI",
         csiPanelDesc: "Each selected subcarrier is drawn as its own curve across the CSI history. Step 5 matches console_test's light view; step 1 draws all subcarriers.",
         csiPeriodLabel: "Period (ms)",
@@ -819,8 +842,24 @@
         wifiInfoBtn: "刷新状态",
         wifiNotConnected: "未连接",
         wifiConnected: "已连接",
-        wifiInvalid: "请输入 SSID 和密码。",
+        wifiInvalid: "请输入 SSID。",
         logWifiUpdated: "Wi-Fi 配置已发送",
+        wifiStateLabel: "状态",
+        wifiStateBooting: "启动中",
+        wifiStateConfiguring: "正在应用配置",
+        wifiStateDisconnecting: "正在断开",
+        wifiStateConnecting: "正在连接",
+        wifiStateConnected: "已关联",
+        wifiStateGotIp: "已连接",
+        wifiStateFailed: "失败",
+        wifiStateDisconnected: "已断开",
+        wifiReasonLabel: "原因",
+        wifiBssidLabel: "BSSID",
+        wifiChannelLabel: "信道",
+        wifiRssiLabel: "RSSI",
+        wifiIpLabel: "IP",
+        logWifiOk: "Wi-Fi 已连接",
+        logWifiFailed: "Wi-Fi 失败",
         csiPanelTitle: "原始 CSI",
         csiPanelDesc: "每个选中的子载波都会在 CSI 历史上绘制独立曲线。步长 5 接近 console_test 的轻量视图；步长 1 绘制全部子载波。",
         csiPeriodLabel: "周期（毫秒）",
@@ -886,6 +925,7 @@
     const wifiSsidInput = document.getElementById("wifiSsidInput");
     const wifiPasswordInput = document.getElementById("wifiPasswordInput");
     const wifiStatusText = document.getElementById("wifiStatusText");
+    const wifiReasonText = document.getElementById("wifiReasonText");
     const mainChart = document.getElementById("mainChart");
     const wanderChart = document.getElementById("wanderChart");
     const csiChart = document.getElementById("csiChart");
@@ -946,6 +986,7 @@
       document.getElementById("applyRadarBtn").textContent = t("applyRadarBtn");
       document.getElementById("channelsTitle").textContent = t("channelsTitle");
       document.getElementById("wifiPanelTitle").textContent = t("wifiPanelTitle");
+      document.getElementById("wifiStateLabel").textContent = t("wifiStateLabel");
       document.getElementById("wifiSsidLabel").textContent = t("wifiSsidLabel");
       document.getElementById("wifiPasswordLabel").textContent = t("wifiPasswordLabel");
       document.getElementById("wifiConnectBtn").textContent = t("wifiConnectBtn");
@@ -982,9 +1023,6 @@
       document.getElementById("footerNote").innerHTML = t("footerNote");
       updateConfigFormPlaceholder();
       setConnected(!!port);
-      if (!wifiStatusText.textContent || wifiStatusText.textContent === t("wifiConnected")) {
-        wifiStatusText.textContent = t("wifiNotConnected");
-      }
       renderTrainAutomationStatus();
       renderCsiStatus();
     }
@@ -1127,37 +1165,106 @@
       }
     }
 
+    const WIFI_PENDING_STATES = new Set([
+      "BOOTING",
+      "CONFIGURING",
+      "DISCONNECTING",
+      "CONNECTING",
+    ]);
+    const WIFI_ACTIVE_STATES = new Set(["CONNECTED", "GOT_IP"]);
+
+    let wifiBusy = false;
+
+    /* Locks the Wi-Fi buttons while the device is reconfiguring, so no second command is sent. */
+    function renderWifiState(state) {
+      const busy = wifiBusy || WIFI_PENDING_STATES.has(state);
+      document.getElementById("wifiConnectBtn").disabled = busy;
+      document.getElementById("wifiDisconnectBtn").disabled = busy;
+      document.getElementById("wifiInfoBtn").disabled = busy;
+    }
+
+    function translateWifiState(state) {
+      const name = String(state || "");
+      return t(`wifiState${name.charAt(0)}${name.slice(1).toLowerCase()}`);
+    }
+
     function handleWifiMessage(msg) {
-      if (!msg.connected) {
+      const state = msg.state || (msg.connected ? "GOT_IP" : "DISCONNECTED");
+      document.getElementById("wifiStateText").textContent = translateWifiState(state);
+      renderWifiState(state);
+
+      if (!WIFI_ACTIVE_STATES.has(state)) {
         wifiStatusText.textContent = t("wifiNotConnected");
+        wifiReasonText.textContent = msg.reason_name && msg.reason_name !== "NONE"
+          ? `${t("wifiReasonLabel")}: ${msg.reason_name} (${msg.reason})`
+          : "";
         return;
       }
-      const details = [t("wifiConnected")];
-      if (msg.ssid) {
-        details.push(msg.ssid);
-      }
-      if (msg.rssi !== undefined) {
-        details.push(`RSSI ${msg.rssi} dBm`);
-      }
-      if (msg.channel !== undefined) {
-        details.push(`CH ${msg.channel}`);
+
+      const details = [msg.ssid || t("wifiConnected")];
+      if (msg.ip) {
+        details.push(`${t("wifiIpLabel")} ${msg.ip}`);
       }
       wifiStatusText.textContent = details.join(" · ");
+
+      const parts = [`${t("wifiBssidLabel")} ${msg.bssid || "-"}`];
+      if (msg.channel) {
+        parts.push(`${t("wifiChannelLabel")} ${msg.channel}`);
+      }
+      parts.push(`${t("wifiRssiLabel")} ${msg.rssi} dBm`);
+      wifiReasonText.textContent = parts.join(" · ");
+    }
+
+    function handleWifiResultMessage(msg) {
+      wifiBusy = false;
+      if (msg.ok) {
+        logEvent(`${msg.cmd}: ${t("logWifiOk")}`);
+        handleWifiMessage({
+          state: msg.state,
+          connected: true,
+          has_ip: true,
+          bssid: msg.bssid,
+          ssid: msg.ssid,
+          channel: msg.channel,
+          rssi: msg.rssi,
+          ip: msg.ip,
+        });
+        return;
+      }
+
+      const reason = msg.reason_name && msg.reason_name !== "NONE" ? ` (${msg.reason_name})` : "";
+      logEvent(`${msg.cmd}: ${t("logWifiFailed")} ${msg.detail}${reason}`);
+      // A failed command must not leave the UI in a pending state, or the
+      // buttons stay disabled forever. FAILED is terminal and re-enables them.
+      const failedState = WIFI_PENDING_STATES.has(msg.state) ? "FAILED" : (msg.state || "FAILED");
+      handleWifiMessage({
+        state: failedState,
+        connected: false,
+        reason: msg.reason,
+        reason_name: msg.reason_name,
+      });
     }
 
     async function connectWifi() {
       const ssid = wifiSsidInput.value.trim();
       const password = wifiPasswordInput.value;
-      if (!ssid || !password) {
+      if (!ssid) {
         logEvent(t("wifiInvalid"));
         return;
       }
-      await sendCommand(`WIFI_CONFIG_HEX ${encodeUtf8Hex(ssid)} ${encodeUtf8Hex(password)}`);
+
+      wifiBusy = true;
+      renderWifiState("CONFIGURING");
+      // Drop the secret from the DOM as soon as it is on the wire.
+      const encodedPassword = encodeUtf8Hex(password);
       wifiPasswordInput.value = "";
+      await sendCommand(`WIFI_CONFIG_HEX ${encodeUtf8Hex(ssid)} ${encodedPassword}`);
       logEvent(t("logWifiUpdated"));
     }
 
     async function disconnectWifi() {
+      wifiBusy = true;
+      renderWifiState("DISCONNECTING");
       await sendCommand("WIFI_DISCONNECT");
     }
 
@@ -1629,6 +1736,8 @@
         amplitudeLogCheckbox.checked = !!msg.amplitude_log_enabled;
       } else if (msg.type === "wifi") {
         handleWifiMessage(msg);
+      } else if (msg.type === "wifi_result") {
+        handleWifiResultMessage(msg);
       } else if (msg.type === "csi") {
         const bytes = decodeBase64Bytes(msg.data || "");
         const frame = [];
@@ -1675,7 +1784,9 @@
         return;
       }
       const payload = `HMSCMD ${command}\n`;
-      appendRawLine(`>> ${payload.trim()}`);
+      // WIFI_CONFIG_HEX carries the password as hex, so it must never reach the raw log.
+      const redacted = command.startsWith("WIFI_CONFIG_HEX ") ? "WIFI_CONFIG_HEX <ssid> <redacted>" : command;
+      appendRawLine(`>> HMSCMD ${redacted}`);
       await writer.write(new TextEncoder().encode(payload));
     }
 

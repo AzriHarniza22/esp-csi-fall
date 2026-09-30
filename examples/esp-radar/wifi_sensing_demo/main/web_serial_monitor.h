@@ -47,21 +47,42 @@ typedef struct {
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info);
 
 /**
- * @brief Start the lightweight serial protocol used by the browser monitor.
+ * @brief Start the serial transport and command loop without a sensing FSM.
  *
- * The module emits line-delimited JSON messages with the `HMS:` prefix and
- * accepts line-delimited commands prefixed with `HMSCMD `. This keeps the demo
- * easy to inspect from a terminal while still being simple for a Web Serial UI
- * to parse.
+ * Called before Wi-Fi so the browser already observes `BOOTING`, `CONNECTING`,
+ * and `GOT_IP` while the manager is still connecting. Sensing commands are
+ * rejected with an ack until `web_serial_monitor_attach_sensing()` supplies the
+ * FSM handle and peer table.
+ *
+ * @return
+ *      - ESP_OK: Success
+ *      - ESP_ERR_INVALID_STATE: Already initialized
+ *      - ESP_FAIL: Failed to create the background task or configure inputs
+ */
+esp_err_t web_serial_monitor_init(void);
+
+/**
+ * @brief Publish the current Wi-Fi state to the browser.
+ *
+ * The transport does not observe the runtime manager directly, so the owner must
+ * call this on every phase change. Without it the browser keeps the last state it
+ * saw at boot and its buttons stay disabled after a manual reconnect.
+ */
+void web_serial_monitor_notify_wifi_state(void);
+
+/**
+ * @brief Bind the sensing FSM and peer table once Wi-Fi is ready.
+ *
+ * Called from the Wi-Fi GOT_IP path. Publishes `hello` and the per-channel
+ * configuration so the browser can populate its UI without a reconnect.
  *
  * @param config Browser-monitor configuration.
  * @return
  *      - ESP_OK: Success
  *      - ESP_ERR_INVALID_ARG: `config` is invalid
- *      - ESP_ERR_INVALID_STATE: The monitor is already initialized
- *      - ESP_FAIL: Failed to create the background task or configure inputs
+ *      - ESP_ERR_INVALID_STATE: The transport was not started or is already bound
  */
-esp_err_t web_serial_monitor_init(const web_serial_monitor_config_t *config);
+esp_err_t web_serial_monitor_attach_sensing(const web_serial_monitor_config_t *config);
 
 #ifdef __cplusplus
 }
