@@ -615,10 +615,79 @@
     let writer = null;
     let selectedPeer = null;
     let appInfo = { target: "-", stream_period_ms: 0, amplitude_log_enabled: false };
-    let redrawTimer = null;
+    let rafId = null;
+    let chartsDirty = true;
+    let domTimer = null;
     let rawLogCharCount = 0;
     let rawLogFlushTimer = null;
     let currentLanguage = "en";
+
+    // Decay is applied per redraw, and redraws are driven by incoming samples
+    // (~20 Hz), so 0.995 gives an ~11s shrink time constant: the axis holds
+    // steady while data is quiet instead of creeping every frame.
+    const CHART_SCALE_DECAY = 0.995;
+    const CHART_SCALE_HEADROOM = 0.08;
+    const chartScale = new Map();
+
+    function stickyRange(key, dataMin, dataMax) {
+      if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax)) {
+        const fallback = chartScale.get(key);
+        return fallback ? { min: fallback.min, max: fallback.max } : { min: 0, max: 1 };
+      }
+      if (dataMax < dataMin) {
+        dataMax = dataMin;
+      }
+      if (dataMax === dataMin) {
+        dataMax = dataMin + Math.max(Math.abs(dataMax), 0.5);
+      }
+      const previous = chartScale.get(key);
+      let min;
+      let max;
+      if (previous && Number.isFinite(previous.max) && previous.max > previous.min) {
+        if (dataMax > previous.max) {
+          max = dataMax + (dataMax - previous.min) * CHART_SCALE_HEADROOM;
+        } else {
+          max = Math.max(dataMax, previous.max * CHART_SCALE_DECAY);
+        }
+        min = Math.min(previous.min, dataMin);
+      } else {
+        min = dataMin;
+        max = dataMax + (dataMax - dataMin) * CHART_SCALE_HEADROOM;
+      }
+      if (max <= min) {
+        max = min + 1;
+      }
+      chartScale.set(key, { min, max });
+      return { min, max };
+    }
+
+    function resetChartScale(key) {
+      chartScale.delete(key);
+    }
+
+    function markChartsDirty() {
+      chartsDirty = true;
+      if (rafId === null) {
+        rafId = window.requestAnimationFrame(onChartFrame);
+      }
+    }
+
+    function onChartFrame() {
+      rafId = null;
+      if (!chartsDirty) {
+        return;
+      }
+      chartsDirty = false;
+      renderCharts();
+      drawCsiChart();
+    }
+
+    function renderDom() {
+      targetText.textContent = appInfo.target || "-";
+      amplitudeLogText.textContent = appInfo.amplitude_log_enabled ? "ON" : "OFF";
+      renderPeerList();
+      renderStats();
+    }
 
     const I18N = {
       en: {
@@ -1115,17 +1184,9 @@
         return Math.hypot(sample[0], sample[1]);
       };
       const values = csiHistory.flat().map(readValue);
-      let min = view === "amplitude" ? 0 : Math.min(...values);
-      let max = Math.max(...values);
-      if (min === max) {
-        min -= 1;
-        max += 1;
-      }
-      const margin = (max - min) * 0.08;
-      if (view !== "amplitude") {
-        min -= margin;
-      }
-      max += margin;
+      const csiMin = view === "amplitude" ? 0 : Math.min(...values);
+      const csiMax = Math.max(...values);
+      const { min, max } = stickyRange(`csiChart:${view}`, csiMin, csiMax);
 
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1;
@@ -1558,7 +1619,7 @@
       return peer?.samples || [];
     }
 
-    function drawLineChart(canvas, seriesList, formatter) {
+    function drawLineChart(canvas, seriesList, formatter, times) {
       const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
       const width = canvas.clientWidth;
@@ -1570,7 +1631,7 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
 
-      const padding = { top: 18, right: 20, bottom: 28, left: 52 };
+      const padding = { top: 18, right: 20, bottom: 34, left: 52 };
       const plotWidth = width - padding.left - padding.right;
       const plotHeight = height - padding.top - padding.bottom;
       if (plotWidth <= 0 || plotHeight <= 0) {
@@ -1587,13 +1648,18 @@
         return;
       }
 
-      const min = 0;
-      let max = Math.max(...values);
-      if (max <= min) {
-        max = 1;
-      } else {
-        max += max * 0.08;
-      }
+      const { min, max } = stickyRange(
+        `${canvas.id}:${selectedPeer || "none"}`,
+        0,
+        Math.max(...values),
+      );
+
+      const timeDomain = Array.isArray(times) && times.length > 1 && times.every((v) => Number.isFinite(v));
+      const pointCount = Array.isArray(times) ? times.length : Math.max(...seriesList.map((s) => s.values.length), 0);
+      const tFirst = timeDomain ? times[0] : 0;
+      const tLast = timeDomain ? times[times.length - 1] : pointCount - 1;
+      const tSpan = tLast - tFirst;
+      const useTimeAxis = timeDomain && tSpan > 0;
 
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1;
@@ -1618,19 +1684,39 @@
         ctx.beginPath();
         ctx.lineWidth = series.width || 2;
         ctx.strokeStyle = series.color;
+        let penDown = false;
         series.values.forEach((value, index) => {
           if (!Number.isFinite(value)) {
+            penDown = false;
             return;
           }
-          const x = padding.left + (plotWidth * index) / Math.max(series.values.length - 1, 1);
+          const time = useTimeAxis ? times[index] : NaN;
+          const position = Number.isFinite(time)
+            ? (time - tFirst) / tSpan
+            : index / Math.max(series.values.length - 1, 1);
+          const x = padding.left + plotWidth * position;
           const y = padding.top + ((max - value) / (max - min)) * plotHeight;
-          if (index === 0) {
-            ctx.moveTo(x, y);
-          } else {
+          if (penDown) {
             ctx.lineTo(x, y);
+          } else {
+            ctx.moveTo(x, y);
+            penDown = true;
           }
         });
         ctx.stroke();
+      }
+
+      if (useTimeAxis) {
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "11px sans-serif";
+        for (let i = 0; i <= 2; i++) {
+          const ratio = i / 2;
+          const offset = (tSpan * (1 - ratio)) / 1000;
+          const x = padding.left + plotWidth * ratio;
+          ctx.textAlign = i === 0 ? "left" : i === 2 ? "right" : "center";
+          ctx.fillText(`-${offset.toFixed(1)}s`, x, padding.top + plotHeight + 16);
+        }
+        ctx.textAlign = "left";
       }
     }
 
@@ -1639,13 +1725,15 @@
       sampleCountText.textContent = String(samples.length);
       selectedPeerText.textContent = selectedPeer || "-";
 
+      const times = samples.map((s) => Number(s.ts_ms));
+
       const processingSeries = [
         { label: "smooth_scaled", color: "#7bffb6", values: samples.map((s) => Number(s.smooth_scaled) / 1000) },
         { label: "enter_level_scaled", color: "#ffb454", values: samples.map((s) => Number(s.enter_level_scaled) / 1000), width: 1.5 },
         { label: "exit_level_scaled", color: "#ff6b81", values: samples.map((s) => Number(s.exit_level_scaled) / 1000), width: 1.5 },
       ];
       buildLegend(mainLegend, processingSeries);
-      drawLineChart(mainChart, processingSeries, (v) => v.toFixed(3));
+      drawLineChart(mainChart, processingSeries, (v) => v.toFixed(3), times);
 
       const peerSnap = selectedPeer ? peers.get(selectedPeer) : null;
       const snap = peerSnap?.latest || {};
@@ -1667,15 +1755,12 @@
         });
       }
       buildLegend(wanderLegend, wanderSeries);
-      drawLineChart(wanderChart, wanderSeries, (v) => v.toFixed(4));
+      drawLineChart(wanderChart, wanderSeries, (v) => v.toFixed(4), times);
     }
 
     function renderAll() {
-      targetText.textContent = appInfo.target || "-";
-      amplitudeLogText.textContent = appInfo.amplitude_log_enabled ? "ON" : "OFF";
-      renderPeerList();
-      renderStats();
-      renderCharts();
+      markChartsDirty();
+      renderDom();
     }
 
     function setConfigFormEnabled(enabled) {
@@ -1776,7 +1861,11 @@
       } else if (msg.type === "error") {
         logEvent(`${t("logError")}: ${msg.message}`);
       }
-      renderAll();
+      if (msg.type === "sample" || msg.type === "csi") {
+        markChartsDirty();
+      } else {
+        renderAll();
+      }
     }
 
     async function sendCommand(command) {
@@ -2011,9 +2100,10 @@
       document.getElementById("startCsiBtn").addEventListener("click", startCsiStream);
       document.getElementById("stopCsiBtn").addEventListener("click", stopCsiStream);
       csiViewSelect.addEventListener("change", () => {
-        drawCsiChart();
+        resetChartScale(`csiChart:${csiViewSelect.value}`);
+        markChartsDirty();
       });
-      csiStepSelect.addEventListener("change", drawCsiChart);
+      csiStepSelect.addEventListener("change", markChartsDirty);
       document.getElementById("clearRawLogBtn").addEventListener("click", clearRawLines);
       document.getElementById("applyConfigBtn").addEventListener("click", (event) => {
         event.preventDefault();
@@ -2027,11 +2117,16 @@
     }
 
     function startRenderLoop() {
-      if (redrawTimer) {
-        return;
+      if (!domTimer) {
+        domTimer = window.setInterval(renderDom, 200);
       }
-      redrawTimer = window.setInterval(renderAll, 120);
-      window.setInterval(drawCsiChart, 120);
+      window.addEventListener("resize", markChartsDirty);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          markChartsDirty();
+        }
+      });
+      markChartsDirty();
     }
 
     bindEvents();
