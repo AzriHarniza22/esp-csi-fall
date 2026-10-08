@@ -454,6 +454,30 @@
       </section>
 
       <section class="panel section">
+        <h2 id="stimulusPanelTitle">HT Stimulus</h2>
+        <div id="stimulusPanelDesc" class="muted">Downloads through the AP so it keeps emitting HT frames. Tuning this changes how much CSI arrives and how long the channel stays quiet between bursts.</div>
+        <div style="height: 8px;"></div>
+        <label class="toggle-row">
+          <input id="stimulusCheckbox" type="checkbox" />
+          <span id="stimulusToggleLabel">Stimulus enabled</span>
+        </label>
+        <div style="height: 10px;"></div>
+        <form id="stimulusForm" class="wifi-form" autocomplete="off">
+          <label><span id="stimulusBurstLabel">Burst (MB)</span><input id="stimulusBurstInput" type="number" min="0.1" max="20" step="0.1" value="0.5" autocomplete="off" /></label>
+          <label><span id="stimulusPauseLabel">Pause (ms)</span><input id="stimulusPauseInput" type="number" min="0" max="5000" step="50" value="1000" autocomplete="off" /></label>
+        </form>
+        <div style="height: 10px;"></div>
+        <div class="status-pill">
+          <span id="stimulusStateLabel">Status</span>
+          <strong id="stimulusStateText">-</strong>
+        </div>
+        <div style="height: 10px;"></div>
+        <div class="button-row">
+          <button id="applyStimulusBtn">Apply Stimulus</button>
+        </div>
+      </section>
+
+      <section class="panel section">
         <h2 id="eventLogTitle">Event Log</h2>
         <pre id="eventLog"></pre>
       </section>
@@ -773,6 +797,15 @@
         wifiNotConnected: "Not connected",
         wifiConnected: "Connected",
         wifiInvalid: "Enter an SSID.",
+        stimulusPanelTitle: "HT Stimulus",
+        stimulusPanelDesc: "Downloads through the AP so it keeps emitting HT frames. Tuning this changes how much CSI arrives and how long the channel stays quiet between bursts.",
+        stimulusToggleLabel: "Stimulus enabled",
+        stimulusBurstLabel: "Burst (MB)",
+        stimulusPauseLabel: "Pause (ms)",
+        stimulusStateLabel: "Status",
+        applyStimulusBtn: "Apply Stimulus",
+        stimulusOn: "running",
+        stimulusOff: "stopped",
         logWifiUpdated: "Wi-Fi configuration sent",
         wifiStateLabel: "Status",
         wifiStateBooting: "Booting",
@@ -912,6 +945,15 @@
         wifiNotConnected: "未连接",
         wifiConnected: "已连接",
         wifiInvalid: "请输入 SSID。",
+        stimulusPanelTitle: "HT 刺激流量",
+        stimulusPanelDesc: "通过 AP 持续下载，使其不断发送 HT 帧。调整此项会改变 CSI 的到达量以及两次突发之间的静默时长。",
+        stimulusToggleLabel: "启用刺激流量",
+        stimulusBurstLabel: "单次流量（MB）",
+        stimulusPauseLabel: "间隔（毫秒）",
+        stimulusStateLabel: "状态",
+        applyStimulusBtn: "应用刺激流量",
+        stimulusOn: "运行中",
+        stimulusOff: "已停止",
         logWifiUpdated: "Wi-Fi 配置已发送",
         wifiStateLabel: "状态",
         wifiStateBooting: "启动中",
@@ -995,6 +1037,11 @@
     const wifiPasswordInput = document.getElementById("wifiPasswordInput");
     const wifiStatusText = document.getElementById("wifiStatusText");
     const wifiReasonText = document.getElementById("wifiReasonText");
+    const stimulusCheckbox = document.getElementById("stimulusCheckbox");
+    const stimulusBurstInput = document.getElementById("stimulusBurstInput");
+    const stimulusPauseInput = document.getElementById("stimulusPauseInput");
+    const stimulusStateText = document.getElementById("stimulusStateText");
+    let stimulusState = null;
     const mainChart = document.getElementById("mainChart");
     const wanderChart = document.getElementById("wanderChart");
     const csiChart = document.getElementById("csiChart");
@@ -1061,6 +1108,14 @@
       document.getElementById("wifiConnectBtn").textContent = t("wifiConnectBtn");
       document.getElementById("wifiDisconnectBtn").textContent = t("wifiDisconnectBtn");
       document.getElementById("wifiInfoBtn").textContent = t("wifiInfoBtn");
+      document.getElementById("stimulusPanelTitle").textContent = t("stimulusPanelTitle");
+      document.getElementById("stimulusPanelDesc").textContent = t("stimulusPanelDesc");
+      document.getElementById("stimulusToggleLabel").textContent = t("stimulusToggleLabel");
+      document.getElementById("stimulusBurstLabel").textContent = t("stimulusBurstLabel");
+      document.getElementById("stimulusPauseLabel").textContent = t("stimulusPauseLabel");
+      document.getElementById("stimulusStateLabel").textContent = t("stimulusStateLabel");
+      document.getElementById("applyStimulusBtn").textContent = t("applyStimulusBtn");
+      renderStimulusStatus();
       document.getElementById("csiPanelTitle").textContent = t("csiPanelTitle");
       document.getElementById("csiPanelDesc").textContent = t("csiPanelDesc");
       document.getElementById("csiPeriodLabel").textContent = t("csiPeriodLabel");
@@ -1307,9 +1362,14 @@
     }
 
     async function connectWifi() {
-      const ssid = wifiSsidInput.value.trim();
+      /*
+       * The SSID goes out byte-exact: real APs ship with trailing spaces
+       * ("kos mutiara "), and trimming would turn it into a name that matches
+       * nothing on air. Only genuinely blank input is rejected.
+       */
+      const ssid = wifiSsidInput.value;
       const password = wifiPasswordInput.value;
-      if (!ssid) {
+      if (!ssid.trim()) {
         logEvent(t("wifiInvalid"));
         return;
       }
@@ -1806,6 +1866,53 @@
       updateConfigFormPlaceholder();
     }
 
+    function renderStimulusStatus() {
+      if (!stimulusStateText) {
+        return;
+      }
+      if (!stimulusState) {
+        stimulusStateText.textContent = "-";
+        return;
+      }
+      const state = stimulusState.running ? t("stimulusOn") : t("stimulusOff");
+      const burstMb = (Number(stimulusState.burst_bytes) / 1000000).toFixed(1);
+      stimulusStateText.textContent = `${state} · ${burstMb} MB / ${stimulusState.pause_ms} ms`;
+    }
+
+    /*
+     * The device echoes the settings after every SET/GET so the panel reflects
+     * what it actually accepted rather than what was typed. Only the inputs the
+     * user is not editing get refreshed, otherwise a pending keystroke would be
+     * overwritten mid-entry.
+     */
+    function handleStimulusMessage(msg) {
+      stimulusState = msg;
+      if (document.activeElement !== stimulusBurstInput) {
+        stimulusBurstInput.value = (Number(msg.burst_bytes) / 1000000).toFixed(1);
+      }
+      if (document.activeElement !== stimulusPauseInput) {
+        stimulusPauseInput.value = String(msg.pause_ms);
+      }
+      stimulusCheckbox.checked = !!msg.enabled;
+      renderStimulusStatus();
+    }
+
+    function applyStimulusConfig() {
+      const burstMb = parseFloat(stimulusBurstInput.value);
+      const pauseMs = parseInt(stimulusPauseInput.value, 10);
+      if (!Number.isFinite(burstMb) || burstMb < 0.1 || burstMb > 20) {
+        logEvent(`${t("logError")}: burst must be 0.1..20 MB`);
+        return;
+      }
+      if (!Number.isFinite(pauseMs) || pauseMs < 0 || pauseMs > 5000) {
+        logEvent(`${t("logError")}: pause must be 0..5000 ms`);
+        return;
+      }
+      const burstBytes = Math.round(burstMb * 1000000);
+      const state = stimulusCheckbox.checked ? "on" : "off";
+      sendCommand(`SET_STIMULUS ${state} ${burstBytes} ${pauseMs}`);
+    }
+
     function handleMessage(msg) {
       if (msg.type === "hello") {
         appInfo = msg;
@@ -1856,6 +1963,8 @@
         while (peer.samples.length > MAX_SAMPLES) {
           peer.samples.shift();
         }
+      } else if (msg.type === "stimulus") {
+        handleStimulusMessage(msg);
       } else if (msg.type === "ack") {
         logEvent(`${t("logAck")} ${msg.cmd}: ${msg.ok ? t("logOk") : t("logFail")} ${msg.detail || ""}`);
       } else if (msg.type === "error") {
@@ -2088,6 +2197,11 @@
       document.getElementById("trainStopBtn").addEventListener("click", handleManualTrainStop);
       document.getElementById("trainRemoveBtn").addEventListener("click", handleTrainRemove);
       document.getElementById("applyRadarBtn").addEventListener("click", () => applyRadarConfig());
+      document.getElementById("applyStimulusBtn").addEventListener("click", () => applyStimulusConfig());
+      document.getElementById("stimulusForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        applyStimulusConfig();
+      });
       document.getElementById("wifiConnectBtn").addEventListener("click", (event) => {
         event.preventDefault();
         connectWifi();

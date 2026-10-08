@@ -60,7 +60,10 @@ const char *wifi_runtime_state_name(wifi_runtime_state_t state);
 const char *wifi_runtime_reason_name(uint8_t reason);
 
 /**
- * @brief Bring up the STA interface and connect using the Kconfig credentials.
+ * @brief Bring up the STA interface and connect using the saved credentials.
+ *
+ * The credentials are the ones written by wifi_runtime_manager_set_credentials()
+ * when any exist, otherwise the Kconfig default.
  *
  * This replaces `example_connect()`: it registers the single reconnect owner used
  * for the whole runtime, so no other module may call `esp_wifi_connect()`.
@@ -99,6 +102,17 @@ esp_err_t wifi_runtime_manager_disconnect(void);
  * @brief Reconnect using the credentials currently stored in the driver.
  */
 esp_err_t wifi_runtime_manager_reconnect(void);
+
+/**
+ * @brief Retry the connect attempt when no association ever succeeded.
+ *
+ * Unlike wifi_runtime_manager_reconnect() this does not disconnect first, so it
+ * also works on a device that has never been associated (a boot against an SSID
+ * that is out of range). Callers own the retry schedule.
+ *
+ * @return Result of the single attempt.
+ */
+esp_err_t wifi_runtime_manager_retry_connect(void);
 
 /**
  * @brief Copy the current connection snapshot.

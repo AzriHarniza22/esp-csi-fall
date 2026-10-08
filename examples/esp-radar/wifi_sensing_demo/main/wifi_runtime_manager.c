@@ -20,6 +20,8 @@
 #include "esp_timer.h"
 #include "esp_wifi.h"
 
+#include "nvs.h"
+
 #include "sdkconfig.h"
 
 #include "wifi_runtime_manager.h"
@@ -313,15 +315,24 @@ static void retry_timer_fired(void *arg)
 
 static void schedule_retry_locked(void)
 {
-    if (s_mgr.retry_count >= WIFI_RUNTIME_MAX_RETRY) {
-        ESP_LOGW(TAG, "giving up after %d retries", s_mgr.retry_count);
-        s_mgr.auto_reconnect_enabled = false;
-        publish_state_locked(WIFI_RUNTIME_STATE_FAILED);
-        return;
+    /*
+     * Never stop retrying. A phone hotspot or a crowded AP drops the STA without
+     * warning and may be away for minutes; giving up after a fixed count left the
+     * device permanently unreachable until a manual WIFI_CONFIG_HEX. The backoff
+     * is already capped, so a persistent outage costs one attempt per
+     * WIFI_RUNTIME_RETRY_MAX_MS instead of nothing at all.
+     */
+    if (s_mgr.retry_count == WIFI_RUNTIME_MAX_RETRY) {
+        ESP_LOGW(TAG, "still no link after %d retries, continuing every %d ms",
+                 s_mgr.retry_count, WIFI_RUNTIME_RETRY_MAX_MS);
     }
 
     int32_t delay = retry_backoff_ms(s_mgr.retry_count);
-    s_mgr.retry_count++;
+    if (s_mgr.retry_count < WIFI_RUNTIME_MAX_RETRY) {
+        s_mgr.retry_count++;
+    } else {
+        delay = WIFI_RUNTIME_RETRY_MAX_MS;
+    }
     s_mgr.auto_reconnect_enabled = false;
 
     if (esp_timer_start_once(s_mgr.retry_timer, delay * 1000LL) != ESP_OK) {
@@ -523,6 +534,70 @@ static esp_err_t disconnect_and_wait(void)
     return err;
 }
 
+#define WIFI_CREDS_NAMESPACE "wifi_creds"
+#define WIFI_CREDS_KEY_SSID  "ssid"
+#define WIFI_CREDS_KEY_PASS  "pass"
+
+/**
+ * Read back the credentials written by wifi_runtime_manager_set_credentials().
+ *
+ * Returns ESP_ERR_NOT_FOUND on a cold device so the caller can keep the Kconfig
+ * defaults; every entry in this namespace got there by associating successfully.
+ *
+ * @param ssid Buffer for the SSID, at least WIFI_RUNTIME_MAX_SSID_LEN bytes.
+ * @param password Buffer for the password, at least WIFI_RUNTIME_MAX_PASSPHRASE_LEN bytes.
+ * @return ESP_OK, ESP_ERR_NOT_FOUND when nothing was saved, or an NVS error.
+ */
+static esp_err_t load_saved_credentials(char *ssid, size_t ssid_size,
+                                        char *password, size_t password_size)
+{
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(WIFI_CREDS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    size_t ssid_len = ssid_size;
+    size_t password_len = password_size;
+    err = nvs_get_str(handle, WIFI_CREDS_KEY_SSID, ssid, &ssid_len);
+    if (err == ESP_OK) {
+        /* An open network stores an empty password, so only a blank SSID is unusable. */
+        err = nvs_get_str(handle, WIFI_CREDS_KEY_PASS, password, &password_len);
+        if (err == ESP_OK && ssid[0] == '\0') {
+            err = ESP_ERR_NOT_FOUND;
+        }
+    }
+    nvs_close(handle);
+    return err;
+}
+
+/**
+ * Persist the credentials that just associated, so the next boot returns to the
+ * same network instead of the Kconfig default. Never fails the caller: the link
+ * is already usable and a lost write only costs a fallback to Kconfig later.
+ */
+static void save_credentials(const char *ssid, const char *password)
+{
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(WIFI_CREDS_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "cannot open credentials namespace: %s", esp_err_to_name(err));
+        return;
+    }
+
+    err = nvs_set_str(handle, WIFI_CREDS_KEY_SSID, ssid);
+    if (err == ESP_OK) {
+        err = nvs_set_str(handle, WIFI_CREDS_KEY_PASS, password ? password : "");
+    }
+    if (err == ESP_OK) {
+        err = nvs_commit(handle);
+    }
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "cannot persist credentials: %s", esp_err_to_name(err));
+    }
+    nvs_close(handle);
+}
+
 esp_err_t wifi_runtime_manager_init(void)
 {
     if (s_mgr.initialized) {
@@ -561,17 +636,53 @@ esp_err_t wifi_runtime_manager_init(void)
     }
     esp_wifi_set_default_wifi_sta_handlers();
 
-    /* RAM-only storage keeps credentials out of flash; boot always uses the Kconfig values. */
+    /*
+     * RAM-only storage keeps the driver cache out of flash. The SSID the user last
+     * chose lives in NVS instead, see load_saved_credentials() below.
+     */
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
+    /*
+     * CSI on the original ESP32 is only produced from OFDM training fields
+     * (L-LTF / HT-LTF). DSSS-CCK frames (802.11b: 1/2/5.5/11 Mbps) carry no
+     * training field, so the driver never raises the CSI callback for them.
+     *
+     * The default protocol mask includes 11B, which in principle lets the AP
+     * walk this station down to 2 Mbps CCK once rate control degrades. It turns
+     * out that cannot be prevented from software: esp_wifi_set_protocols()
+     * reports ESP_OK but esp_wifi_get_protocols() keeps returning B|G|N, the
+     * singular esp_wifi_set_protocol() rejects 11G|11N with INVALID_ARG, and the
+     * IDF documents that a 2.4 GHz-only band accepts only 11b/11bg/11bgn(+ax)/LR
+     * combinations. So 11B stays advertised and this note is context, not a
+     * fix. What does recover the channel is keeping OFDM frames on the air,
+     * which is what the HT stimulus is for.
+     */
     ESP_ERROR_CHECK(esp_wifi_start());
 
     /*
-     * Storage is RAM-only, so the Kconfig credentials must be applied explicitly
+     * Storage is RAM-only, so the credentials have to be applied explicitly
      * before the first connect. Without this the driver starts with an empty SSID
      * and the boot attempt fails with NO_AP_FOUND.
+     *
+     * A network saved at runtime outranks the Kconfig default, so a device comes
+     * back on the SSID last chosen in the browser rather than needing a reflash.
+     * A cold device has nothing in NVS and keeps the Kconfig value.
      */
     {
+        char saved_ssid[WIFI_RUNTIME_MAX_SSID_LEN] = {0};
+        char saved_password[WIFI_RUNTIME_MAX_PASSPHRASE_LEN] = {0};
+        const char *source = "Kconfig";
+        const char *boot_ssid = CONFIG_EXAMPLE_WIFI_SSID;
+        const char *boot_password = CONFIG_EXAMPLE_WIFI_PASSWORD;
+
+        if (load_saved_credentials(saved_ssid, sizeof(saved_ssid),
+                                   saved_password, sizeof(saved_password)) == ESP_OK) {
+            boot_ssid = saved_ssid;
+            boot_password = saved_password;
+            source = "NVS";
+        }
+
         /*
          * Follow the official example pattern: a zero-initialised config with
          * designated initialisers, so unused bytes stay zero. The STA ssid and
@@ -583,22 +694,22 @@ esp_err_t wifi_runtime_manager_init(void)
                 .scan_method = WIFI_ALL_CHANNEL_SCAN,
                 .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
                 .threshold = {
-                    .authmode = (CONFIG_EXAMPLE_WIFI_PASSWORD[0] != '\0')
+                    .authmode = (boot_password[0] != '\0')
                                     ? WIFI_AUTH_WPA2_PSK
                                     : WIFI_AUTH_OPEN,
                 },
             },
         };
-        strlcpy((char *)boot_cfg.sta.ssid, CONFIG_EXAMPLE_WIFI_SSID, sizeof(boot_cfg.sta.ssid));
-        strlcpy((char *)boot_cfg.sta.password, CONFIG_EXAMPLE_WIFI_PASSWORD, sizeof(boot_cfg.sta.password));
+        strlcpy((char *)boot_cfg.sta.ssid, boot_ssid, sizeof(boot_cfg.sta.ssid));
+        strlcpy((char *)boot_cfg.sta.password, boot_password, sizeof(boot_cfg.sta.password));
 
         esp_err_t cfg_err = esp_wifi_set_config(WIFI_IF_STA, &boot_cfg);
         if (cfg_err != ESP_OK) {
             ESP_LOGE(TAG, "failed to apply boot credentials: %s", esp_err_to_name(cfg_err));
             return cfg_err;
         }
-        ESP_LOGI(TAG, "boot credentials applied (ssid=\"%s\", auth=%d)",
-                 boot_cfg.sta.ssid, (int)boot_cfg.sta.threshold.authmode);
+        ESP_LOGI(TAG, "boot credentials applied (ssid=\"%s\", auth=%d, source=%s)",
+                 boot_cfg.sta.ssid, (int)boot_cfg.sta.threshold.authmode, source);
     }
 
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_CONNECTED, wifi_event_handler, NULL));
@@ -705,7 +816,15 @@ esp_err_t wifi_runtime_manager_set_credentials(const char *ssid, const char *pas
         return err;
     }
 
-    return connect_once(WIFI_RUNTIME_CONNECT_TIMEOUT_MS, info);
+    err = connect_once(WIFI_RUNTIME_CONNECT_TIMEOUT_MS, info);
+    if (err == ESP_OK) {
+        /*
+         * Persist only what associated: a rejected password must not be carried
+         * into the next boot, where it would be retried forever.
+         */
+        save_credentials(ssid, password);
+    }
+    return err;
 }
 
 esp_err_t wifi_runtime_manager_disconnect(void)
@@ -739,6 +858,26 @@ esp_err_t wifi_runtime_manager_reconnect(void)
     lock();
     clear_stale_association_locked();
     unlock();
+
+    return connect_once(WIFI_RUNTIME_CONNECT_TIMEOUT_MS, NULL);
+}
+
+/**
+ * Try again to bring up a link that never came up.
+ *
+ * This differs from wifi_runtime_manager_reconnect() exactly where it matters:
+ * on a boot against an SSID that is out of range there is no association to tear
+ * down, so esp_wifi_disconnect() answers ESP_ERR_WIFI_NOT_CONNECT and the
+ * reconnect path returns before ever calling esp_wifi_connect(). This goes
+ * straight to a fresh attempt.
+ *
+ * @return Result of the single attempt; callers schedule the next one themselves.
+ */
+esp_err_t wifi_runtime_manager_retry_connect(void)
+{
+    if (!s_mgr.initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
 
     return connect_once(WIFI_RUNTIME_CONNECT_TIMEOUT_MS, NULL);
 }

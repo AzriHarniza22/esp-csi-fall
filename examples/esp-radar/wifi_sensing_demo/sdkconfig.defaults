@@ -10,3 +10,11 @@ CONFIG_ESP_WIFI_CSI_ENABLED=y
 CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
 CONFIG_ESP32_WIFI_CSI_ENABLED=y
 CONFIG_ESP_WIFI_SENSING_DEFAULT_PRESENCE_SENSITIVITY=250
+# 100 Hz (300 pings/s over three channels) was measured to be more traffic than
+# the router needs to answer, and it starved the radar of frames it could measure.
+CONFIG_ESP_WIFI_SENSING_PING_FREQUENCY_HZ=10
+# The HT stimulus is what keeps OFDM frames on the air. With it off the motion
+# graph held one value for up to 6 s at a time; 200 KB every 100 ms was the
+# smoothest of the burst/pause combinations measured.
+CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_BURST=200000
+CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_PAUSE_MS=100

@@ -26,6 +26,7 @@
 #include "led_control.h"
 #include "web_serial_monitor.h"
 #include "wifi_runtime_manager.h"
+#include "ht_stimulus.h"
 
 static const char *TAG = "wifi_sensing_demo";
 static esp_wifi_sensing_fsm_handle_t s_hms = NULL;
@@ -183,6 +184,10 @@ static void sensing_stop_ping(void)
     (void)esp_wifi_sensing_fsm_ping_router_stop(s_hms);
     s_ping_running = false;
     ESP_LOGI(TAG, "router ping stopped");
+
+#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    ht_stimulus_stop();
+#endif
 }
 
 static void sensing_start(const uint8_t *ap_bssid)
@@ -229,7 +234,39 @@ static void sensing_start(const uint8_t *ap_bssid)
     ESP_ERROR_CHECK(esp_radar_get_config(&radar_cfg));
     radar_cfg.csi_config.csi_filtered_cb = web_serial_monitor_csi_callback;
     radar_cfg.csi_config.csi_filtered_cb_ctx = NULL;
+
+    /*
+     * esp_wifi_sensing hardcodes csi_recv_interval=20 ms, which assumes a CSI
+     * frame every ~20 ms. The AP in practice delivers the tracked peer at about
+     * 10 frames/s, so the real gap is ~118 ms (median), 191 ms (p90), 560 ms
+     * (p99). With that mismatch every window was discarded by
+     * csi_window_update() on "Timestamp delta out of range" (320 clears in
+     * 120 s, all of them above the strict limit), so waveform_jitter stopped
+     * updating and the Web Serial motion graph held one value for seconds at a
+     * time.
+     *
+     * csi_recv_interval only sizes handle_window/buff_size (it does not throttle
+     * reception), and csi_window_update() only flushes a window when it holds at
+     * least handle_window/3 frames. So the interval has to describe the frames
+     * that actually arrive, and csi_handle_time has to be wide enough that
+     * csi_handle_time/2 (the strict timestamp limit) clears the observed gaps.
+     */
+    radar_cfg.csi_config.csi_recv_interval = 100;
+    radar_cfg.dec_config.csi_handle_time   = 800;
+
+    /*
+     * The outlier filter soft-updates frames whose subcarriers deviate from the
+     * previous three, which adds latency to every frame that trips it. The
+     * official esp-csi console_test example disables it as well
+     * (outliers_threshold = 0) and relies on the window filter instead.
+     */
+    radar_cfg.dec_config.outliers_threshold = 0;
+
     ESP_ERROR_CHECK(esp_radar_change_config(&radar_cfg));
+
+    /* esp_wifi_sensing forces esp_radar's tags to WARN, which hides every
+     * window/flush diagnostic. Restore INFO so starved windows are visible. */
+    esp_radar_set_log_output(true, ESP_LOG_INFO);
 
     ESP_LOGI(TAG,
              "default config: motion_detection_sensitivity=%.3f active_jitter_min=%.3f hold=%" PRIu32 "ms confirm=%d ping=%" PRIu32 "Hz",
@@ -240,6 +277,19 @@ static void sensing_start(const uint8_t *ap_bssid)
              cfg.ping_frequency_hz);
 
     sensing_start_ping();
+
+#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    /*
+     * The router ping alone is not enough to keep the graph moving. Measured on
+     * an 11n AP at -60 dBm with the stimulus off, the graph froze for up to 6 s
+     * at a time (35-53% of samples held one value) and only 5.3 detection
+     * windows were produced per 45 s. With the default 200 KB / 100 ms burst the
+     * link carries 6x more HT frames and produces 18.4 windows per 45 s.
+     *
+     * `SET_STIMULUS off` on the web UI turns it off at runtime.
+     */
+    ESP_ERROR_CHECK(ht_stimulus_start());
+#endif
 
 #if CONFIG_ESP_WIFI_SENSING_WEB_SERIAL_ENABLE
     /* Web UI also maps esp-radar train (TRAIN_START/STOP/REMOVE) and streams wander / train thresholds. */
@@ -275,6 +325,12 @@ static void sensing_rebind_ap(const uint8_t *bssid)
     if (memcmp(s_mac_ap, bssid, sizeof(s_mac_ap)) == 0) {
         /* Same AP: the channel binding is still valid, only the ping needs reviving. */
         sensing_start_ping();
+#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+        /* sensing_stop_ping() stops the stimulus too, and a reconnect tears the
+         * association down, so without this the graph never recovers on its own
+         * after a link drop. */
+        ht_stimulus_start();
+#endif
         return;
     }
 
@@ -283,7 +339,16 @@ static void sensing_rebind_ap(const uint8_t *bssid)
     ESP_ERROR_CHECK(esp_wifi_sensing_fsm_add_channel(s_hms, s_mac_ap));
     ESP_ERROR_CHECK(esp_wifi_sensing_fsm_control(s_hms, ESP_WIFI_SENSING_FSM_CTRL_RESET_BASELINE, NULL));
 
+#if CONFIG_ESP_WIFI_SENSING_WEB_SERIAL_ENABLE
+    /* The monitor owns a copy of the peer table, so it must follow the new BSSID
+     * or every sample lookup for the AP channel fails and the motion chart freezes. */
+    (void)web_serial_monitor_update_peer_mac("AP", s_mac_ap);
+#endif
+
     sensing_start_ping();
+#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    ht_stimulus_start();
+#endif
     ESP_LOGI(TAG, "rebound AP channel to " MACSTR, MAC2STR(s_mac_ap));
 }
 
@@ -401,10 +466,34 @@ void app_main(void)
     wifi_runtime_manager_set_state_callback(on_wifi_runtime_state, NULL);
     esp_err_t connect_err = wifi_runtime_manager_init();
     if (connect_err != ESP_OK) {
-        wifi_runtime_info_t info = {0};
-        wifi_runtime_manager_get_info(&info);
+        wifi_runtime_info_t boot_info = {0};
+        wifi_runtime_manager_get_info(&boot_info);
         ESP_LOGE(TAG, "initial connect failed: %s (%s)",
-                 esp_err_to_name(connect_err), wifi_runtime_reason_name(info.reason));
+                 esp_err_to_name(connect_err), wifi_runtime_reason_name(boot_info.reason));
+    }
+
+    /*
+     * The SSID can be changed from the browser at any time, so booting against a
+     * network that is merely out of range is an ordinary state rather than a
+     * fault. Keep backing off and retrying until the saved network answers
+     * again: without this the only cure for a stale SSID would be a reflash.
+     */
+    uint32_t retry_backoff_ms = 5000;
+    while (connect_err != ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(retry_backoff_ms));
+
+        wifi_runtime_info_t retry_info = {0};
+        wifi_runtime_manager_get_info(&retry_info);
+        if (retry_info.has_ip) {
+            break;
+        }
+
+        connect_err = wifi_runtime_manager_retry_connect();
+        if (connect_err != ESP_OK) {
+            retry_backoff_ms = (retry_backoff_ms < 30000) ? retry_backoff_ms * 2 : 30000;
+            ESP_LOGW(TAG, "connect retry failed: %s, next attempt in %u ms",
+                     esp_err_to_name(connect_err), (unsigned)retry_backoff_ms);
+        }
     }
 
     while (1) {

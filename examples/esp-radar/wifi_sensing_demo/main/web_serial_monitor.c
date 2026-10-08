@@ -30,6 +30,7 @@
 #include "mbedtls/base64.h"
 #include "sdkconfig.h"
 
+#include "ht_stimulus.h"
 #include "web_serial_monitor.h"
 #include "wifi_runtime_manager.h"
 
@@ -48,6 +49,15 @@
 #define WEB_SERIAL_CSI_DEFAULT_PERIOD_MS 100
 #define WEB_SERIAL_CSI_MAX_RAW_LEN 512
 #define WEB_SERIAL_CSI_MAX_ENCODED_LEN (((WEB_SERIAL_CSI_MAX_RAW_LEN + 2) / 3) * 4 + 1)
+
+/* When the AP rate-control drops our link to legacy CCK rates no OFDM frames
+ * arrive and the driver never produces CSI, leaving the radar graph flat. The
+ * watchdog forces a reconnect (which nudges the AP back to OFDM) whenever the
+ * link is up but no CSI has been seen for a while. */
+#define CSI_WD_CHECK_PERIOD_MS 1000
+#define CSI_WD_STALE_MS 6000U
+#define CSI_WD_MIN_INTERVAL_MS 30000U
+#define CSI_WD_TASK_STACK 4096U
 
 static const char *TAG = "web_serial_monitor";
 
@@ -69,6 +79,10 @@ typedef struct {
     uint32_t csi_stream_period_ms;
     int64_t csi_last_emit_us;
     uint32_t csi_dropped_count;
+    int64_t csi_last_rx_us;
+    int64_t csi_wd_last_reconnect_us;
+    bool csi_wd_enabled;
+    bool csi_wd_reconnecting;
     /* A reconfiguration is in flight, so the GUI must keep its buttons disabled. */
     bool wifi_busy;
     /* Messages dropped because they exceeded WEB_SERIAL_TX_BUF_SIZE. */
@@ -87,6 +101,8 @@ static void send_wifi_result(const char *cmd, esp_err_t err, const wifi_runtime_
 static void send_wifi_info(void);
 static void send_hello(void);
 static void send_all_configs(void);
+static void send_stimulus_state(void);
+static void handle_set_stimulus(char *args);
 
 static int hex_value(char ch)
 {
@@ -388,7 +404,13 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
 {
     (void)ctx;
     if (!info || !s_ctx.initialized || !s_ctx.sensing_ready ||
-            !s_ctx.csi_stream_enabled || !info->raw_data || info->raw_len == 0) {
+            !info->raw_data || info->raw_len == 0) {
+        return;
+    }
+
+    s_ctx.csi_last_rx_us = esp_timer_get_time();
+
+    if (!s_ctx.csi_stream_enabled) {
         return;
     }
 
@@ -416,6 +438,45 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
         "{\"type\":\"csi\",\"seq\":%" PRIu32 ",\"mac\":\"" MACSTR "\",\"rssi\":%d,\"raw_len\":%u,\"data_type\":%d,\"dropped\":%" PRIu32 ",\"data\":\"%s\"}\n",
         info->seq_id, MAC2STR(info->mac), info->rx_ctrl_info.rssi, info->raw_len,
         (int)info->data_type, s_ctx.csi_dropped_count, encoded);
+}
+
+static void csi_watchdog_task(void *arg)
+{
+    (void)arg;
+    esp_err_t err = wifi_runtime_manager_reconnect();
+    ESP_LOGW(TAG, "csi watchdog: reconnect finished (err=%s)", esp_err_to_name(err));
+    s_ctx.csi_wd_reconnecting = false;
+    vTaskDelete(NULL);
+}
+
+static void csi_watchdog_check(void *arg)
+{
+    (void)arg;
+    if (!s_ctx.initialized || !s_ctx.csi_wd_enabled || s_ctx.csi_wd_reconnecting) {
+        return;
+    }
+    wifi_runtime_info_t info;
+    wifi_runtime_manager_get_info(&info);
+    if (!info.connected || !info.has_ip) {
+        return;
+    }
+    int64_t now_us = esp_timer_get_time();
+    if (now_us - s_ctx.csi_wd_last_reconnect_us < (int64_t)CSI_WD_MIN_INTERVAL_MS * 1000LL) {
+        return;
+    }
+    int64_t age_us = (s_ctx.csi_last_rx_us > 0) ? (now_us - s_ctx.csi_last_rx_us)
+                                                : (int64_t)INT64_MAX;
+    if (age_us < (int64_t)CSI_WD_STALE_MS * 1000LL) {
+        return;
+    }
+    ESP_LOGW(TAG, "csi watchdog: no CSI for %lld ms, forcing reconnect",
+             (long long)(age_us / 1000));
+    s_ctx.csi_wd_last_reconnect_us = now_us;
+    s_ctx.csi_wd_reconnecting = true;
+    if (xTaskCreate(csi_watchdog_task, "csi_wd", CSI_WD_TASK_STACK, NULL,
+                    tskIDLE_PRIORITY + 5, NULL) != pdPASS) {
+        s_ctx.csi_wd_reconnecting = false;
+    }
 }
 
 static void send_error(const char *message)
@@ -446,6 +507,72 @@ static void send_runtime_config(void)
     }
     (void)write_line("{\"type\":\"runtime\",\"amplitude_log_enabled\":%s,\"sensing_ready\":true}\n",
                      enabled ? "true" : "false");
+}
+
+/*
+ * Reports the stimulus settings alongside the requested enable state: the task
+ * may still be winding down after a stop, so the panel needs both numbers to
+ * show what is configured and what is actually running.
+ */
+static void send_stimulus_state(void)
+{
+    ht_stimulus_config_t cfg = {0};
+    if (ht_stimulus_get_config(&cfg) != ESP_OK) {
+        return;
+    }
+
+    (void)write_line("{\"type\":\"stimulus\",\"enabled\":%s,\"running\":%s,"
+                     "\"burst_bytes\":%" PRIu32 ",\"pause_ms\":%" PRIu32 "}\n",
+                     cfg.enabled ? "true" : "false",
+                     ht_stimulus_is_running() ? "true" : "false",
+                     cfg.burst_bytes, cfg.pause_ms);
+}
+
+static void handle_set_stimulus(char *args)
+{
+    ht_stimulus_config_t cfg = {0};
+    if (ht_stimulus_get_config(&cfg) != ESP_OK) {
+        send_ack("SET_STIMULUS", false, "get cfg failed");
+        return;
+    }
+
+    char *saveptr = NULL;
+    char *state = strtok_r(args, " ", &saveptr);
+    if (!state) {
+        send_ack("SET_STIMULUS", false, "usage: SET_STIMULUS <on|off> [burst_bytes] [pause_ms]");
+        return;
+    }
+
+    if ((strcmp(state, "on") == 0) || (strcmp(state, "1") == 0) ||
+        (strcasecmp(state, "true") == 0)) {
+        cfg.enabled = true;
+    } else if ((strcmp(state, "off") == 0) || (strcmp(state, "0") == 0) ||
+               (strcasecmp(state, "false") == 0)) {
+        cfg.enabled = false;
+    } else {
+        send_ack("SET_STIMULUS", false, "state must be on or off");
+        return;
+    }
+
+    char *token = strtok_r(NULL, " ", &saveptr);
+    if (token) {
+        cfg.burst_bytes = (uint32_t)strtoul(token, NULL, 10);
+    }
+    token = strtok_r(NULL, " ", &saveptr);
+    if (token) {
+        cfg.pause_ms = (uint32_t)strtoul(token, NULL, 10);
+    }
+
+    esp_err_t err = ht_stimulus_set_config(&cfg);
+    if (err != ESP_OK) {
+        send_ack("SET_STIMULUS", false,
+                 err == ESP_ERR_INVALID_ARG ? "burst must be 100000..20000000, pause 0..5000"
+                                            : esp_err_to_name(err));
+        return;
+    }
+
+    send_stimulus_state();
+    send_ack("SET_STIMULUS", true, cfg.enabled ? "stimulus on" : "stimulus off");
 }
 
 /* Escapes the bytes of an SSID so control characters cannot break the JSON line. */
@@ -555,13 +682,14 @@ static void send_hello(void)
     }
     /* Send enough metadata for the web page to populate its initial UI state. */
     (void)write_line(
-        "{\"type\":\"hello\",\"transport\":\"stdio\",\"target\":\"%s\",\"stream_period_ms\":%" PRIu32 ",\"amplitude_log_enabled\":%s,\"csi_stream_enabled\":%s,\"csi_stream_period_ms\":%" PRIu32 ",\"sensing_ready\":%s,\"peers\":[%s]}\n",
+        "{\"type\":\"hello\",\"transport\":\"stdio\",\"target\":\"%s\",\"stream_period_ms\":%" PRIu32 ",\"amplitude_log_enabled\":%s,\"csi_stream_enabled\":%s,\"csi_stream_period_ms\":%" PRIu32 ",\"sensing_ready\":%s,\"auto_reconnect\":%s,\"peers\":[%s]}\n",
         CONFIG_IDF_TARGET,
         s_ctx.stream_period_ms,
         enabled ? "true" : "false",
         s_ctx.csi_stream_enabled ? "true" : "false",
         s_ctx.csi_stream_period_ms,
         s_ctx.sensing_ready ? "true" : "false",
+        s_ctx.csi_wd_enabled ? "true" : "false",
         peers_json);
 }
 
@@ -747,6 +875,28 @@ static void handle_command(char *line)
         }
     }
 
+    if (strncmp(cmd, "AUTO_RECONNECT ", 15) == 0) {
+        s_ctx.csi_wd_enabled = (strtol(cmd + 15, NULL, 10) != 0);
+        send_ack("AUTO_RECONNECT", true, s_ctx.csi_wd_enabled ? "enabled" : "disabled");
+        return;
+    }
+
+    /*
+     * The stimulus only needs a network interface, not the sensing FSM, so it
+     * is reachable before sensing is ready. That keeps the panel usable while
+     * the channel is still flat and the FSM has not started yet.
+     */
+    if (strcmp(cmd, "GET_STIMULUS") == 0) {
+        send_stimulus_state();
+        send_ack("GET_STIMULUS", true, "stimulus");
+        return;
+    }
+
+    if (strncmp(cmd, "SET_STIMULUS ", 13) == 0 || strcmp(cmd, "SET_STIMULUS") == 0) {
+        handle_set_stimulus(cmd + 12);
+        return;
+    }
+
     if (!s_ctx.sensing_ready) {
         send_ack(cmd, false, "sensing not ready");
         return;
@@ -755,6 +905,7 @@ static void handle_command(char *line)
     if (strcmp(cmd, "HELLO") == 0) {
         send_hello();
         send_runtime_config();
+        send_stimulus_state();
         send_all_configs();
         return;
     }
@@ -1027,6 +1178,7 @@ esp_err_t web_serial_monitor_init(void)
     s_ctx.csi_stream_enabled = false;
     s_ctx.csi_stream_period_ms = WEB_SERIAL_CSI_DEFAULT_PERIOD_MS;
     s_ctx.stream_period_ms = WEB_SERIAL_DEFAULT_PERIOD_MS;
+    s_ctx.csi_wd_enabled = true;
 
     s_tx_line = malloc(WEB_SERIAL_TX_BUF_SIZE);
     if (!s_tx_line) {
@@ -1069,6 +1221,15 @@ esp_err_t web_serial_monitor_init(void)
 
     ESP_LOGI(TAG, "web serial monitor transport started, input=%s, output=stdio",
              input_mode_name());
+
+    esp_timer_handle_t csi_wd_timer = NULL;
+    const esp_timer_create_args_t csi_wd_args = {
+        .callback = csi_watchdog_check,
+        .name = "csi_wd",
+    };
+    if (esp_timer_create(&csi_wd_args, &csi_wd_timer) == ESP_OK) {
+        esp_timer_start_periodic(csi_wd_timer, CSI_WD_CHECK_PERIOD_MS * 1000ULL);
+    }
     return ESP_OK;
 }
 
@@ -1101,4 +1262,33 @@ esp_err_t web_serial_monitor_attach_sensing(const web_serial_monitor_config_t *c
     send_wifi_info();
     send_all_configs();
     return ESP_OK;
+}
+
+esp_err_t web_serial_monitor_update_peer_mac(const char *name, const uint8_t *mac)
+{
+    if (!name || !mac) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ctx.initialized || !s_ctx.sensing_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    for (size_t i = 0; i < s_ctx.peer_num; i++) {
+        web_serial_monitor_peer_t *peer = &s_ctx.peers[i];
+        if (strcmp(name, peer->name) != 0) {
+            continue;
+        }
+        if (memcmp(peer->mac, mac, sizeof(peer->mac)) == 0) {
+            return ESP_OK;
+        }
+
+        memcpy(peer->mac, mac, sizeof(peer->mac));
+        ESP_LOGI(TAG, "monitor peer %s rebound to " MACSTR, name, MAC2STR(mac));
+
+        /* Push the new MAC so GET_CFG/SET_CFG/TRAIN on this peer hit the FSM channel again. */
+        send_channel_config(peer);
+        return ESP_OK;
+    }
+
+    return ESP_ERR_NOT_FOUND;
 }

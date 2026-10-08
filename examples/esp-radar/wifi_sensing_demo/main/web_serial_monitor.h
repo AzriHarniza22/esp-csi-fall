@@ -84,6 +84,24 @@ void web_serial_monitor_notify_wifi_state(void);
  */
 esp_err_t web_serial_monitor_attach_sensing(const web_serial_monitor_config_t *config);
 
+/**
+ * @brief Rebind a published peer to a new MAC after the link moved to another AP.
+ *
+ * `web_serial_monitor_attach_sensing()` copies the peer table once, so after an
+ * SSID switch the monitor would keep querying the old BSSID while the FSM only
+ * knows the new one. `send_channel_sample()` then fails its `get_channel_diag()`
+ * lookup, no `sample` lines are emitted and the browser's motion chart freezes
+ * even though the raw CSI stream (which ignores peer MACs) keeps running.
+ *
+ * @param name Peer name exactly as published, e.g. `"AP"`.
+ * @param mac  New six-byte MAC address.
+ * @return
+ *      - ESP_OK: Success or peer already had this MAC
+ *      - ESP_ERR_NOT_FOUND: No peer with that name
+ *      - ESP_ERR_INVALID_STATE: The transport is not bound to a sensing FSM
+ */
+esp_err_t web_serial_monitor_update_peer_mac(const char *name, const uint8_t *mac);
+
 #ifdef __cplusplus
 }
 #endif

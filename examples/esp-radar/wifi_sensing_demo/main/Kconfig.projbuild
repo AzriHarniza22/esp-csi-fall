@@ -52,4 +52,76 @@ config ESP_WIFI_SENSING_WEB_SERIAL_STREAM_PERIOD_MS
     help
         Period used to push one diagnostic snapshot per channel to the Web Serial UI.
 
+menu "AP HT traffic stimulus"
+
+config ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    bool "Enable AP HT-rate traffic stimulus"
+    default y
+    help
+        This AP only yields usable CSI from HT (11n) frames, so a plain ping
+        leaves the channel flat. The official esp-csi csi_recv_router example
+        captures router CSI with LLTF sub-carriers alone, but that does not work
+        here: LLTF-only still produced 0/776 non-zero samples while the AP was
+        answering pings at 80 Hz.
+
+        When enabled, the firmware keeps a small HTTP transfer running through
+        the AP so the AP continuously transmits large HT frames, which are the
+        frames this chip can actually measure.
+
+        This runs entirely on the ESP with no laptop or extra peer involved, but
+        it needs the AP to have internet access, and the bulk downlink traffic
+        inflates latency for other clients on the same link.
+
+        Measured with the stimulus off, the graph froze for up to 6 s at a time
+        (35-53% of samples held one value, only 5.3 detection windows per 45 s).
+        With a 200 KB burst every 100 ms it froze 20% of the time and produced
+        18.4 windows per 45 s, so it stays enabled by default. SET_STIMULUS off
+        on the web UI turns it off at runtime.
+
+config ESP_WIFI_SENSING_HT_STIMULUS_URL
+    string "HT stimulus URL"
+    default "http://speed.cloudflare.com/__down?bytes=2000000"
+    depends on ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    help
+        Plain HTTP endpoint fetched to provoke AP HT transmissions. The "bytes"
+        query parameter of the default endpoint controls the transfer size.
+
+config ESP_WIFI_SENSING_HT_STIMULUS_BURST
+    int "Bytes fetched per burst"
+    default 200000
+    range 100000 20000000
+    depends on ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    help
+        Number of bytes to read per burst before pausing. Larger values keep the
+        AP busy longer; smaller values leave more airtime for other traffic.
+
+        What the radar needs is snapshot count, not byte count. Measured on an
+        11n AP at -60 dBm: 200 KB/burst produced 6x more HT frames and 3.5x more
+        detection windows than no stimulus, while 1-2 MB bursts saturated the
+        link and cut the window flush rate back down. Keep this small.
+
+config ESP_WIFI_SENSING_HT_STIMULUS_PAUSE_MS
+    int "Pause between bursts (ms)"
+    default 100
+    range 0 5000
+    depends on ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    help
+        Idle gap between bursts. A short gap keeps the AP saturated without
+        starving other traffic on the link.
+
+        100 ms with a 200 KB burst measured best: 10 bursts and 0 window clears
+        per 45 s. A 0 ms pause starves the link and produced 16 window clears and
+        63% frozen samples.
+
+config ESP_WIFI_SENSING_HT_STIMULUS_RETRY_MS
+    int "Retry delay after a failed burst (ms)"
+    default 2000
+    range 200 30000
+    depends on ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
+    help
+        Delay applied when the endpoint is unreachable, for example when the AP
+        has no internet access, so the task does not spin.
+
+endmenu
+
 endmenu
