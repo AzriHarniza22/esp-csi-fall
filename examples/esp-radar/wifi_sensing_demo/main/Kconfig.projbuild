@@ -124,4 +124,196 @@ config ESP_WIFI_SENSING_HT_STIMULUS_RETRY_MS
 
 endmenu
 
+menu "ESP Wi-Fi sensing MQTT telemetry"
+
+config ESP_WIFI_SENSING_MQTT_ENABLE
+    bool "Publish radar telemetry to an MQTT broker"
+    default n
+    help
+        Publishes the same peer samples the web serial monitor streams, to an
+        MQTT broker over TLS, so a dashboard can read them from any phone
+        without the ESP32 being attached to a laptop.
+
+        This is one-way only. It does not produce the CSI the radar measures:
+        OFDM frames have to be on the air for that, which is what the HT
+        stimulus is for.
+
+config ESP_WIFI_SENSING_MQTT_BROKER
+    string "Broker host"
+    default "z4e56ccf.ala.asia-southeast1.emqxsl.com"
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        Hostname of the MQTT broker. EMQX Cloud Serverless only accepts TLS,
+        so this must resolve and present a certificate the firmware trusts.
+
+config ESP_WIFI_SENSING_MQTT_PORT
+    int "Broker TLS port"
+    default 8883
+    range 1 65535
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        MQTT over TLS. EMQX Cloud Serverless exposes 8883 for MQTT and 8084 for
+        MQTT over WebSocket; plain 1883 is not accepted.
+
+config ESP_WIFI_SENSING_MQTT_USERNAME
+    string "Broker username (first boot fallback)"
+    default "esp32"
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        Only used when nothing is stored in NVS yet. Once HMSCMD MQTT_CONFIG
+        runs, the NVS copy wins and this value is ignored. Same for the
+        password, broker, port and topic prefix.
+
+config ESP_WIFI_SENSING_MQTT_PASSWORD
+    string "Broker password (first boot fallback)"
+    default "esp32"
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+
+config ESP_WIFI_SENSING_MQTT_TOPIC_PREFIX
+    string "Topic prefix"
+    default "radar/esp32"
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        Peer samples are published to <prefix>/peer/<name>, a retained status
+        message to <prefix>/status, remote commands are read from <prefix>/cmd,
+        and command results come back on <prefix>/ack. Keep the prefix
+        unguessable: anyone who knows it can read the telemetry and send
+        commands to the device.
+
+config ESP_WIFI_SENSING_MQTT_CLIENT_ID
+    string "MQTT client id"
+    default "radar-esp32"
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        Must be stable across reboots. The device suffix is appended from the
+        STA MAC at runtime, so two units on the same build never collide.
+
+config ESP_WIFI_SENSING_MQTT_KEEPALIVE_S
+    int "MQTT keepalive (s)"
+    default 45
+    range 10 3600
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        The broker declares the device offline after roughly 1.5x this value,
+        so this is how fast a dashboard notices a dead unit. 45 s detects death
+        within about 70 s. Espressif warns that values below 30 s increase the
+        disconnect rate on marginal links, which matters here because the AP
+        already drops this station from time to time.
+
+config ESP_WIFI_SENSING_MQTT_WILL_DELAY_S
+    int "LWT delay before the broker publishes it (s)"
+    default 5
+    range 0 300
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        If the device reconnects within this window the will message is
+        discarded, so a brief Wi-Fi drop does not flash "offline" on the
+        dashboard. Too long delays the notice that the unit really is gone.
+
+config ESP_WIFI_SENSING_MQTT_SESSION_EXPIRY_S
+    int "Session expiry interval (s)"
+    default 300
+    range 0 86400
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        How long the broker keeps this session, and therefore queued commands,
+        while the device is offline. Commands are QoS 1, so without a session
+        expiry interval the broker discards them and a command sent during an
+        outage never arrives.
+
+config ESP_WIFI_SENSING_MQTT_MESSAGE_EXPIRY_S
+    int "Telemetry message expiry (s)"
+    default 60
+    range 5 3600
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        Subscribers must discard radar samples older than this. Without it a
+        dashboard opened after a long outage would draw a curve made of
+        minutes-old values and read it as a live measurement.
+
+config ESP_WIFI_SENSING_MQTT_PUBLISH_MS
+    int "Publish interval (ms)"
+    default 1000
+    range 200 60000
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        How often every peer sample is published. The radar updates on its own
+        schedule, so a shorter interval only repeats values. The EMQX free tier
+        allows 1 GB of traffic per month; at 1 Hz three peers stay well inside
+        that, while publishing every sample pushed the link hard enough to be
+        worth rate limiting.
+
+config ESP_WIFI_SENSING_MQTT_ALLOW_RECONFIG
+    bool "Accept WIFI_CONFIG_HEX over MQTT"
+    default y
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        The dashboard and the device share one broker credential, so anybody
+        who can open the dashboard can also send commands to the device. This
+        option is the only thing stopping them from repointing it at a
+        different AP. Turn it off before showing the device to anyone who is
+        not the owner.
+
 endmenu
+
+endmenu
+
+config ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
+    bool "Restart the unit when the internet path stops working"
+    default y
+    depends on ESP_WIFI_SENSING_MQTT_ENABLE
+    help
+        The Wi-Fi stack keeps reporting a healthy association and a valid IP
+        while the route to the broker is dead. On this board that was measured
+        after about 77 minutes of uptime, and the normal reconnect loop never
+        recovered from it while a power cycle always did. When enabled, a
+        sustained outage ends in a restart.
+
+config ESP_WIFI_SENSING_UPLINK_PROBE_PERIOD_MS
+    int "Uplink probe interval (ms)"
+    default 30000
+    range 5000 600000
+    depends on ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
+    help
+        How often the broker is probed with a real TCP connection. Thirty
+        seconds keeps the traffic negligible.
+
+config ESP_WIFI_SENSING_UPLINK_PROBE_TIMEOUT_S
+    int "Probe connect timeout (s)"
+    default 4
+    range 1 30
+    depends on ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
+    help
+        Applied to both directions of the probe socket so a black hole costs
+        this much and no more.
+
+config ESP_WIFI_SENSING_UPLINK_FAIL_AFTER_S
+    int "Restart after the path has been down this long (s)"
+    default 300
+    range 60 3600
+    depends on ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
+    help
+        Long enough to ride out a router or ISP hiccup. A TCP probe failing
+        repeatedly for five minutes is not something waiting will fix.
+
+config ESP_WIFI_SENSING_UPLINK_HEALTHY_FOR_S
+    int "Refund a restart after the path holds this long (s)"
+    default 600
+    range 60 3600
+    depends on ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
+    help
+        Restarts are budgeted. A healthy stretch this long proves the unit came
+        back because of the restart, so the budget is restored and a later
+        outage gets the same help again.
+
+config ESP_WIFI_SENSING_UPLINK_MAX_REBOOTS
+    int "Restarts allowed before giving up"
+    default 3
+    range 1 20
+    depends on ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
+    help
+        Without a cap, an access point that is simply gone would put the unit
+        into a restart loop. Once the budget is spent the watchdog stops
+        restarting and the unit just keeps retrying, which is no worse than
+        having no watchdog at all.
+

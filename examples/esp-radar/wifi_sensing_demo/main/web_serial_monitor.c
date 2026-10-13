@@ -31,6 +31,7 @@
 #include "sdkconfig.h"
 
 #include "ht_stimulus.h"
+#include "mqtt_publisher.h"
 #include "web_serial_monitor.h"
 #include "wifi_runtime_manager.h"
 
@@ -103,6 +104,8 @@ static void send_hello(void);
 static void send_all_configs(void);
 static void send_stimulus_state(void);
 static void handle_set_stimulus(char *args);
+static void handle_mqtt_config(char *args);
+static void send_mqtt_status(void);
 
 static int hex_value(char ch)
 {
@@ -352,6 +355,16 @@ static const web_serial_monitor_peer_t *find_peer_by_name_or_mac(const char *tok
 static char *s_tx_line = NULL;
 static SemaphoreHandle_t s_tx_lock = NULL;
 
+/*
+ * Capture mode. A command that arrived over MQTT still runs through the very
+ * same handler as one typed on the serial port, so the reply has to be pulled
+ * out of write_line() rather than rebuilt. While a capture is armed the line is
+ * copied into s_capture instead of the serial port.
+ */
+static char s_capture[WEB_SERIAL_TX_BUF_SIZE];
+static volatile bool s_capture_active = false;
+static volatile size_t s_capture_len = 0;
+
 static int write_line(const char *fmt, ...)
 {
     if (!s_tx_line || !s_tx_lock) {
@@ -389,6 +402,15 @@ static int write_line(const char *fmt, ...)
         s_ctx.truncated_msg_count++;
         ESP_LOGW(TAG, "dropped oversized message: need=%d capacity=%d",
                  total_len, WEB_SERIAL_TX_BUF_SIZE);
+        goto done;
+    }
+
+    if (s_capture_active) {
+        size_t room = sizeof(s_capture) - s_capture_len;
+        size_t n = total_len < room ? total_len : room;
+        memcpy(s_capture + s_capture_len, line, n);
+        s_capture_len += n;
+        result = total_len;
         goto done;
     }
 
@@ -526,6 +548,81 @@ static void send_stimulus_state(void)
                      cfg.enabled ? "true" : "false",
                      ht_stimulus_is_running() ? "true" : "false",
                      cfg.burst_bytes, cfg.pause_ms);
+}
+
+/*
+ * HMSCMD MQTT_CONFIG <host> <port> <user> <pass> <prefix>
+ *
+ * The arguments arrive space separated on one line, so the password cannot
+ * contain a space. That is acceptable here because the broker credential is
+ * machine generated, but it is the reason the field is parsed positionally
+ * rather than with sscanf("%s").
+ */
+static void handle_mqtt_config(char *args)
+{
+    char host[96] = {0};
+    char user[96] = {0};
+    char pass[96] = {0};
+    char prefix[96] = {0};
+    char *token[5] = {0};
+    size_t count = 0;
+
+    /*
+     * Split on spaces. The arguments share one line, so a password containing a
+     * space cannot be expressed here. That is fine for this broker, whose
+     * credential is machine generated, but it is why this is not sscanf("%s").
+     */
+    char *cursor = args;
+    while (*cursor && count < 5) {
+        while (*cursor == ' ') {
+            cursor++;
+        }
+        if (!*cursor) {
+            break;
+        }
+        token[count++] = cursor;
+        while (*cursor && *cursor != ' ') {
+            cursor++;
+        }
+        if (*cursor) {
+            *cursor++ = '\0';
+        }
+    }
+
+    if (count != 5) {
+        send_ack("MQTT_CONFIG", false,
+                 "usage: MQTT_CONFIG <host> <port> <user> <pass> <prefix>");
+        return;
+    }
+
+    snprintf(host, sizeof(host), "%s", token[0]);
+    snprintf(user, sizeof(user), "%s", token[2]);
+    snprintf(pass, sizeof(pass), "%s", token[3]);
+    snprintf(prefix, sizeof(prefix), "%s", token[4]);
+
+    esp_err_t err = mqtt_publisher_set_settings(host, atoi(token[1]), user, pass, prefix);
+    if (err != ESP_OK) {
+        send_ack("MQTT_CONFIG", false, esp_err_to_name(err));
+        return;
+    }
+    send_ack("MQTT_CONFIG", true, "saved, reconnecting");
+}
+
+/* The password is intentionally absent from this reply. */
+static void send_mqtt_status(void)
+{
+    mqtt_settings_t cfg = {0};
+    esp_err_t err = mqtt_publisher_get_settings(&cfg);
+    if (err != ESP_OK) {
+        send_ack("MQTT_STATUS", false, esp_err_to_name(err));
+        return;
+    }
+    (void)write_line("{\"type\":\"mqtt_status\",\"host\":\"%s\",\"port\":%d,"
+                     "\"user\":\"%s\",\"prefix\":\"%s\",\"connected\":%s,"
+                     "\"allow_reconfig\":%s}\n",
+                     cfg.host, cfg.port, cfg.user, cfg.prefix,
+                     mqtt_publisher_is_connected() ? "true" : "false",
+                     CONFIG_ESP_WIFI_SENSING_MQTT_ALLOW_RECONFIG ? "true" : "false");
 }
 
 static void handle_set_stimulus(char *args)
@@ -739,6 +836,9 @@ static void send_channel_sample(const web_serial_monitor_peer_t *peer)
         return;
     }
 
+    /* The MQTT client carries the same values to a remote dashboard. */
+    mqtt_publisher_publish(peer->name, peer->mac, &diag, motion_state);
+
     /* Ship only the minimum public diagnostics required by the browser UI. */
     (void)write_line(
         "{\"type\":\"sample\",\"ts_ms\":%" PRIu64 ",\"peer\":\"%s\",\"mac\":\"" MACSTR "\","
@@ -840,6 +940,85 @@ static void handle_set_cfg(char *args)
     send_channel_config(peer);
 }
 
+/*
+ * Run a command that arrived over MQTT and copy its ack back to the caller.
+ *
+ * The command goes through the ordinary serial handler, which keeps one
+ * implementation of every command and lets the existing send_ack() replies come
+ * along for free. The ack is returned without the "HMS:" prefix so it can be
+ * republished verbatim on the MQTT ack topic.
+ */
+esp_err_t web_serial_monitor_handle_remote(const char *line, char *ack, size_t ack_len)
+{
+    if (!line || !ack || ack_len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    ack[0] = '\0';
+    if (!s_tx_lock) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    /* handle_command() rewrites the buffer while tokenising, so it gets a copy. */
+    char *work = strdup(line);
+    if (!work) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    s_capture_active = true;
+    s_capture_len = 0;
+    handle_command(work);
+    s_capture_active = false;
+    free(work);
+
+    /*
+     * The handler may have emitted several lines, for example a state dump
+     * followed by the ack. The ack is always the last one, so take the final
+     * line of the capture.
+     */
+    size_t line_end = s_capture_len;
+    while (line_end > 0 && (s_capture[line_end - 1] == '\n' || s_capture[line_end - 1] == '\r')) {
+        line_end--;
+    }
+    size_t line_start = line_end;
+    while (line_start > 0 && s_capture[line_start - 1] != '\n') {
+        line_start--;
+    }
+
+    if (line_end == line_start) {
+        /* No reply was produced; report that rather than inventing one. */
+        snprintf(ack, ack_len, "{\"type\":\"ack\",\"cmd\":\"\",\"ok\":false,"
+                               "\"detail\":\"no reply\"}");
+        return ESP_FAIL;
+    }
+
+    /* Terminate the last line in place so it can be inspected as a string. */
+    char saved = s_capture[line_end];
+    s_capture[line_end] = '\0';
+    const char *last = s_capture + line_start;
+
+    if (!strstr(last, "\"type\":\"ack\"")) {
+        s_capture[line_end] = saved;
+        snprintf(ack, ack_len, "{\"type\":\"ack\",\"cmd\":\"\",\"ok\":false,"
+                               "\"detail\":\"no reply\"}");
+        return ESP_FAIL;
+    }
+
+    /* Strip the "HMS:" prefix so the ack can be republished verbatim. */
+    const char *body = last;
+    const char *prefix = strstr(body, WEB_SERIAL_PREFIX);
+    if (prefix) {
+        body = prefix + strlen(WEB_SERIAL_PREFIX);
+    }
+    size_t n = strlen(body);
+    if (n >= ack_len) {
+        n = ack_len - 1;
+    }
+    memcpy(ack, body, n);
+    ack[n] = '\0';
+    s_capture[line_end] = saved;
+    return ESP_OK;
+}
+
 static void handle_command(char *line)
 {
     if (!line || strncmp(line, WEB_SERIAL_COMMAND_PREFIX, strlen(WEB_SERIAL_COMMAND_PREFIX)) != 0) {
@@ -873,6 +1052,20 @@ static void handle_command(char *line)
             send_wifi_result("WIFI_RECONNECT", err, NULL);
             return;
         }
+    }
+
+    /*
+     * Broker settings stay reachable before sensing is up, for the same reason
+     * as the Wi-Fi commands above: the dashboard may have to point the unit at a
+     * reachable broker before the FSM can ever start.
+     */
+    if (strncmp(cmd, "MQTT_CONFIG ", 12) == 0) {
+        handle_mqtt_config(cmd + 12);
+        return;
+    }
+    if (strcmp(cmd, "MQTT_STATUS") == 0) {
+        send_mqtt_status();
+        return;
     }
 
     if (strncmp(cmd, "AUTO_RECONNECT ", 15) == 0) {

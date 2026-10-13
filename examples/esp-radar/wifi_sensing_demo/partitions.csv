@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,   Size,    Flags
+nvs,      data, nvs,     0xb000,   0x5000,
+otadata,  data, ota,     0x10000,  0x2000,
+phy_init, data, phy,     0x12000,  0x1000,
+# The radar, CSI pipeline, mbedTLS and the MQTT client do not fit the 1 MiB
+# default app slot. The board carries 4 MiB, so give the factory app 3 MiB.
+factory,  app,  factory, 0x20000,  0x300000,

@@ -24,6 +24,8 @@
 #include "esp_radar.h"
 
 #include "led_control.h"
+#include "mqtt_publisher.h"
+#include "uplink_watchdog.h"
 #include "web_serial_monitor.h"
 #include "wifi_runtime_manager.h"
 #include "ht_stimulus.h"
@@ -309,6 +311,31 @@ static void sensing_start(const uint8_t *ap_bssid)
         .stream_period_ms = CONFIG_ESP_WIFI_SENSING_WEB_SERIAL_STREAM_PERIOD_MS,
     };
     web_serial_monitor_attach_sensing(&serial_cfg);
+#endif
+
+#if CONFIG_ESP_WIFI_SENSING_MQTT_ENABLE
+    /*
+     * Started here so the dashboard can connect the moment sensing is up. The
+     * client retries on its own, so a broker outage at boot is not fatal.
+     */
+    mqtt_publisher_peer_t mqtt_peers[] = {
+        { .name = "AP" },
+        { .name = "MAC_1" },
+        { .name = "MAC_2" },
+    };
+    memcpy(mqtt_peers[0].mac, s_mac_ap, sizeof(s_mac_ap));
+    memcpy(mqtt_peers[1].mac, CONFIG_CSI_SEND_MAC, sizeof(mqtt_peers[1].mac));
+    memcpy(mqtt_peers[2].mac, CONFIG_CSI_SEND_MAC_2, sizeof(mqtt_peers[2].mac));
+    ESP_ERROR_CHECK(mqtt_publisher_init(s_hms, mqtt_peers,
+                                        sizeof(mqtt_peers) / sizeof(mqtt_peers[0])));
+
+    /*
+     * Started once the link is expected to be up. A power cycle is the only
+     * thing that recovered this board from the state where it stayed associated
+     * but could no longer reach the broker, so that is what the watchdog does.
+     */
+    uplink_watchdog_start(CONFIG_ESP_WIFI_SENSING_MQTT_BROKER,
+                          CONFIG_ESP_WIFI_SENSING_MQTT_PORT);
 #endif
 }
 

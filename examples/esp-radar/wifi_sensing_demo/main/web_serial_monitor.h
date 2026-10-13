@@ -47,6 +47,24 @@ typedef struct {
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info);
 
 /**
+ * @brief Run one command that arrived over MQTT and return its ack.
+ *
+ * The command is executed by the same handler that serves the serial port, so
+ * every command behaves identically no matter which link delivered it. The ack
+ * is captured out of write_line() and returned without the "HMS:" prefix, ready
+ * to be republished on the MQTT ack topic.
+ *
+ * Runs in the caller's task, never in the MQTT event callback, so it is safe to
+ * call the MQTT client from the replies it produces.
+ *
+ * @param[in] line      Full command line including the "HMSCMD " prefix.
+ * @param[out] ack      Buffer receiving the ack JSON without the prefix.
+ * @param[in] ack_len   Size of @p ack.
+ * @return ESP_OK when a well formed ack was captured, an error otherwise.
+ */
+esp_err_t web_serial_monitor_handle_remote(const char *line, char *ack, size_t ack_len);
+
+/**
  * @brief Start the serial transport and command loop without a sensing FSM.
  *
  * Called before Wi-Fi so the browser already observes `BOOTING`, `CONNECTING`,

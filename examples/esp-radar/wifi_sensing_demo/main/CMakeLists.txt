@@ -4,6 +4,7 @@ set(reqs esp_wifi_sensing
          esp_driver_ledc
          led_strip
          esp_http_client
+         mqtt
          mbedtls
          nvs_flash)
 
@@ -12,6 +13,8 @@ idf_component_register(SRCS "app_main.c"
                             "web_serial_monitor.c"
                             "wifi_runtime_manager.c"
                             "ht_stimulus.c"
+                            "mqtt_publisher.c"
+                            "uplink_watchdog.c"
                        INCLUDE_DIRS "."
                        REQUIRES ${reqs}
                        PRIV_REQUIRES esp_driver_usb_serial_jtag)
