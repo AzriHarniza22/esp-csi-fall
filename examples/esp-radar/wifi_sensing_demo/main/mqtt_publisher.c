@@ -932,7 +932,7 @@ static const char *const s_cmd_whitelist[] = {
     "WIFI_INFO",     "WIFI_CONFIG_HEX", "WIFI_CONFIG", "WIFI_DISCONNECT", "WIFI_RECONNECT",
     "FSM_START",     "FSM_STOP",      "RESET_BASELINE",
     "TRAIN_START",   "TRAIN_STOP",    "MQTT_STATUS",
-    "START_STREAM",  "STOP_STREAM",   "HELLO",
+    "START_STREAM",  "STOP_STREAM",   "HELLO",     "WIFI_SCAN",
 };
 
 /*

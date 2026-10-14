@@ -252,6 +252,69 @@ static void handle_wifi_config_json(char *args)
     send_wifi_result("WIFI_CONFIG", err, &info);
 }
 
+/*
+ * Reports what the unit can actually hear.
+ *
+ * The unit can be configured for a network it is simply too far from, and the
+ * only symptom is NO_AP_FOUND, which does not say whether the network is
+ * missing or the radio cannot reach it. Listing what is in range answers that
+ * from the serial line or over MQTT, which is the difference between walking to
+ * the router and moving the unit.
+ *
+ * Hidden networks are included, because a hidden access point by definition
+ * will never appear in a scan that asks not to show them.
+ */
+static int write_line(const char *fmt, ...);
+
+static void send_wifi_scan(void)
+{
+    wifi_scan_config_t scan = { .show_hidden = true };
+    if (esp_wifi_scan_start(&scan, true) != ESP_OK) {
+        send_ack("WIFI_SCAN", false, "scan failed to start");
+        return;
+    }
+    uint16_t found = 0;
+    esp_wifi_scan_get_ap_num(&found);
+
+    wifi_runtime_info_t want;
+    wifi_runtime_manager_get_info(&want);
+    char want_ssid[33] = {0};
+    memcpy(want_ssid, want.ssid, want.ssid_len);
+
+    char *buf = calloc(1, 2048);
+    if (!buf) {
+        send_ack("WIFI_SCAN", false, "out of memory");
+        return;
+    }
+    size_t n = (size_t)snprintf(buf, 2048,
+                                "{\"type\":\"wifi_scan\",\"n\":%u,\"aps\":[", found);
+    uint16_t shown = 0;
+    if (found > 0) {
+        wifi_ap_record_t *recs = calloc(found, sizeof(wifi_ap_record_t));
+        if (recs) {
+            uint16_t got = found;
+            if (esp_wifi_scan_get_ap_records(&got, recs) == ESP_OK) {
+                for (uint16_t i = 0; i < got && n < 1800; i++) {
+                    n += (size_t)snprintf(buf + n, 2048 - n, "%s{\"ssid\":\"%.*s\","
+                                          "\"rssi\":%d,\"ch\":%u}",
+                                          shown ? "," : "",
+                                          (int)strnlen((const char *)recs[i].ssid, 32),
+                                          (const char *)recs[i].ssid,
+                                          recs[i].rssi,
+                                          recs[i].primary);
+                    shown++;
+                }
+            }
+            free(recs);
+        }
+    }
+    n += (size_t)snprintf(buf + n, 2048 - n, "]}");
+
+    write_line(buf);
+    free(buf);
+    send_ack("WIFI_SCAN", true, shown ? "list sent" : "nothing in range");
+}
+
 static void handle_wifi_config_hex(char *args)
 {
     char *saveptr = NULL;
@@ -1156,6 +1219,11 @@ static void handle_command(char *line)
          */
         if (strncmp(cmd, "WIFI_CONFIG ", 13) == 0) {
             handle_wifi_config_json(cmd + 13);
+            return;
+        }
+        if (strcmp(cmd, "WIFI_SCAN") == 0) {
+            send_wifi_scan();
+            send_ack("WIFI_SCAN", true, "scan finished");
             return;
         }
         if (strcmp(cmd, "WIFI_DISCONNECT") == 0) {
