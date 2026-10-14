@@ -74,6 +74,7 @@ static const char *TAG = "ble_probe";
 #define CTRL_RX_MAX 24
 #define DEFAULT_PAYLOAD 253    /* ATT_MTU - 3; the real cap is negotiated at runtime */
 #define STACK_DATA_MAX 512
+#define NOTIFY_IN_FLIGHT 4
 
 static uint8_t s_own_addr_type;
 static int s_adv_started;
@@ -91,7 +92,9 @@ static struct {
     uint32_t transmitted;  /* confirmed gone by BLE_GAP_EVENT_NOTIFY_TX */
     uint32_t failed;       /* NOTIFY_TX reported an error */
     uint32_t stalled;      /* stack had no buffer room left */
-    uint32_t last_seq;     /* sequence number actually sent */
+    uint32_t last_seq;     /* sequence number assigned to the next packet */
+    SemaphoreHandle_t room; /* one token per packet still in flight */
+    int last_rc;           /* most recent notify return code, for diagnosis */
     uint16_t payload;
     uint16_t interval_ms;  /* 0 means as fast as possible */
     bool running;
@@ -233,6 +236,7 @@ static void thrpt_fill_and_send(void)
      * path to add here. */
     int rc = ble_gatts_notify_custom(s_conn_handle, s_data_handle, om);
     xSemaphoreTake(s_m.lock, portMAX_DELAY);
+    s_m.last_rc = rc;
     if (rc == 0) {
         s_m.queued++;
     } else {
@@ -258,13 +262,25 @@ static void thrpt_task(void *arg)
         xSemaphoreGive(s_m.lock);
 
         if (running && subscribed) {
-            thrpt_fill_and_send();
-        }
-
-        if (interval == 0) {
-            /* No pacing requested, so yield rather than sleep: the queue is
-             * the only thing limiting the rate. */
-            taskYIELD();
+            /*
+             * Wait for a free slot rather than spinning.
+             *
+             * There are only 24 ACL buffers, and a token is taken per packet
+             * and returned when the controller reports the notification gone.
+             * Spinning instead produced a pump that lost roughly 99% of its
+             * packets and pegged the CPU while doing it - the numbers looked
+             * like a slow radio when the real fault was unbounded queueing.
+             */
+            if (xSemaphoreTake(s_m.room, pdMS_TO_TICKS(1000)) != pdTRUE) {
+                /* No completion in a second: the link is stuck, not busy. */
+                xSemaphoreTake(s_m.lock, portMAX_DELAY);
+                s_m.stalled++;
+                xSemaphoreGive(s_m.lock);
+            } else {
+                thrpt_fill_and_send();
+            }
+        } else if (interval == 0) {
+            vTaskDelay(pdMS_TO_TICKS(50));
         } else {
             vTaskDelay(pdMS_TO_TICKS(interval));
         }
@@ -272,20 +288,17 @@ static void thrpt_task(void *arg)
         TickType_t now = xTaskGetTickCount();
         if (now - last >= pdMS_TO_TICKS(1000)) {
             uint32_t queued, tx, failed, stalled;
+            int rc_seen;
             xSemaphoreTake(s_m.lock, portMAX_DELAY);
-            queued = s_m.queued; tx = s_m.transmitted; failed = s_m.failed; stalled = s_m.stalled;
+            queued = s_m.queued; tx = s_m.transmitted; failed = s_m.failed;
+            stalled = s_m.stalled; rc_seen = s_m.last_rc;
             xSemaphoreGive(s_m.lock);
 
-            /*
-             * Queued is what we handed over, transmitted is what the controller
-             * confirmed. The difference is where the radio, not the stack, is
-             * the limit - so both are reported rather than just the larger one.
-             */
             ESP_LOGI(TAG,
-                     "mtu=%u payload=%u | sent %u pkt/s, tx %u pkt/s (%.1f KB/s) | lost %u, failed %u | heap %u",
+                     "mtu=%u payload=%u | queued %u/s, tx %u/s (%.1f KB/s) | stalled %u, failed %u, last rc=%d | heap %u",
                      (unsigned)s_mtu, (unsigned)s_m.payload,
                      (unsigned)queued, (unsigned)tx, (tx * (float)s_m.payload) / 1024.0f,
-                     (unsigned)(queued > tx ? queued - tx : 0), (unsigned)failed,
+                     (unsigned)stalled, (unsigned)failed, rc_seen,
                      (unsigned)esp_get_free_heap_size());
 
             xSemaphoreTake(s_m.lock, portMAX_DELAY);
@@ -295,6 +308,8 @@ static void thrpt_task(void *arg)
         }
     }
 }
+
+static int probe_start_advertising(void);
 
 static int probe_on_gap_event(struct ble_gap_event *event, void *arg)
 {
@@ -315,6 +330,9 @@ static int probe_on_gap_event(struct ble_gap_event *event, void *arg)
         xSemaphoreTake(s_m.lock, portMAX_DELAY);
         s_m.running = false;
         xSemaphoreGive(s_m.lock);
+        if (probe_start_advertising() == 0) {
+            ESP_LOGI(TAG, "advertising again");
+        }
         break;
     case BLE_GAP_EVENT_SUBSCRIBE:
         if (event->subscribe.attr_handle == s_data_handle) {
@@ -346,6 +364,8 @@ static int probe_on_gap_event(struct ble_gap_event *event, void *arg)
                 s_m.failed++;
             }
             xSemaphoreGive(s_m.lock);
+            /* The buffer is free again whether or not the send worked. */
+            xSemaphoreGive(s_m.room);
         }
         break;
     case BLE_GAP_EVENT_ADV_COMPLETE:
@@ -354,6 +374,54 @@ static int probe_on_gap_event(struct ble_gap_event *event, void *arg)
     default:
         break;
     }
+    return 0;
+}
+
+
+/*
+ * Start (or restart) advertising.
+ *
+ * Split out of the sync callback because NimBLE stops advertising the moment a
+ * client attaches, and this unit is meant to be found by a phone - so it has to
+ * come back up when that client leaves. Without this the unit advertises once
+ * at boot and is then unreachable forever, which is exactly the kind of fault
+ * that only shows up after someone actually tries to reconnect.
+ */
+static int probe_start_advertising(void)
+{
+    struct ble_hs_adv_fields fields;
+    struct ble_gap_adv_params adv_params;
+    int rc;
+
+    memset(&fields, 0, sizeof fields);
+    fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
+    const char *name = ble_svc_gap_device_name();
+    fields.name = (uint8_t *)name;
+    fields.name_len = (uint8_t)strlen(name);
+    fields.name_is_complete = 1;
+
+    rc = ble_gap_adv_set_fields(&fields);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "could not build the advertisement: rc=%d", rc);
+        return rc;
+    }
+
+    /*
+     * Undirected connectable, not a beacon. A non-connectable beacon would
+     * still be visible, but the next stage needs a connection, so this doubles
+     * as a rehearsal for that.
+     */
+    memset(&adv_params, 0, sizeof adv_params);
+    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
+    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+
+    rc = ble_gap_adv_start(s_own_addr_type, NULL, BLE_HS_FOREVER,
+                           &adv_params, s_gap_cb, NULL);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "could not start advertising: rc=%d", rc);
+        return rc;
+    }
+    s_adv_started = 1;
     return 0;
 }
 
@@ -404,22 +472,11 @@ static void probe_on_sync(void)
         return;
     }
 
-    /*
-     * Undirected connectable, not a beacon.
-     *
-     * A non-connectable beacon does not need to be connectable to be seen, but
-     * the next stage needs a connection and a scan that succeeds against a
-     * beacon proves less than a scan that can actually attach. Connectable
-     * advertising costs one extra byte and makes this a fair rehearsal.
-     */
-    memset(&adv_params, 0, sizeof adv_params);
-    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
-    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-
-    rc = ble_gap_adv_start(s_own_addr_type, NULL, BLE_HS_FOREVER,
-                           &adv_params, s_gap_cb, NULL);
+    (void)adv_params;
+    (void)fields;
+    (void)name;
+    rc = probe_start_advertising();
     if (rc != 0) {
-        ESP_LOGE(TAG, "could not start advertising: rc=%d", rc);
         return;
     }
 
@@ -438,6 +495,12 @@ static void probe_host_task(void *param)
 void ble_probe_start(void)
 {
     s_m.lock = xSemaphoreCreateMutex();
+    /*
+     * A small window rather than the full buffer count: enough to keep the
+     * radio busy between completions, small enough that a stalled connection
+     * is noticed in well under a second instead of after 24 packets.
+     */
+    s_m.room = xSemaphoreCreateCounting(NOTIFY_IN_FLIGHT, NOTIFY_IN_FLIGHT);
     s_m.payload = DEFAULT_PAYLOAD;
 
     ESP_LOGI(TAG, "heap before Bluetooth: %u bytes free, %u largest block",
