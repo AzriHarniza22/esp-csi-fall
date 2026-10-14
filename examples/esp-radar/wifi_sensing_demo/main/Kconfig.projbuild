@@ -202,10 +202,22 @@ config ESP_WIFI_SENSING_MQTT_KEEPALIVE_S
 
 config ESP_WIFI_SENSING_MQTT_WILL_DELAY_S
     int "LWT delay before the broker publishes it (s)"
-    default 5
+    default 60
     range 0 300
     depends on ESP_WIFI_SENSING_MQTT_ENABLE
     help
+        Measured on this access point: after losing Wi-Fi the unit took about
+        seventeen seconds to be back in the typical case, but as long as a
+        hundred and twenty five seconds when the association was slow. A window
+        shorter than the slow case means the broker gives up waiting and
+        publishes the will anyway, which is the flicker this setting exists to
+        prevent.
+
+        Sixty seconds covers the usual case with margin and keeps a genuinely
+        dead unit reported inside the ninety second budget. It cannot cover the
+        worst case seen here without making a real outage take two and a half
+        minutes to notice, which is a worse fault than the one it prevents.
+
         If the device reconnects within this window the will message is
         discarded, so a brief Wi-Fi drop does not flash "offline" on the
         dashboard. Too long delays the notice that the unit really is gone.
