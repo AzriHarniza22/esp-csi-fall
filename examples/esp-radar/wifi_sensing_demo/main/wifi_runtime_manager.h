@@ -115,6 +115,16 @@ esp_err_t wifi_runtime_manager_reconnect(void);
 esp_err_t wifi_runtime_manager_retry_connect(void);
 
 /**
+ * @brief Whether an association attempt is currently in flight.
+ *
+ * Scanning and connecting cannot overlap: the driver abandons a scan while the
+ * station is connecting, and abandons the connection attempt if a scan starts.
+ * The uplink watchdog asks this before it scans, so that a periodic reachability
+ * check cannot break an association that was about to succeed.
+ */
+bool wifi_runtime_manager_is_connecting(void);
+
+/**
  * @brief Copy the current connection snapshot.
  *
  * @param[out] info Destination, ignored when NULL.

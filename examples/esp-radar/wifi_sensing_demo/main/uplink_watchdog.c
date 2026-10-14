@@ -260,6 +260,23 @@ if (!link_is_up()) {
              * threshold, so the restart below was unreachable in exactly the
              * situation it exists for.
              */
+            /*
+             * A scan and a connect cannot happen at the same time. The driver
+             * documents that scanning is abandoned while the station is
+             * connecting, and the other way round, which makes a watchdog that
+             * scans on a timer able to break an association attempt that was
+             * about to succeed. The two were measured fighting each other here:
+             * an access point the unit could see clearly was refused over and
+             * over while the unit was busy looking for it.
+             *
+             * So the scan only runs when nothing else is trying. A connect in
+             * flight is itself proof that the unit is working on the link, and
+             * the next pass will see the result.
+             */
+            if (wifi_runtime_manager_is_connecting()) {
+                ESP_LOGD(TAG, "association in progress, leaving the radio to it");
+                continue;
+            }
             if (!access_point_is_in_range()) {
                 failing_s = 0;
                 s_failing = false;

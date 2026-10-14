@@ -787,9 +787,39 @@ esp_err_t wifi_runtime_manager_set_credentials(const char *ssid, const char *pas
      * threshold is carried over by esp_wifi_get_config(), so an explicit authmode
      * is required: without it a previous WPA2 threshold would reject an open AP,
      * and a stale WPA3 threshold would reject a WPA2 one.
+     *
+     * The value is a weakest-acceptable-security floor, not a set of things to
+     * try. Widening it to admit WPA3 as well was tried here and made matters
+     * worse, not better: with WPA3 in the threshold the driver attempts SAE and
+     * then refuses an access point that only speaks WPA2-PSK, reporting
+     * NO_AP_FOUND_W_COMPATIBLE_SECURITY. An error whose text points at "there is
+     * no such network" for what is really a cipher negotiation failure.
      */
     config.sta.threshold.authmode = (config.sta.password[0] == '\0') ? WIFI_AUTH_OPEN
                                                                    : WIFI_AUTH_WPA2_PSK;
+
+    /*
+     * Scan every channel and take the strongest match.
+     *
+     * The default is WIFI_FAST_SCAN, which stops at the first access point that
+     * matches rather than the best one. Where there are two dozen access points
+     * in view, several on the same channel, "first match" is close to arbitrary
+     * and the unit can pick one it cannot hear over another sitting right next
+     * to it. It was measured here: a target visible at -58 dBm was repeatedly
+     * refused while a different one of the same name sat far weaker.
+     */
+    config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+
+    /*
+     * Retry inside the driver's own connect attempt.
+     *
+     * esp_wifi_connect() is documented as trying exactly once. The application
+     * loop this unit had been using waited thirty seconds between attempts,
+     * which is a long time to sit doing nothing next to an access point that is
+     * only a decibel or two away.
+     */
+    config.sta.failure_retry_cnt = 3;
 
     /*
      * esp_wifi_set_config() returns ESP_ERR_WIFI_STATE while the STA is still
@@ -873,6 +903,15 @@ esp_err_t wifi_runtime_manager_reconnect(void)
  *
  * @return Result of the single attempt; callers schedule the next one themselves.
  */
+bool wifi_runtime_manager_is_connecting(void)
+{
+    lock();
+    bool connecting = s_mgr.info.state == WIFI_RUNTIME_STATE_CONNECTING ||
+                      s_mgr.info.state == WIFI_RUNTIME_STATE_CONFIGURING;
+    unlock();
+    return connecting;
+}
+
 esp_err_t wifi_runtime_manager_retry_connect(void)
 {
     if (!s_mgr.initialized) {

@@ -1217,7 +1217,7 @@ static void handle_command(char *line)
          * longer has to be hex encoded by hand. The hex form stays because it
          * is what the unit already accepts and a phone app can keep sending it.
          */
-        if (strncmp(cmd, "WIFI_CONFIG ", 13) == 0) {
+        if (strncmp(cmd, "WIFI_CONFIG ", 12) == 0) {
             handle_wifi_config_json(cmd + 13);
             return;
         }

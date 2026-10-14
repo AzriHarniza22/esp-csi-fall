@@ -9,6 +9,7 @@
 #include "web_serial_monitor.h"
 
 #include <inttypes.h>
+#include <math.h>
 #include <string.h>
 
 #include "esp_event.h"
@@ -161,6 +162,17 @@ static mqtt_peer_slot_t s_slots[MQTT_MAX_PEERS];
  * that moves only in its last digits is not worth a message.
  */
 #define MQTT_PUBLISH_MIN_MS 500
+
+/*
+ * Below this the two continuous values are treated as unchanged.
+ *
+ * Chosen against measured readings rather than taste: a still room drifts by a
+ * few units in the fourth decimal place, while actual movement moves them by
+ * orders of magnitude more. A band in between separates the two without
+ * suppressing anything a chart would show.
+ */
+#define MQTT_JITTER_DEADBAND 0.0008f
+#define MQTT_WANDER_DEADBAND 0.0005f
 static volatile bool s_connected = false;
 static volatile bool s_resubscribe = false;
 static volatile bool s_state_pending = false;
@@ -773,18 +785,32 @@ static void mqtt_task(void *arg)
                 bool due = slot->has_signal ? since >= idle : since >= idle;
 
                 if (floor_ok && due) {
-                    bool same = slot->has_published &&
-                                slot->published.jitter == slot->newest.jitter &&
-                                slot->published.wander == slot->newest.wander &&
-                                slot->published.motion == slot->newest.motion &&
-                                slot->published.presence_ready == slot->newest.presence_ready;
                     /*
-                     * Nothing moved, so nothing is sent. A peer with a signal
-                     * still gets one reading per idle period regardless, which
-                     * is what keeps a quiet room visible on the dashboard rather
-                     * than looking identical to a dead unit.
+                     * A state change is always worth sending: motion is a
+                     * discrete event, and a value that has not meaningfully
+                     * moved is not a reading, it is the same reading again.
+                     *
+                     * The comparison on the two continuous values is a
+                     * deadband rather than equality, because they never settle.
+                     * They drift in their last digits continuously, and comparing
+                     * exactly meant that on a busier access point, where there is
+                     * more of everything, the unit published at two and a half
+                     * messages a second and projected 297 KB an hour against a
+                     * 300 KB budget. A busy room is not a busy uplink.
+                     *
+                     * A peer with a signal still reports on a slow heartbeat
+                     * regardless, so a quiet room stays visible rather than
+                     * looking identical to a dead unit.
                      */
-                    if (!same || since >= idle * 2) {
+                    bool state_changed = slot->has_published &&
+                                         (slot->published.motion != slot->newest.motion ||
+                                          slot->published.presence_ready != slot->newest.presence_ready);
+                    bool moved = !slot->has_published ||
+                                 fabsf(slot->newest.jitter - slot->published.jitter) > MQTT_JITTER_DEADBAND ||
+                                 fabsf(slot->newest.wander - slot->published.wander) > MQTT_WANDER_DEADBAND;
+                    bool first_run = !slot->has_published;
+
+                    if (first_run || state_changed || moved || since >= idle * 2) {
                         publish_peer_sample(&slot->newest, slot->has_signal);
                         slot->published = slot->newest;
                         slot->has_published = true;
@@ -1189,7 +1215,17 @@ esp_err_t mqtt_publisher_init(esp_wifi_sensing_fsm_handle_t fsm,
     if (!s_cmd_queue) {
         return ESP_ERR_NO_MEM;
     }
-    s_ack_queue = xQueueCreate(8, sizeof(mqtt_ack_t));
+    /*
+     * Deeper than the command queue, deliberately.
+     *
+     * A burst of commands produces more replies than commands: the ones that
+     * fit the command queue are answered with a result, and the ones that do
+     * not are answered with a refusal, which is the only way the sender finds
+     * out its command was dropped rather than lost. Sizing this the same as the
+     * command queue meant a burst overflowed it, and the refusals were dropped
+     * on the floor - the unit was correctly saying no and saying nothing.
+     */
+    s_ack_queue = xQueueCreate(MQTT_CMD_QUEUE_LEN * 2, sizeof(mqtt_ack_t));
     if (!s_ack_queue) {
         return ESP_ERR_NO_MEM;
     }
