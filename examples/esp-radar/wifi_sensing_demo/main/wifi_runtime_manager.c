@@ -792,6 +792,28 @@ esp_err_t wifi_runtime_manager_set_credentials(const char *ssid, const char *pas
                                                                    : WIFI_AUTH_WPA2_PSK;
 
     /*
+     * Scan every channel and take the strongest match.
+     *
+     * The default is WIFI_FAST_SCAN, which stops at the first access point that
+     * matches rather than the best one. Where there are two dozen networks in
+     * view, several sharing a channel, "first match" is close to arbitrary, and
+     * this unit was measured refusing a target visible at -58 dBm while a
+     * weaker one of the same name sat far weaker in range.
+     */
+    config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+
+    /*
+     * Retry inside the driver's own connect attempt.
+     *
+     * esp_wifi_connect() is documented as trying exactly once. The application
+     * loop waits far longer between attempts than that, which is a long time to
+     * sit doing nothing next to an access point that is only a decibel or two
+     * away.
+     */
+    config.sta.failure_retry_cnt = 3;
+
+    /*
      * esp_wifi_set_config() returns ESP_ERR_WIFI_STATE while the STA is still
      * connecting, which is reachable when the DISCONNECTED event was lost. Give
      * the driver a few short retries instead of failing the whole reconfiguration.
