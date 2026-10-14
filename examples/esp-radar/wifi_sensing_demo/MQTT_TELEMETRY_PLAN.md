@@ -1,8 +1,49 @@
 # MQTT 5.0 Telemetry & Remote Control Plan
 
-Status: siap dieksekusi
+Status: fase 1-5 selesai, termasuk item T3-T10 (Request/Response di dashboard,
+config JSON, uplink on-change, payload ringkas, gap rendering, harness uji)
 Target: `examples/esp-radar/wifi_sensing_demo`
 Branch: `wifi-sensing-web-serial`
+
+> Dokumen ini adalah rencana. Angka dan perilaku yang terukur ada di bagian 8.
+
+## 0. Ringkasan yang sudah jadi
+
+| Area | Bentuk sekarang |
+|---|---|
+| Kontrol | MQTT 5 Request/Response: `Response Topic` + `Correlation Data`, retry sampai balasan cocok |
+| Konfirmasi | Balasan per-perintah dulu; snapshot status sebagai cadangan |
+| Telemetri | On-change, floor 500 ms, peer tanpa sinyal 10× lebih lambat |
+| Payload | `74` byte (sebelumnya `159`), kunci pendek, tanpa MAC |
+| Metadata | MAC peer dipindah ke `status.peers` |
+| Dashboard | MQTT 5 WSS, kontrol, pratinjau balasan, gap digambar sebagai putus-putus |
+| Uji | `python3 tools/mqtt_test.py` — 7 pemeriksaan, keluar non-nol bila gagal |
+
+### Format telemetri
+
+```json
+{"p":"AP","j":0.005280,"w":0.000000,"m":false,"r":true,"s":true,"t":169505}
+```
+
+`p` peer · `j` jitter · `w` wander · `m` bergerak · `r` presence siap ·
+`s` punya sinyal · `t` uptime ms.
+
+Snapshot status (retained) sama seperti sebelumnya, ditambah:
+
+```json
+"peers": {"AP":"f8:73:1a:59:23:f4","MAC_1":"1a:00:00:00:00:00"}
+```
+
+### Perintah Wi-Fi
+
+`WIFI_CONFIG` sekarang menerima JSON, sehingga SSID ber-spasi tidak perlu
+di-encode hex secara manual:
+
+```
+HMSCMD WIFI_CONFIG {"ssid":"kos mutiara ","password":"pradahouse"}
+```
+
+`WIFI_CONFIG_HEX` tetap ada dan tetap diterima.
 
 ## 1. Tujuan
 
@@ -370,7 +411,70 @@ penambahan telemetri MQTT 5.0.
    -58 lalu hilang. Mitigasi yang sudah ada: retry tanpa batas, watchdog
    reconnect, dan stimulus.
 
-## 9. Referensi
+## 9. Yang terukur, dan batasnya
+
+Semuanya di sini diukur di AP yang sama (`kos mutiara`), bukan diasumsikan.
+
+**Telemetri 5 menit berturut-turut:** 56, 56, 57, 56, 55 pesan per menit dari
+sekitar 60 yang dihasilkan unit. Rebuild sesi terjadi di detik 145, 286 dan 427,
+masing-masing reconnect dalam satu detik.
+
+**Payload:** satu bacaan peer 74 byte, sebelumnya 159. Alasan shortening kunci dan
+memindahkan MAC ke status ada di komentar `publish_peer_sample`.
+
+**Latensi kontrol:** 4–17 detik saat percobaan pertama, karena balasan ikut
+antrean telemetry. Balasan sekarang dikuras lebih dulu; perlu diukur ulang di
+_build_ final.
+
+**Sesi yang macet.** Ini yang paling penting dan belum berakar penuh:
+
+- Sesi MQTT yang sudah terhubung berhenti mengirim sekitar 2,5 menit setelah
+  connect. Tidak ada `MQTT_EVENT_DISCONNECTED`, tidak ada error, broker tidak
+  menolak apa pun.
+- Saat itu jaringan terbukti sehat: 20/20 probe TCP baru ke broker berhasil,
+  `ping_ok` 20/20, nol error sisi broker.
+- `esp_mqtt_client_reconnect()` **tidak** memulihkannya dan send buffer tidak
+  bergerak. `mqtt_client_create()` (stop → destroy → create → start) memulihkannya
+  seketika.
+- Dua bentuknya ditutup dua pemeriksaan berbeda: antrean macet di atas ~4 KB
+  menangkap kasus trafik padat, dan probe QoS 1 yang harus dibalas broker
+  menangkap kasus trafik lambat di mana antrean tetap kecil.
+
+Jadi sistemnya **bertahan terhadap** cacat ini, belum menghapusnya. Yang tersisa
+adalah jeda sesaat saat sesi dibangun ulang, dan itulah alasan dashboard
+mengirim ulang sampai balasannya benar-benar cocok.
+
+**Pemulihan AP.** AP ini menjatuhkan unit secara berkala: terlihat di scan tapi
+tidak memberi alamat IP. Watchdog sekarang mencoba re-associate lebih dulu
+(beberapa detik) baru resort (puluhan detik), karena restart membuang seluruh
+state untuk mengulang langkah yang sudah bisa dilakukan driver Wi-Fi. Ambang
+tindakan diturunkan dari 300 ke 90 detik, karena ambang lama membuat dashboard
+buta selama lima penuh untuk gangguan yang selesai dalam hitungan detik.
+
+**Keterbatasan yang diketahui:**
+
+- Pemulihan sesi masih berputar di sekitar 2,5 menit.
+- `check_rate_limit` tidak bisa-menassert jumlah penolakan lewat jaringan, karena
+  limiter bekerja pada laju kedatangan dan link ini mengantarkan perintah satu
+  per satu. Yang diuji adalah unit tetap sehat setelah dibanjiri.
+- Dashboard belum diuji di browser sungguhan; logikanya diverifikasi statis dan
+  jalur publish diverifikasi terhadap broker, bukan melalui UI.
+
+## 10. Menjalankan pengujian
+
+```bash
+python3 tools/mqtt_test.py              # semua pemeriksaan
+python3 tools/mqtt_test.py rr corr      # hanya yang disebut
+```
+
+Butuh `paho-mqtt`. Menyambung ke broker sungguhan, jadi unit harus sudah flash
+dan tersambung. Keluarannya non-nol bila ada yang gagal, sehingga bisa dipakai
+dari script.
+
+Pemeriksaan: `status`, `telemetry`, `rr`, `corr`, `ratelimit`, `security`,
+`stimulus`.
+
+## 11. Referensi
 
 - ESP-MQTT Programming Guide — LWT, blocking pada publish/enqueue, keepalive
 - ESP-FAQ MQTT — reconnection, disconnect handling, keepalive

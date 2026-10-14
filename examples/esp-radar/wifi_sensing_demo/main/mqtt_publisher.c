@@ -92,8 +92,16 @@ static const char *s_ca_cert =
  * retransmitted. That turns "are my publishes reaching the broker" into
  * something the unit can answer for itself, with no help from the network.
  */
-#define MQTT_LIVENESS_PERIOD_MS  30000
-#define MQTT_LIVENESS_TIMEOUT_MS 90000
+#define MQTT_LIVENESS_PERIOD_MS  15000
+#define MQTT_LIVENESS_TIMEOUT_MS  25000
+
+/*
+ * MQTT keepalive on this unit is deliberately short. The stock setting waits
+ * roughly half a keepalive interval plus a network timeout before it admits a
+ * session is dead, which is over thirty seconds of silence; measured on this
+ * link a control round trip that landed in that window took seventeen.
+ * Fifteen seconds notices sooner, and the probes above usually catch it first.
+ */
 
 /*
  * Shortest gap between two connection rebuilds. The fault this guards against
@@ -117,14 +125,42 @@ typedef struct {
 /* Per-peer publish slot, so a rate limit never silences a quiet peer. */
 typedef struct {
     char name[16];
+    uint8_t mac[6];
     bool seen;
     bool dirty;
     bool has_signal;      /* ever produced a non-zero reading */
     uint32_t last_publish_ms;
     mqtt_sample_t newest;
+    /*
+     * What was last put on the wire, kept so a sample that says exactly what
+     * the previous one said can be recognised and skipped.
+     */
+    mqtt_sample_t published;
+    bool has_published;
 } mqtt_peer_slot_t;
 
 static esp_mqtt_client_handle_t s_client = NULL;
+
+/*
+ * At file scope so the status snapshot can name the peers it describes. The
+ * device address of a peer never changes, so carrying it in every reading was
+ * paying for the same seventeen characters several times a second.
+ */
+static mqtt_peer_slot_t s_slots[MQTT_MAX_PEERS];
+
+/*
+ * Shortest gap between two readings for the same peer.
+ *
+ * Telemetry used to go out on a fixed interval whether or not anything had
+ * moved. Measured on this unit that was overwhelmingly wasted: a hundred and
+ * forty four readings in a row carried only eleven distinct values. Reading a
+ * chart does not need the same number told to it repeatedly, so a reading is
+ * now sent when it differs from the last one sent.
+ *
+ * The floor stays because jitter wanders by very small amounts, and a value
+ * that moves only in its last digits is not worth a message.
+ */
+#define MQTT_PUBLISH_MIN_MS 500
 static volatile bool s_connected = false;
 static volatile bool s_resubscribe = false;
 static volatile bool s_state_pending = false;
@@ -481,12 +517,36 @@ static void publish_status(bool online)
         return;
     }
     char topic[MQTT_NVS_MAX_LEN + 16];
-    char payload[400];
+    char payload[512];
 
     ht_stimulus_config_t stim = {0};
     (void)ht_stimulus_get_config(&stim);
     wifi_ap_record_t ap = {0};
     esp_wifi_sta_get_ap_info(&ap);
+
+    /*
+     * The addresses of the peers being reported on.
+     *
+     * They used to travel inside every reading. A MAC does not change while a
+     * peer is tracked, so a dashboard that wants it can read it once from here
+     * and label its charts from that, instead of being handed the same
+     * seventeen characters several times a second to throw away.
+     */
+    /* name in quotes plus a MAC in quotes, plus separator and slack */
+    char peers[MQTT_MAX_PEERS * 40];
+    size_t pn = 0;
+    peers[0] = '\0';
+    for (size_t i = 0; i < MQTT_MAX_PEERS; i++) {
+        if (!s_slots[i].seen) {
+            continue;
+        }
+        int w = snprintf(peers + pn, sizeof(peers) - pn, "%s\"%s\":\"" MACSTR "\"",
+                         pn ? "," : "", s_slots[i].name, MAC2STR(s_slots[i].mac));
+        if (w < 0 || (size_t)w >= sizeof(peers) - pn) {
+            break;
+        }
+        pn += (size_t)w;
+    }
 
     snprintf(topic, sizeof(topic), "%s/status", s_prefix);
     snprintf(payload, sizeof(payload),
@@ -494,7 +554,8 @@ static void publish_status(bool online)
              "\"stimulus\":{\"enabled\":%s,\"burst_bytes\":%lu,\"pause_ms\":%lu},"
              "\"allow_reconfig\":%s,\"uplink_failing\":%s,"
              "\"uplink_down_s\":%lu,\"restarts\":%u,\"outbox\":%d,"
-             "\"rssi\":%d,\"bssid\":\"" MACSTR "\",\"channel\":%u,\"ts_ms\":%" PRIu64 "}",
+             "\"rssi\":%d,\"bssid\":\"" MACSTR "\",\"channel\":%u,"
+             "\"peers\":{%s},\"ts_ms\":%" PRIu64 "}",
              online ? "true" : "false", CONFIG_IDF_TARGET,
              stim.enabled ? "true" : "false", (unsigned long)stim.burst_bytes, (unsigned long)stim.pause_ms,
              CONFIG_ESP_WIFI_SENSING_MQTT_ALLOW_RECONFIG ? "true" : "false",
@@ -507,7 +568,8 @@ static void publish_status(bool online)
              (unsigned long)uplink_watchdog_failure_seconds(),
              (unsigned)uplink_watchdog_reboot_count(),
              esp_mqtt_client_get_outbox_size(s_client),
-             ap.rssi, MAC2STR(ap.bssid), ap.primary, (uint64_t)(esp_timer_get_time() / 1000ULL));
+             ap.rssi, MAC2STR(ap.bssid), ap.primary, peers,
+             (uint64_t)(esp_timer_get_time() / 1000ULL));
     /*
      * QoS 0, retained. The retain is what carries the durability here: a
      * dashboard that connects later still reads the current state immediately.
@@ -527,32 +589,32 @@ static void publish_status(bool online)
 static void publish_peer_sample(const mqtt_sample_t *sample, bool has_signal)
 {
     char topic[MQTT_NVS_MAX_LEN + 32];
-    char payload[256];
+    char payload[160];
 
     snprintf(topic, sizeof(topic), "%s/peer/%s", s_prefix, sample->name);
+
+    /*
+     * Short keys, and no device address.
+     *
+     * These go out several times a second for the life of the unit, and the
+     * full spelling of every field was the bulk of the message: the same
+     * reading was 159 bytes, of which more than half was the name of the
+     * values and the MAC of a peer that can never change. Shortening the keys
+     * and moving the address into the status snapshot cuts this to a little
+     * over half its size, which matters on a link that is already struggling.
+     *
+     * p peer  j jitter  w wander  m motion  r presence ready  s has signal
+     * t device uptime in ms
+     */
     snprintf(payload, sizeof(payload),
-             "{\"peer\":\"%s\",\"mac\":\"" MACSTR "\","
-             "\"jitter\":%.6f,\"wander\":%.6f,"
-             "\"motion\":%s,\"motion_state\":%d,\"presence_ready\":%s,"
-             "\"signal\":%s,\"ts_ms\":%" PRIu64 "}",
-             sample->name, MAC2STR(sample->mac),
+             "{\"p\":\"%s\",\"j\":%.6f,\"w\":%.6f,\"m\":%s,\"r\":%s,"
+             "\"s\":%s,\"t\":%" PRIu64 "}",
+             sample->name,
              sample->jitter, sample->wander,
              sample->motion ? "true" : "false",
-             sample->motion ? (int)ESP_WIFI_SENSING_FSM_STATE_ACTIVE
-                            : (int)ESP_WIFI_SENSING_FSM_STATE_INACTIVE,
              sample->presence_ready ? "true" : "false",
              has_signal ? "true" : "false",
              (uint64_t)(esp_timer_get_time() / 1000ULL));
-
-    /*
-     * The publish property is consumed by the first message that uses it, since
-     * mqtt_client.c clears publish_property_info after one publish, so it has to
-     * be set again before every message. Without this a dashboard opened after
-     * an outage keeps drawing minutes-old samples as if they were live.
-     */
-    esp_mqtt5_client_set_publish_property(s_client, &(esp_mqtt5_publish_property_config_t){
-        .message_expiry_interval = CONFIG_ESP_WIFI_SENSING_MQTT_MESSAGE_EXPIRY_S,
-    });
 
     /* store must be true even at QoS 0 or enqueue drops the message. */
     esp_mqtt_client_enqueue(s_client, topic, payload, 0, 0, 0, true);
@@ -583,7 +645,7 @@ static void mqtt_recover(const char *why)
 static void mqtt_task(void *arg)
 {
     (void)arg;
-    mqtt_peer_slot_t slots[MQTT_MAX_PEERS] = {0};
+    mqtt_peer_slot_t *slots = s_slots;
     mqtt_sample_t sample;
     uint32_t last_status_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
 
@@ -602,6 +664,7 @@ static void mqtt_task(void *arg)
                         slot = &slots[i];
                         slot->seen = true;
                         snprintf(slot->name, sizeof(slot->name), "%s", sample.name);
+                        memcpy(slot->mac, sample.mac, sizeof(slot->mac));
                         break;
                     }
                 }
@@ -611,6 +674,7 @@ static void mqtt_task(void *arg)
             if (!slot) {
                 slot = &slots[0];
                 snprintf(slot->name, sizeof(slot->name), "%s", sample.name);
+                memcpy(slot->mac, sample.mac, sizeof(slot->mac));
             }
             if (sample.jitter != 0.0f || sample.wander != 0.0f || sample.motion) {
                 slot->has_signal = true;
@@ -619,47 +683,18 @@ static void mqtt_task(void *arg)
             slot->dirty = true;
         }
 
-        if (s_client && s_connected) {
-            uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
-            for (size_t i = 0; i < MQTT_MAX_PEERS; i++) {
-                if (!slots[i].seen || !slots[i].dirty) {
-                    continue;
-                }
-                /*
-                 * A peer with no signal at all is reported at a slow rate only.
-                 *
-                 * The configured MACs for the non-AP channels are placeholders
-                 * and there is no traffic to measure on them, so publishing
-                 * three values per second for them spent most of the unit's
-                 * uplink on zeroes. That crowded the state snapshot and the
-                 * command acks out of the send buffer, which is what made
-                 * control feel unreliable. Keeping them slow costs the dashboard
-                 * nothing, since there is no signal to show anyway.
-                 */
-                uint32_t interval = slots[i].has_signal
-                                        ? (uint32_t)CONFIG_ESP_WIFI_SENSING_MQTT_PUBLISH_MS
-                                        : (uint32_t)CONFIG_ESP_WIFI_SENSING_MQTT_PUBLISH_MS * 10;
-                if ((now_ms - slots[i].last_publish_ms) < interval) {
-                    continue;
-                }
-                publish_peer_sample(&slots[i].newest, slots[i].has_signal);
-                slots[i].last_publish_ms = now_ms;
-                slots[i].dirty = false;
-            }
-        }
-
         /*
-         * Resubscribe on every connect edge. Relying on the broker session to
-         * restore the subscription means a broker restart silently leaves the
-         * unit accepting no commands, which is the failure that matters here.
+         * Telemetry goes out when it changes, not on a timer.
+         *
+         * A reading identical to the one already on the wire tells a chart
+         * nothing, and sending it anyway is what filled the send buffer on a
+         * link that could not always keep up. The floor below still applies so
+         * that jitter drifting by its last digits does not become a message of
+         * its own.
+         *
+         * Replies are drained first regardless, so a person waiting on a button
+         * is never queued behind readings nobody is waiting for.
          */
-        if (s_resubscribe && s_client && s_connected) {
-            char topic[MQTT_NVS_MAX_LEN + 8];
-            snprintf(topic, sizeof(topic), "%s/cmd", s_prefix);
-            s_resubscribe = false;
-            esp_mqtt_client_subscribe(s_client, topic, 1);
-        }
-
         /*
          * Acks are QoS 0 and retained, and are queued with len=0 like the
          * telemetry and the status snapshot.
@@ -714,6 +749,66 @@ static void mqtt_task(void *arg)
                 }
             }
         }
+
+        if (s_client && s_connected) {
+            uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
+            for (size_t i = 0; i < MQTT_MAX_PEERS; i++) {
+                mqtt_peer_slot_t *slot = &slots[i];
+                if (!slot->seen || !slot->dirty) {
+                    continue;
+                }
+                /*
+                 * A peer with no signal at all is reported at a slow rate only.
+                 *
+                 * The configured MACs for the non-AP channels are placeholders
+                 * and there is no traffic to measure on them, so publishing
+                 * three values per second for them spent most of the unit's
+                 * uplink on zeroes.
+                 */
+                uint32_t idle = slot->has_signal
+                                    ? (uint32_t)CONFIG_ESP_WIFI_SENSING_MQTT_PUBLISH_MS
+                                    : (uint32_t)CONFIG_ESP_WIFI_SENSING_MQTT_PUBLISH_MS * 10;
+                uint32_t since = now_ms - slot->last_publish_ms;
+                bool floor_ok = since >= MQTT_PUBLISH_MIN_MS;
+                bool due = slot->has_signal ? since >= idle : since >= idle;
+
+                if (floor_ok && due) {
+                    bool same = slot->has_published &&
+                                slot->published.jitter == slot->newest.jitter &&
+                                slot->published.wander == slot->newest.wander &&
+                                slot->published.motion == slot->newest.motion &&
+                                slot->published.presence_ready == slot->newest.presence_ready;
+                    /*
+                     * Nothing moved, so nothing is sent. A peer with a signal
+                     * still gets one reading per idle period regardless, which
+                     * is what keeps a quiet room visible on the dashboard rather
+                     * than looking identical to a dead unit.
+                     */
+                    if (!same || since >= idle * 2) {
+                        publish_peer_sample(&slot->newest, slot->has_signal);
+                        slot->published = slot->newest;
+                        slot->has_published = true;
+                        slot->last_publish_ms = now_ms;
+                    } else {
+                        slot->last_publish_ms = now_ms;
+                    }
+                }
+                slot->dirty = false;
+            }
+        }
+
+        /*
+         * Resubscribe on every connect edge. Relying on the broker session to
+         * restore the subscription means a broker restart silently leaves the
+         * unit accepting no commands, which is the failure that matters here.
+         */
+        if (s_resubscribe && s_client && s_connected) {
+            char topic[MQTT_NVS_MAX_LEN + 8];
+            snprintf(topic, sizeof(topic), "%s/cmd", s_prefix);
+            s_resubscribe = false;
+            esp_mqtt_client_subscribe(s_client, topic, 1);
+        }
+
 
         /*
          * A command just ran, so push the new state straight away instead of
@@ -834,7 +929,7 @@ static const char *const s_cmd_whitelist[] = {
     "SET_STIMULUS",  "GET_STIMULUS",  "AUTO_RECONNECT",
     "GET_CFG",       "SET_CFG",       "SET_CSI_PERIOD",
     "SET_AMPLITUDE_LOG",
-    "WIFI_INFO",     "WIFI_CONFIG_HEX", "WIFI_DISCONNECT", "WIFI_RECONNECT",
+    "WIFI_INFO",     "WIFI_CONFIG_HEX", "WIFI_CONFIG", "WIFI_DISCONNECT", "WIFI_RECONNECT",
     "FSM_START",     "FSM_STOP",      "RESET_BASELINE",
     "TRAIN_START",   "TRAIN_STOP",    "MQTT_STATUS",
     "START_STREAM",  "STOP_STREAM",   "HELLO",
@@ -848,6 +943,9 @@ static const char *const s_cmd_whitelist[] = {
  * ack sent from this task while mqtt_task is publishing QoS 0 telemetry loses
  * its pending state and silently never reaches the broker.
  */
+static void send_ack_line(const char *ack, const char *response_topic,
+                          const void *correlation, uint8_t correlation_len);
+
 static void send_ack_line(const char *ack, const char *response_topic,
                           const void *correlation, uint8_t correlation_len)
 {
@@ -863,6 +961,16 @@ static void send_ack_line(const char *ack, const char *response_topic,
         memcpy(item.correlation, correlation, correlation_len);
         item.correlation_len = correlation_len;
     }
+    /*
+     * Where a reply is going is worth having in the log. A command that names a
+     * response topic is answered there and nowhere else, so when a reply goes
+     * missing this line is what says whether the unit chose the per-request
+     * topic or fell back to the shared one.
+     */
+    ESP_LOGI(TAG, "reply -> %s%s%s",
+             item.response_topic[0] ? item.response_topic : s_prefix,
+             item.response_topic[0] ? "" : "/ack",
+             item.correlation_len ? " (correlated)" : "");
     if (xQueueSend(s_ack_queue, &item, 0) != pdTRUE) {
         ESP_LOGW(TAG, "ack queue full, dropping");
     }
@@ -959,7 +1067,21 @@ static void mqtt_exec_enqueue(const void *data, int len,
         cmd.response_topic[response_topic_len] = '\0';
     }
     if (xQueueSend(s_cmd_queue, &cmd, 0) != pdTRUE) {
-        ESP_LOGW(TAG, "cmd queue full, dropping");
+        ESP_LOGW(TAG, "cmd queue full, refusing");
+        /*
+         * Silence here is the worst possible answer.
+         *
+         * A command that is dropped without a reply looks exactly like a unit
+         * that has gone away, and the dashboard retries it for the full window
+         * before reporting failure. Saying "busy" turns an invisible drop into
+         * an answer the sender can act on, which is the difference between a
+         * momentary burst and a control panel that appears broken.
+         */
+        char line[MQTT_CMD_MAX_LEN + 64];
+        snprintf(line, sizeof(line),
+                 "{\"type\":\"ack\",\"cmd\":\"mqtt\",\"ok\":false,"
+                 "\"detail\":\"busy, command queue full\"}");
+        send_ack_line(line, response_topic, correlation, correlation_len);
     }
 }
 
@@ -1010,9 +1132,10 @@ static void mqtt_exec_task(void *arg)
          * unit on a network it cannot reach the broker from, so it stays behind
          * its own build switch.
          */
-        if (strcmp(verb, "WIFI_CONFIG_HEX") == 0 &&
+        if ((strcmp(verb, "WIFI_CONFIG_HEX") == 0 ||
+             strcmp(verb, "WIFI_CONFIG") == 0) &&
             !CONFIG_ESP_WIFI_SENSING_MQTT_ALLOW_RECONFIG) {
-            ESP_LOGW(TAG, "src=mqtt rejected: WIFI_CONFIG_HEX disabled");
+            ESP_LOGW(TAG, "src=mqtt rejected: %s disabled", verb);
             send_reject("reconfig disabled", cmd.response_topic, cmd.correlation,
                         cmd.correlation_len);
             continue;

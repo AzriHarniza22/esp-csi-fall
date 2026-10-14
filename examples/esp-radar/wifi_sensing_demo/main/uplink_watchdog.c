@@ -24,6 +24,13 @@
 
 #include <string.h>
 
+/*
+ * How many times to re-associate with the access point before spending a full
+ * restart on the same fault. Re-associating costs a second or two; a restart
+ * costs the whole boot sequence, so it is the fallback, not the first move.
+ */
+#define UPLINK_WIFI_RECONNECT_TRIES 3
+
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_attr.h"
@@ -54,6 +61,7 @@ static const char *TAG = "uplink_watchdog";
 #define UPLINK_NVS_KEY       "uplink_reboots"
 
 static uint8_t s_reboot_count;
+static int s_reconnect_tries = 0;
 
 static uint8_t reboot_count_load(void)
 {
@@ -266,6 +274,27 @@ if (!link_is_up()) {
             if (failing_s < fail_after_s) {
                 continue;
             }
+            /*
+             * The access point is right there and this board is simply not
+             * associated with it. That is a radio problem, not a fault anywhere
+             * else on the unit, and re-associating fixes it in a second or two.
+             *
+             * Restarting the whole board takes far longer and throws away every
+             * bit of state just to repeat a step the Wi-Fi driver already knows
+             * how to do. So the cheap recovery goes first, and a restart is only
+             * spent once reconnecting has itself stopped helping.
+             */
+            if (++s_reconnect_tries <= UPLINK_WIFI_RECONNECT_TRIES) {
+                ESP_LOGW(TAG, "unassociated %" PRIu32 " s, re-associating with the "
+                              "access point (try %d of %d)",
+                         failing_s, s_reconnect_tries, UPLINK_WIFI_RECONNECT_TRIES);
+                esp_err_t err = wifi_runtime_manager_reconnect();
+                ESP_LOGW(TAG, "re-associate returned %s", esp_err_to_name(err));
+                failing_s = 0;
+                continue;
+            }
+            ESP_LOGW(TAG, "re-associating did not help, falling back to a restart");
+            s_reconnect_tries = 0;
             if (s_reboot_count >= CONFIG_ESP_WIFI_SENSING_UPLINK_MAX_REBOOTS) {
                 ESP_LOGW(TAG, "unassociated %" PRIu32 " s with the access point in range, "
                               "%u restarts already tried; not restarting again",
@@ -277,6 +306,7 @@ if (!link_is_up()) {
                           "range, restarting (attempt %u of %d)",
                      failing_s, s_reboot_count + 1,
                      CONFIG_ESP_WIFI_SENSING_UPLINK_MAX_REBOOTS);
+            s_reconnect_tries = 0;
             s_reboot_count++;
             reboot_count_store(s_reboot_count);
             fflush(stdout);
@@ -284,6 +314,7 @@ if (!link_is_up()) {
             esp_restart();
             continue;
         }
+        s_reconnect_tries = 0;
 
         /*
          * The endpoint is re-read each cycle so a broker changed at runtime with

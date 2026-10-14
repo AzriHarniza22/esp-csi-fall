@@ -288,13 +288,16 @@ config ESP_WIFI_SENSING_UPLINK_PROBE_TIMEOUT_S
         this much and no more.
 
 config ESP_WIFI_SENSING_UPLINK_FAIL_AFTER_S
-    int "Restart after the path has been down this long (s)"
-    default 300
+    int "Act after the path has been down this long (s)"
+    default 90
     range 60 3600
     depends on ESP_WIFI_SENSING_UPLINK_WATCHDOG_ENABLE
     help
-        Long enough to ride out a router or ISP hiccup. A TCP probe failing
-        repeatedly for five minutes is not something waiting will fix.
+        Long enough to ride out a router or ISP hiccup, short enough that a
+        dashboard is not blind for long. The access point this unit runs on
+        drops its association while still visible in a scan, and that was
+        measured to take the full old threshold to notice: five minutes of no
+        telemetry for a fault that re-associating fixes in seconds.
 
 config ESP_WIFI_SENSING_UPLINK_HEALTHY_FOR_S
     int "Refund a restart after the path holds this long (s)"

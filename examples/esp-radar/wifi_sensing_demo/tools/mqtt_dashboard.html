@@ -63,6 +63,11 @@
   #pending.busy { color: var(--warn); }
   #pending.ok { color: var(--ok); }
   #pending.fail { color: var(--bad); }
+  #acks { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  #acks summary { cursor: pointer; }
+  #acklist { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+  #acklist div { white-space: pre-wrap; word-break: break-word; }
+  #acklist .t { color: var(--fg); opacity: .55; }
   .link { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
 </style>
 </head>
@@ -109,6 +114,10 @@
     </div>
     <div id="pending"></div>
     <div class="link" id="link"></div>
+    <details id="acks">
+      <summary>replies</summary>
+      <div id="acklist"></div>
+    </details>
   </div>
 
   <div id="peers"></div>
@@ -190,14 +199,26 @@ function render(peer) {
     c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke();
   }
 
+  /*
+   * Drawn as separate strokes, lifted where the stream has a hole in it.
+   *
+   * The unit only publishes when a reading changes, so gaps are ordinary and
+   * say nothing about the room. Joining across one with a straight line would
+   * claim a steady value the unit never reported, which is exactly the
+   * misreading that made an earlier flat-line bug so hard to see.
+   */
   const plot = (key, color) => {
     c.strokeStyle = color; c.lineWidth = 1.8;
-    c.beginPath();
     let started = false;
-    for (const p of peer.t) {
+    for (let i = 0; i < peer.t.length; i++) {
+      const p = peer.t[i];
+      const prev = i ? peer.t[i - 1] : null;
       const x = w - ((now - p.t) / HISTORY_MS) * w;
       const y = h - (p[key] / max) * h;
-      if (!started) { c.moveTo(x, y); started = true; } else c.lineTo(x, y);
+      const bridged = prev && (p.t - prev.t) > GAP_MS;
+      if (!started || bridged) { c.beginPath(); c.moveTo(x, y); started = true; }
+      else c.lineTo(x, y);
+      if (bridged) c.stroke();
     }
     c.stroke();
   };
@@ -276,7 +297,9 @@ const MAX_TRIES = 6;
 const RETRY_MS = 8000;
 
 function stateMatches(want) {
-  if (!lastStatus) return false;
+  /* A refresh asks for information rather than changing anything, so it has no
+   * state to confirm and must not be judged against one. */
+  if (!lastStatus || !want) return false;
   for (const [k, v] of Object.entries(want)) {
     if (k === "stimulus") {
       for (const [sk, sv] of Object.entries(v)) {
@@ -296,27 +319,49 @@ function setPending(cls, text) {
 
 function sendCommand(want, build) {
   clearTimeout(pendingCmd?.timer);
-  pendingCmd = { want, build, tries: 0 };
+  pendingCmd = { want, build, tries: 0, corr: null };
   pushOnce();
+}
+
+/*
+ * A correlation id is minted per attempt, not per command. If an attempt is
+ * lost, the reply to it can still turn up late; reusing one id across retries
+ * would let that stale reply be mistaken for the answer to a later attempt.
+ */
+function newCorrelation() {
+  const b = new Uint8Array(6);
+  crypto.getRandomValues(b);
+  return b;
 }
 
 function pushOnce() {
   if (!pendingCmd) return;
   pendingCmd.tries++;
+  const corr = newCorrelation();
+  pendingCmd.corr = corr;
   const line = pendingCmd.build();
-  client.publish(`${PREFIX}/cmd`, `HMSCMD ${line}`, { qos: 1 });
   setPending("busy",
-    `sent (${pendingCmd.tries}/${MAX_TRIES}), waiting for the unit to confirm…`);
+    `sent (${pendingCmd.tries}/${MAX_TRIES}), waiting for the unit's reply…`);
+  client.publish(`${PREFIX}/cmd`, `HMSCMD ${line}`, {
+    qos: 1,
+    properties: { responseTopic: respTopic, correlationData: corr },
+  });
   pendingCmd.timer = setTimeout(() => {
     if (!pendingCmd) return;
+    /*
+     * A reply is the answer. The state snapshot is only consulted when none
+     * arrived, because a command can change state that the snapshot has not
+     * caught up with yet, and that is not the same as the command having been
+     * refused.
+     */
     if (stateMatches(pendingCmd.want)) {
-      setPending("ok", "confirmed by the unit.");
+      setPending("ok", "confirmed by the unit's state.");
       pendingCmd = null;
       return;
     }
     if (pendingCmd.tries >= MAX_TRIES) {
       setPending("fail",
-        "no confirmation after " + MAX_TRIES + " attempts (" +
+        "no reply after " + MAX_TRIES + " attempts (" +
         (MAX_TRIES * RETRY_MS / 1000) + " s). The unit may be offline or the " +
         "link is down — the values below are the last known state.");
       pendingCmd = null;
@@ -324,6 +369,29 @@ function pushOnce() {
     }
     pushOnce();
   }, RETRY_MS);
+}
+
+/*
+ * A matched reply settles the command immediately. Anything on the response
+ * topic that does not carry the correlation currently in flight is ignored,
+ * so a late reply from an abandoned attempt cannot confirm the current one.
+ */
+function onResponse(corr, payload) {
+  if (!pendingCmd || !pendingCmd.corr) return;
+  if (!corr || corr.length !== pendingCmd.corr.length) return;
+  for (let i = 0; i < corr.length; i++) {
+    if (corr[i] !== pendingCmd.corr[i]) return;
+  }
+  clearTimeout(pendingCmd.timer);
+  const tries = pendingCmd.tries;
+  const wasRefresh = pendingCmd.refresh;
+  pendingCmd = null;
+  recordAck(payload);
+  if (wasRefresh) {
+    setPending("ok", "the unit answered.");
+    return;
+  }
+  setPending("ok", `the unit replied (attempt ${tries}).`);
 }
 
 bApply.addEventListener("click", () => {
@@ -352,10 +420,20 @@ bApply.addEventListener("click", () => {
 /* A refresh changes nothing, so it just asks once and does not start the
  * retry loop that would otherwise fire for a command that cannot "confirm". */
 bRefresh.addEventListener("click", () => {
-  client.publish(`${PREFIX}/cmd`, "HMSCMD GET_STIMULUS", { qos: 1 });
-  setPending("busy", "asked the unit for its current settings…");
   clearTimeout(pendingCmd?.timer);
-  pendingCmd = null;
+  const corr = newCorrelation();
+  /*
+   * A refresh changes nothing, so there is no state to confirm. The reply is
+   * the whole answer here, and it arrives as a proper round trip like every
+   * other command, which also means it doubles as a check that the unit is
+   * answering at all.
+   */
+  pendingCmd = { want: null, build: () => "GET_STIMULUS", tries: 1, corr, refresh: true };
+  setPending("busy", "asked the unit for its current settings…");
+  client.publish(`${PREFIX}/cmd`, "HMSCMD GET_STIMULUS", {
+    qos: 1,
+    properties: { responseTopic: respTopic, correlationData: corr },
+  });
 });
 
 /* -------------------------------------------------------------- ingest --- */
@@ -373,8 +451,9 @@ function applyStatus(d) {
    */
   if (pendingCmd && stateMatches(pendingCmd.want)) {
     clearTimeout(pendingCmd.timer);
+    const tries = pendingCmd.tries;
     pendingCmd = null;
-    setPending("ok", "confirmed by the unit.");
+    setPending("ok", `confirmed by the unit's state (attempt ${tries}).`);
   }
   document.getElementById("c-online").textContent = d.online ? "online" : "offline";
   if (d.stimulus) {
@@ -382,6 +461,8 @@ function applyStatus(d) {
     if (document.activeElement !== fBurst) fBurst.value = d.stimulus.burst_bytes;
     if (document.activeElement !== fPause) fPause.value = d.stimulus.pause_ms;
   }
+  if (d.peers) Object.assign(peerMacs, d.peers);
+
   const bits = [];
   if (d.rssi !== undefined) bits.push(`${d.rssi} dBm`);
   if (d.channel) bits.push(`ch ${d.channel}`);
@@ -403,39 +484,106 @@ function applyStatus(d) {
  * A retained snapshot arrives the moment the page connects, which is how the
  * panel gets its initial values without waiting for a command to round-trip.
  */
-function onSample(topic, payload) {
+const acklistEl = document.getElementById("acklist");
+const peerMacs = {};
+const ackLog = [];
+
+/*
+ * The last few replies, kept so a result that never changed the state is still
+ * visible. Without this the panel would look identical whether a command was
+ * accepted or quietly rejected.
+ */
+function recordAck(payload) {
+  let shown = payload;
+  try {
+    const d = JSON.parse(payload);
+    if (d && (d.cmd || d.ok !== undefined)) {
+      shown = (d.ok ? "ok" : "rejected") + " · " + (d.cmd || "") +
+        (d.detail ? " · " + d.detail : "");
+    }
+  } catch { /* not JSON, show it raw */ }
+  ackLog.unshift({ t: new Date().toLocaleTimeString(), s: shown });
+  ackLog.length = Math.min(ackLog.length, 5);
+  acklistEl.replaceChildren(...ackLog.map(a => {
+    const d = el("div");
+    d.append(el("span", "t", a.t + "  "), document.createTextNode(a.s));
+    return d;
+  }));
+}
+
+/*
+ * Telemetry keys are short because the unit sends these several times a second,
+ * so a reading is p (peer), j (jitter), w (wander), m (motion), r (presence
+ * ready), s (has signal) and t (uptime ms).
+ */
+
+/*
+ * A break longer than this in the stream is drawn as a break rather than a
+ * line. The unit genuinely stops publishing when nothing has changed, so a gap
+ * is normal and is not an error; what must not happen is the chart drawing a
+ * straight line across it and making a dropout look like a steady reading.
+ */
+const GAP_MS = 4000;
+
+function onSample(topic, payload, packet) {
   let d;
   try { d = JSON.parse(payload); } catch { return; }
   lastMsgAt = Date.now();
 
   if (topic.endsWith("/status")) { applyStatus(d); return; }
-  if (topic.endsWith("/ack")) {
-    // Informational only. Confirmation is judged from the state snapshot,
-    // because the ack is the part of this link that is not dependable.
-    if (pendingCmd) setPending("busy", "unit replied, waiting for its state…");
+  if (topic === respTopic) {
+    onResponse(packet?.properties?.correlationData, payload);
     return;
   }
-  if (!d.peer) return;
-
-  let peer = state.get(d.peer);
-  if (!peer) {
-    peer = peerNode(d.peer);
-    peer.t = []; peer.motion = false; peer.ready = false;
-    state.set(d.peer, peer);
+  if (topic.endsWith("/ack")) {
+    /*
+     * The shared topic still carries the unit's replies, which is what makes a
+     * dashboard that was opened late able to show the last answer. Confirmation
+     * itself comes from the per-request topic above.
+     */
+    recordAck(payload);
+    return;
   }
-  peer.t.push({ t: Date.now(), j: d.jitter || 0, w: d.wander || 0 });
+  if (d.p === undefined || d.p === "status") return;
+
+  let peer = state.get(d.p);
+  if (!peer) {
+    peer = peerNode(d.p);
+    peer.t = []; peer.motion = false; peer.ready = false;
+    state.set(d.p, peer);
+  }
+  const at = Date.now();
+  peer.t.push({ t: at, j: d.j || 0, w: d.w || 0 });
   if (peer.t.length > WINDOW) peer.t.shift();
-  peer.motion = !!d.motion;
-  peer.ready = !!d.presence_ready;
+  peer.motion = !!d.m;
+  peer.ready = !!d.r;
   peer.dot.className = "dot" + (peer.motion ? " motion" : peer.ready ? " ready" : "");
+  const mac = (peerMacs[d.p] || "").slice(0, 8);
   peer.meta.textContent =
-    `jitter ${(d.jitter || 0).toFixed(4)} · wander ${(d.wander || 0).toFixed(4)}` +
+    `${d.j.toFixed(4)} · ${d.w.toFixed(4)}` +
+    (mac ? ` · ${mac}` : "") +
     (peer.motion ? " · MOVING" : peer.ready ? " · present" : "");
-  msgWindow.push(Date.now());
+  msgWindow.push(at);
 }
 
+/*
+ * MQTT 5 Request/Response.
+ *
+ * Each command carries a Response Topic and Correlation Data, and the unit
+ * answers on that topic with the correlation echoed back. That turns a command
+ * from "I hope it arrived" into a matched round trip, which matters on this
+ * link: a publish can be swallowed while the same unit is perfectly reachable,
+ * so confirming on the reply is the only way to know the command was really
+ * run rather than merely sent.
+ *
+ * The topic is per client id, so several dashboards can be open at once without
+ * seeing each other's replies.
+ */
+const clientId = "web_" + Math.random().toString(16).slice(2, 10);
+let respTopic = `${PREFIX}/resp/${clientId}`;
+
 const client = mqtt.connect(`wss://${HOST}:8084/mqtt`, {
-  clientId: "web_" + Math.random().toString(16).slice(2, 10),
+  clientId,
   username: USER, password: PASS, keepalive: 45, clean: true,
   reconnectPeriod: 3000,
   protocolVersion: 5,
@@ -453,11 +601,12 @@ client.on("connect", () => {
   client.subscribe(`${PREFIX}/peer/+`, { qos: 0 });
   client.subscribe(`${PREFIX}/status`, { qos: 1 });
   client.subscribe(`${PREFIX}/ack`, { qos: 1 });
+  client.subscribe(respTopic, { qos: 1 });
 });
 client.on("reconnect", () => { statusEl.textContent = "reconnecting…"; statusEl.className = "down"; });
 client.on("close", () => { statusEl.textContent = "disconnected"; statusEl.className = "down"; });
 client.on("error", (e) => { statusEl.textContent = "error: " + e.message; statusEl.className = "down"; });
-client.on("message", onSample);
+client.on("message", (topic, payload, packet) => onSample(topic, payload.toString(), packet));
 
 document.getElementById("topic").textContent = PREFIX;
 tick();

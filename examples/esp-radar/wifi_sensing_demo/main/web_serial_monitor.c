@@ -145,6 +145,113 @@ static esp_err_t decode_hex_string(const char *encoded, uint8_t *decoded, size_t
     return ESP_OK;
 }
 
+/*
+ * Reads one string field out of a flat JSON object.
+ *
+ * The unit takes exactly two settings here, so pulling in a JSON parser for
+ * them would cost more flash than the parsing it replaces. This understands a
+ * single "key": "value" pair and nothing else, and says so rather than
+ * guessing when it meets something it does not recognise.
+ *
+ * Escapes are decoded because an SSID or a password is perfectly entitled to
+ * contain a quote, a backslash or a newline, and silently dropping the escape
+ * would quietly join the unit to the wrong network.
+ */
+static bool json_string_field(const char *json, const char *key,
+                              char *out, size_t out_len)
+{
+    char needle[32];
+    int n = snprintf(needle, sizeof(needle), "\"%s\"", key);
+    if (n <= 0 || (size_t)n >= sizeof(needle)) {
+        return false;
+    }
+    const char *p = strstr(json, needle);
+    if (!p) {
+        return false;
+    }
+    p += n;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+    if (*p != ':') {
+        return false;
+    }
+    p++;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+    if (*p != '"') {
+        return false;
+    }
+    p++;
+
+    size_t w = 0;
+    while (*p && *p != '"') {
+        char c = *p++;
+        if (c == '\\') {
+            char e = *p++;
+            switch (e) {
+            case '"':  c = '"';  break;
+            case '\\': c = '\\'; break;
+            case '/':  c = '/';  break;
+            case 'b':  c = '\b'; break;
+            case 'f':  c = '\f'; break;
+            case 'n':  c = '\n'; break;
+            case 'r':  c = '\r'; break;
+            case 't':  c = '\t'; break;
+            default:
+                /* \u and anything else is not something to guess at. */
+                return false;
+            }
+        }
+        if (w + 1 >= out_len) {
+            return false;
+        }
+        out[w++] = c;
+    }
+    if (*p != '"') {
+        return false;      /* unterminated */
+    }
+    out[w] = '\0';
+    return true;
+}
+
+static void handle_wifi_config_json(char *args)
+{
+    char ssid[33] = {0};
+    char password[65] = {0};
+    bool have_ssid = json_string_field(args, "ssid", ssid, sizeof(ssid));
+    bool have_password = json_string_field(args, "password", password, sizeof(password));
+
+    if (!have_ssid) {
+        send_ack("WIFI_CONFIG", false, "need an \"ssid\" string");
+        return;
+    }
+    if (!*ssid) {
+        send_ack("WIFI_CONFIG", false, "empty ssid");
+        return;
+    }
+    if (!have_password) {
+        /* Absent is different from empty: absent means open, empty is a real
+         * (if unusual) password and must not be silently treated as the same. */
+        password[0] = '\0';
+    }
+
+    if (s_ctx.wifi_busy) {
+        send_ack("WIFI_CONFIG", false, "another wifi operation is in progress");
+        return;
+    }
+    s_ctx.wifi_busy = true;
+
+    wifi_runtime_info_t info = {0};
+    esp_err_t err = wifi_runtime_manager_set_credentials(ssid,
+                                                         have_password ? password : NULL,
+                                                         &info);
+    s_ctx.wifi_busy = false;
+
+    send_wifi_result("WIFI_CONFIG", err, &info);
+}
+
 static void handle_wifi_config_hex(char *args)
 {
     char *saveptr = NULL;
@@ -1040,6 +1147,15 @@ static void handle_command(char *line)
         }
         if (strncmp(cmd, "WIFI_CONFIG_HEX ", 16) == 0) {
             handle_wifi_config_hex(cmd + 16);
+            return;
+        }
+        /*
+         * The JSON form is the one to reach for: an SSID containing a space no
+         * longer has to be hex encoded by hand. The hex form stays because it
+         * is what the unit already accepts and a phone app can keep sending it.
+         */
+        if (strncmp(cmd, "WIFI_CONFIG ", 13) == 0) {
+            handle_wifi_config_json(cmd + 13);
             return;
         }
         if (strcmp(cmd, "WIFI_DISCONNECT") == 0) {
