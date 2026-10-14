@@ -1208,6 +1208,22 @@ esp_err_t mqtt_publisher_init(esp_wifi_sensing_fsm_handle_t fsm,
     return ESP_OK;
 }
 
+/*
+ * A clean DISCONNECT rather than just tearing the socket down.
+ *
+ * The last will is only published when the broker sees the connection drop
+ * without being told first, so saying goodbye is what suppresses it. A restart
+ * this unit chose is not the unit going missing, and a dashboard that is about
+ * to watch it reconnect should not be told it is offline in the meantime.
+ */
+void mqtt_publisher_disconnect(void)
+{
+    if (s_client) {
+        s_connected = false;
+        esp_mqtt_client_disconnect(s_client);
+    }
+}
+
 bool mqtt_publisher_is_connected(void)
 {
     return s_connected;

@@ -145,6 +145,7 @@ const state = new Map();
 const statusEl = document.getElementById("status");
 const peersEl = document.getElementById("peers");
 let lastMsg = 0, msgWindow = [];
+const RATE_WINDOW_MS = 10000;
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -245,8 +246,18 @@ function tick() {
   }
   document.getElementById("c-peers").textContent = state.size;
   document.getElementById("c-motion").textContent = moving;
-  msgWindow = msgWindow.filter(t => Date.now() - t < 1000);
-  document.getElementById("c-rate").textContent = msgWindow.length.toFixed(1);
+  /*
+   * Averaged over ten seconds rather than counted in the last one.
+   *
+   * The unit only publishes when a reading changes, so in a still room it goes
+   * quiet on purpose. Counting the last second would therefore read zero most of
+   * the time and look like a broken link rather than a room with nobody in it.
+   * Over ten seconds the number settles into the rate the information is really
+   * arriving at, which is the thing worth watching.
+   */
+  msgWindow = msgWindow.filter(t => Date.now() - t < RATE_WINDOW_MS);
+  document.getElementById("c-rate").textContent =
+    (msgWindow.length / (RATE_WINDOW_MS / 1000)).toFixed(2);
 
   const age = lastMsgAt ? (Date.now() - lastMsgAt) / 1000 : null;
   const onlineEl = document.getElementById("c-online");

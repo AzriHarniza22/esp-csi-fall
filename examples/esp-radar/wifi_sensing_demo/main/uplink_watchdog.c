@@ -310,6 +310,11 @@ if (!link_is_up()) {
             s_reboot_count++;
             reboot_count_store(s_reboot_count);
             fflush(stdout);
+            /*
+             * Say goodbye before going, so the restart this unit chose is not
+             * announced to every dashboard as the unit having disappeared.
+             */
+            mqtt_publisher_disconnect();
             vTaskDelay(pdMS_TO_TICKS(100));
             esp_restart();
             continue;
@@ -380,6 +385,8 @@ if (!link_is_up()) {
         s_reboot_count++;
         reboot_count_store(s_reboot_count);
         fflush(stdout);
+        /* See the other restart: a chosen restart is not the unit going missing. */
+        mqtt_publisher_disconnect();
         vTaskDelay(pdMS_TO_TICKS(100));
         esp_restart();
     }

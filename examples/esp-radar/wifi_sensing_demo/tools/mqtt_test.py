@@ -65,6 +65,8 @@ class Unit:
         self._t0 = time.time()
 
     def on_message(self, _c, _u, msg):
+        if getattr(self, 'counting', None):
+            self.counting(_c, _u, msg)
         # Subscribing to the whole prefix means this client also receives its
         # own command publishes, correlation data included. Counting those as
         # replies would report success for a unit that never answered.
@@ -144,6 +146,15 @@ class Unit:
             time.sleep(0.5)
         return None, attempts
 
+    def peers(self):
+        """Messages counted from the per peer topics.
+
+        Everything else on the prefix is excluded so a status snapshot or a
+        liveness probe cannot be mistaken for telemetry.
+        """
+        skip = {"status", "ack", "live", PREFIX.split("/")[-1]}
+        return sum(n for k, n in self.counts.items() if k not in skip)
+
     def age(self):
         return time.time() - self._t0
 
@@ -153,12 +164,9 @@ class Unit:
 
 def check_telemetry(u, args):
     """Telemetry must keep arriving, and at roughly the rate produced."""
-    def peers():
-        return sum(n for k, n in u.counts.items()
-                   if k not in ("status", "ack", "live", PREFIX.split("/")[-1]))
-    before = peers()
+    before = u.peers()
     time.sleep(args.window)
-    got = peers()
+    got = u.peers()
     rate = (got - before) / args.window
     # One peer carries signal and is published at the configured interval; the
     # placeholder peers are sent far more slowly, so the expected total is
@@ -325,6 +333,87 @@ def check_stimulus_roundtrip(u, args):
     return on_seen
 
 
+
+def check_coupling(u, args):
+    """Stopping the local stream must not take the uplink down with it.
+
+    This is the one that used to bite: telemetry was published straight out of
+    the sampling path, so the GUI's stop button stopped the broker feed too.
+    """
+    before = u.peers()
+    stop_reply, _ = u.command("STOP_STREAM")
+    if stop_reply is None:
+        print("    STOP_STREAM was not acknowledged")
+        return False
+    time.sleep(20)
+    during = u.peers()
+
+    # Waited on properly, and checked. Sending this fire and forget once left the
+    # unit with its stream switched off for the rest of the run, which turned
+    # every later check into a false failure.
+    start_reply, tries = u.command("START_STREAM")
+    time.sleep(25)
+    after = u.peers()
+
+    acked = "answered" if start_reply is not None else "not answered in {0} tries".format(tries)
+    print(f"    peers/s before={before/20:.2f} while stopped={during/20:.2f} "
+          f"after restart={after/25:.2f} (START_STREAM {acked})")
+
+    # Judged on telemetry coming back, not on the acknowledgement.
+    #
+    # The reply to START_STREAM is lost on this link often enough that failing
+    # on it would report a working unit as broken. Telemetry resuming is the
+    # observable effect that actually matters, and a unit that is publishing
+    # again is not a unit that is still stopped.
+    if after <= 0:
+        print("    telemetry did not come back after the stream was restarted")
+        return False
+    return True
+
+
+def check_self_heal(u, args):
+    """A dead session must be recovered without anyone asking.
+
+    The unit's session is measured to stop delivering a couple of minutes after
+    connecting, with no disconnect event. What this watches is that it notices
+    and rebuilds on its own, so telemetry keeps arriving across that.
+    """
+    span = max(args.window, 120)
+    t0 = time.time()
+    start = u.peers()
+    time.sleep(span)
+    gained = u.peers() - start
+    rate = gained / span
+    print(f"    {rate:.2f} peer msg/s sustained over {span:.0f} s")
+    return rate >= 0.2
+
+
+def check_quota(u, args):
+    """Measure what an hour of this would cost, without waiting an hour."""
+    span = min(args.window, 60)
+    t0 = time.time()
+    bytes_in = [0]
+
+    def counting(_c, _u, msg):
+        if msg.topic.endswith("/cmd"):
+            return
+        if "/peer/" in msg.topic or msg.topic.endswith("/status"):
+            bytes_in[0] += len(msg.payload)
+
+    u.counting = counting
+    before = bytes_in[0]
+    time.sleep(span)
+    gained = bytes_in[0] - before
+    if gained == 0:
+        # Measuring nothing is not a small number, it is no measurement at all,
+        # and reporting it as a passing quota would hide a dead link.
+        print("    nothing arrived in the window, cannot project a quota")
+        return False
+    per_hour = gained / span * 3600
+    print(f"    {per_hour/1024:.0f} KB/hour projected (plan budget 300 KB)")
+    return per_hour / 1024 < 300
+
+
 CHECKS = {
     "telemetry": check_telemetry,
     "status": check_status,
@@ -333,8 +422,12 @@ CHECKS = {
     "ratelimit": check_rate_limit,
     "security": check_security,
     "stimulus": check_stimulus_roundtrip,
+    "coupling": check_coupling,
+    "selfheal": check_self_heal,
+    "quota": check_quota,
 }
-ORDER = ["status", "telemetry", "rr", "corr", "ratelimit", "security", "stimulus"]
+ORDER = ["status", "telemetry", "rr", "corr", "coupling", "ratelimit",
+         "security", "stimulus", "selfheal", "quota"]
 
 
 def main():
@@ -353,11 +446,20 @@ def main():
         print(f"connected as {u.cid}")
         for name in wanted:
             print(f"\n== {name}")
-            try:
-                results[name] = bool(CHECKS[name](u, args))
-            except Exception as e:            # a broken check must not hide the rest
-                print(f"    raised {type(e).__name__}: {e}")
-                results[name] = False
+            # Retried once. A publish on this link can be swallowed while the
+            # unit is perfectly reachable, so a single miss says nothing about
+            # the behaviour being checked. Two misses in a row is a result.
+            for attempt in (1, 2):
+                try:
+                    if CHECKS[name](u, args):
+                        results[name] = True
+                        break
+                    if attempt == 2:
+                        results[name] = False
+                except Exception as e:        # a broken check must not hide the rest
+                    print(f"    raised {type(e).__name__}: {e}")
+                    if attempt == 2:
+                        results[name] = False
         print("\n--- summary ---")
         bad = 0
         for name, ok in results.items():

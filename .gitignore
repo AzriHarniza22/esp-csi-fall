@@ -90,3 +90,6 @@ docs/docusaurus/website/node_modules
 
 # tool cache (lokal saja)
 .serena/
+
+__pycache__/
+*.pyc

@@ -69,6 +69,15 @@ esp_err_t mqtt_publisher_set_settings(const char *host, int port, const char *us
 
 bool mqtt_publisher_is_connected(void);
 
+/**
+ * @brief Leave the broker cleanly, so the last will is not published.
+ *
+ * The last will exists to say the unit went away by itself. A restart the unit
+ * asked for is not that, and sending it anyway makes a dashboard that is about
+ * to see the unit come straight back flash "offline" for no reason.
+ */
+void mqtt_publisher_disconnect(void);
+
 #ifdef __cplusplus
 }
 #endif
