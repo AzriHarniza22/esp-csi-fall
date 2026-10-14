@@ -26,6 +26,7 @@
 #include "led_control.h"
 #include "web_serial_monitor.h"
 #include "wifi_runtime_manager.h"
+#include "ble_probe.h"
 #include "ht_stimulus.h"
 
 static const char *TAG = "wifi_sensing_demo";
@@ -458,6 +459,18 @@ void app_main(void)
                                         5,
                                         NULL);
     ESP_ERROR_CHECK(sensing_ok == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
+
+#if CONFIG_ESP_WIFI_SENSING_BLE_PROBE
+    /*
+     * Started with the radar already running, and that ordering is the whole
+     * point of the probe. Whether a phone can see this unit depends on the
+     * radio conditions the radar creates - it runs HT40, which is the condition
+     * Espressif documents as able to stop some Android phones receiving
+     * Bluetooth advertising at all. Starting it after the radar would measure
+     * a configuration that does not exist on the real unit.
+     */
+    ble_probe_start();
+#endif
 
     /*
      * The manager is the only owner of connect/reconnect for the whole runtime.

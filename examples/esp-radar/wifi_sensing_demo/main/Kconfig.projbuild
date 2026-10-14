@@ -122,6 +122,30 @@ config ESP_WIFI_SENSING_HT_STIMULUS_RETRY_MS
         Delay applied when the endpoint is unreachable, for example when the AP
         has no internet access, so the task does not spin.
 
+config ESP_WIFI_SENSING_BLE_PROBE
+    bool "Advertise over Bluetooth so a phone can find the unit"
+    default n
+    depends on BT_NIMBLE_ENABLED
+    help
+        Advertise over Bluetooth LE with no GATT server, purely so a phone can
+        tell whether it can see the unit at all.
+
+        This is a question that has to be answered before building anything on
+        top of Bluetooth here. Espressif documents that Wi-Fi in HT40 mode can
+        stop some Android phones receiving Bluetooth advertising entirely, and
+        this unit runs HT40. If the phone cannot see the advertisement, that is
+        the answer and the rest of the work is not worth doing.
+
+        Off by default so a build without Bluetooth is unaffected.
+
+config ESP_WIFI_SENSING_BLE_PROBE_NAME
+    string "Name shown when advertising"
+    default "ESP-RADAR"
+    depends on ESP_WIFI_SENSING_BLE_PROBE
+    help
+        The name a phone scanner will show. Kept short because it is carried in
+        the scan response and the advertising packet has no room for a long one.
+
 endmenu
 
 endmenu

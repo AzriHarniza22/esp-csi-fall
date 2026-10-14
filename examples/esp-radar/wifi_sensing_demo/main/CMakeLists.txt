@@ -7,11 +7,16 @@ set(reqs esp_wifi_sensing
          mbedtls
          nvs_flash)
 
+# bt carries the NimBLE host. Only needed when the probe is enabled, but the
+# dependency is unconditional so the source still compiles when it is not.
+set(reqs ${reqs} bt)
+
 idf_component_register(SRCS "app_main.c"
                             "led_control.c"
                             "web_serial_monitor.c"
                             "wifi_runtime_manager.c"
                             "ht_stimulus.c"
+                            "ble_probe.c"
                        INCLUDE_DIRS "."
                        REQUIRES ${reqs}
                        PRIV_REQUIRES esp_driver_usb_serial_jtag)
