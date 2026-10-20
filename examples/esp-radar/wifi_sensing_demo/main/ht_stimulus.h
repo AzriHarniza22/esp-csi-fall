@@ -61,6 +61,11 @@ void ht_stimulus_stop(void);
 bool ht_stimulus_is_running(void);
 
 /**
+ * @brief Report whether the stimulus is enabled by the user.
+ */
+bool ht_stimulus_is_enabled(void);
+
+/**
  * @brief Apply runtime settings.
  *
  * Passing @c enabled true starts the task and @c false stops it. The burst and

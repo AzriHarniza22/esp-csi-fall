@@ -50,12 +50,19 @@
 #define WEB_SERIAL_CSI_MAX_RAW_LEN 512
 #define WEB_SERIAL_CSI_MAX_ENCODED_LEN (((WEB_SERIAL_CSI_MAX_RAW_LEN + 2) / 3) * 4 + 1)
 
+/* How often the stimulus state is pushed so the panel shows a live CSI frame
+ * rate and a live "last frame" age without the user having to refresh. */
+#define STIMULUS_STATUS_PERIOD_MS 1000
+
 /* When the AP rate-control drops our link to legacy CCK rates no OFDM frames
  * arrive and the driver never produces CSI, leaving the radar graph flat. The
  * watchdog forces a reconnect (which nudges the AP back to OFDM) whenever the
  * link is up but no CSI has been seen for a while. */
 #define CSI_WD_CHECK_PERIOD_MS 1000
-#define CSI_WD_STALE_MS 6000U
+/* Six seconds was short enough that a quiet AP looked like a dead link. The
+ * stimulus normally produces ~85 Hz, so a genuinely stalled link stays silent
+ * far longer than this before it is worth a reconnect. */
+#define CSI_WD_STALE_MS 20000U
 #define CSI_WD_MIN_INTERVAL_MS 30000U
 #define CSI_WD_TASK_STACK 4096U
 
@@ -80,6 +87,23 @@ typedef struct {
     int64_t csi_last_emit_us;
     uint32_t csi_dropped_count;
     int64_t csi_last_rx_us;
+    /*
+     * Watchdog staleness floor: keeps advancing while the Wi-Fi link is down so
+     * the frame age accumulated during an outage is not misread on the fresh
+     * link a reconnect just established.
+     */
+    int64_t csi_wd_baseline_us;
+    bool csi_wd_link_up;
+    int64_t csi_wd_outage_us;
+    /*
+     * CSI frame rate, derived from csi_frame_count in the monitor task. The
+     * counter is only incremented inside the Wi-Fi callback, never read there,
+     * so the callback stays a single increment. csi_rate_hz_x10 carries tenths
+     * of a hertz to keep the JSON free of floating point.
+     */
+    uint32_t csi_frame_count;
+    uint32_t csi_rate_hz_x10;
+    int64_t csi_rate_last_us;
     int64_t csi_wd_last_reconnect_us;
     bool csi_wd_enabled;
     bool csi_wd_reconnecting;
@@ -409,6 +433,7 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
     }
 
     s_ctx.csi_last_rx_us = esp_timer_get_time();
+    s_ctx.csi_frame_count++;
 
     if (!s_ctx.csi_stream_enabled) {
         return;
@@ -449,34 +474,80 @@ static void csi_watchdog_task(void *arg)
     vTaskDelete(NULL);
 }
 
-static void csi_watchdog_check(void *arg)
+static void csi_watchdog_fire(int64_t now_us, const char *why, long long elapsed_ms)
 {
-    (void)arg;
-    if (!s_ctx.initialized || !s_ctx.csi_wd_enabled || s_ctx.csi_wd_reconnecting) {
-        return;
-    }
-    wifi_runtime_info_t info;
-    wifi_runtime_manager_get_info(&info);
-    if (!info.connected || !info.has_ip) {
-        return;
-    }
-    int64_t now_us = esp_timer_get_time();
-    if (now_us - s_ctx.csi_wd_last_reconnect_us < (int64_t)CSI_WD_MIN_INTERVAL_MS * 1000LL) {
-        return;
-    }
-    int64_t age_us = (s_ctx.csi_last_rx_us > 0) ? (now_us - s_ctx.csi_last_rx_us)
-                                                : (int64_t)INT64_MAX;
-    if (age_us < (int64_t)CSI_WD_STALE_MS * 1000LL) {
-        return;
-    }
-    ESP_LOGW(TAG, "csi watchdog: no CSI for %lld ms, forcing reconnect",
-             (long long)(age_us / 1000));
+    ESP_LOGW(TAG, "csi watchdog: %s for %lld ms, forcing reconnect", why, elapsed_ms);
     s_ctx.csi_wd_last_reconnect_us = now_us;
     s_ctx.csi_wd_reconnecting = true;
     if (xTaskCreate(csi_watchdog_task, "csi_wd", CSI_WD_TASK_STACK, NULL,
                     tskIDLE_PRIORITY + 5, NULL) != pdPASS) {
         s_ctx.csi_wd_reconnecting = false;
     }
+}
+
+static void csi_watchdog_check(void *arg)
+{
+    (void)arg;
+    if (!s_ctx.initialized || !s_ctx.csi_wd_enabled || s_ctx.csi_wd_reconnecting) {
+        return;
+    }
+    if (!ht_stimulus_is_enabled()) {
+        return;
+    }
+    wifi_runtime_info_t info;
+    wifi_runtime_manager_get_info(&info);
+    int64_t now_us = esp_timer_get_time();
+
+    if (info.connected && info.has_ip) {
+        s_ctx.csi_wd_link_up = true;
+        s_ctx.csi_wd_outage_us = 0;
+    } else {
+        /* Link down: the next frame can only arrive once the link returns, so
+         * keep moving the staleness floor instead of charging it to the outage. */
+        s_ctx.csi_wd_baseline_us = now_us;
+        if (s_ctx.csi_wd_link_up) {
+            s_ctx.csi_wd_link_up = false;
+            s_ctx.csi_wd_outage_us = now_us;
+        } else if (s_ctx.csi_wd_outage_us == 0) {
+            s_ctx.csi_wd_outage_us = now_us;
+        }
+        /*
+         * A link that never comes back on its own would silence CSI forever, so
+         * after the same staleness window hand the outage to the reconnect
+         * task. Skipped until the first CSI frame of the boot so bring-up stays
+         * owned by app_main's retry loop.
+         */
+        if (s_ctx.csi_last_rx_us > 0 &&
+            now_us - s_ctx.csi_wd_last_reconnect_us >= (int64_t)CSI_WD_MIN_INTERVAL_MS * 1000LL) {
+            int64_t down_us = now_us - s_ctx.csi_wd_outage_us;
+            if (down_us >= (int64_t)CSI_WD_STALE_MS * 1000LL) {
+                csi_watchdog_fire(now_us, "link down", (long long)(down_us / 1000));
+            }
+        }
+        return;
+    }
+
+    int64_t baseline_us = s_ctx.csi_last_rx_us;
+    if (s_ctx.csi_wd_baseline_us > baseline_us) {
+        baseline_us = s_ctx.csi_wd_baseline_us;
+    }
+    if (now_us - s_ctx.csi_wd_last_reconnect_us < (int64_t)CSI_WD_MIN_INTERVAL_MS * 1000LL) {
+        return;
+    }
+    /*
+     * The watchdog is for the case where CSI stops mid-session, so it must only
+     * fire after CSI has actually been seen. A freshly associated link has no
+     * frames yet, and treating that as stale made the unit force a reconnect
+     * within seconds of getting an IP, then loop on every quiet AP.
+     */
+    if (s_ctx.csi_last_rx_us <= 0) {
+        return;
+    }
+    int64_t age_us = now_us - baseline_us;
+    if (age_us < (int64_t)CSI_WD_STALE_MS * 1000LL) {
+        return;
+    }
+    csi_watchdog_fire(now_us, "no CSI", (long long)(age_us / 1000));
 }
 
 static void send_error(const char *message)
@@ -513,6 +584,12 @@ static void send_runtime_config(void)
  * Reports the stimulus settings alongside the requested enable state: the task
  * may still be winding down after a stop, so the panel needs both numbers to
  * show what is configured and what is actually running.
+ *
+ * csi_hz_x10 and last_rx_age_ms are measured, not derived from the configured
+ * burst. They are what tells the user whether the stimulus setting actually
+ * produces CSI: a running task with a growing last_rx_age_ms means bursts are
+ * failing and no frames arrive. last_rx_age_ms is -1 when no frame has ever
+ * been seen.
  */
 static void send_stimulus_state(void)
 {
@@ -521,11 +598,19 @@ static void send_stimulus_state(void)
         return;
     }
 
+    int64_t last_rx_age_ms = -1;
+    if (s_ctx.csi_last_rx_us > 0) {
+        int64_t age_us = esp_timer_get_time() - s_ctx.csi_last_rx_us;
+        last_rx_age_ms = (age_us > 0) ? (age_us / 1000) : 0;
+    }
+
     (void)write_line("{\"type\":\"stimulus\",\"enabled\":%s,\"running\":%s,"
-                     "\"burst_bytes\":%" PRIu32 ",\"pause_ms\":%" PRIu32 "}\n",
+                     "\"burst_bytes\":%" PRIu32 ",\"pause_ms\":%" PRIu32 ","
+                     "\"csi_hz_x10\":%" PRIu32 ",\"last_rx_age_ms\":%" PRId64 "}\n",
                      cfg.enabled ? "true" : "false",
                      ht_stimulus_is_running() ? "true" : "false",
-                     cfg.burst_bytes, cfg.pause_ms);
+                     cfg.burst_bytes, cfg.pause_ms,
+                     s_ctx.csi_rate_hz_x10, last_rx_age_ms);
 }
 
 static void handle_set_stimulus(char *args)
@@ -1142,12 +1227,17 @@ static void web_serial_monitor_task(void *arg)
 {
     (void)arg;
     int64_t last_stream_us = 0;
+    int64_t last_status_us = 0;
+    uint32_t last_frame_count = 0;
 
     /* Emit an initial snapshot so the browser can render immediately after connecting. */
     send_hello();
     send_runtime_config();
     send_wifi_info();
     send_all_configs();
+    /* Without this the stimulus panel stays on "-" until the user clicks Apply,
+     * because the browser never asks for the stimulus state on connect. */
+    send_stimulus_state();
 
     while (true) {
         poll_rx_and_handle_commands();
@@ -1159,6 +1249,24 @@ static void web_serial_monitor_task(void *arg)
             for (size_t i = 0; i < s_ctx.peer_num; i++) {
                 send_channel_sample(&s_ctx.peers[i]);
             }
+        }
+
+        /*
+         * Derive the CSI frame rate here rather than in the Wi-Fi callback: this
+         * task already sleeps 10 ms, while the callback must stay cheap.
+         */
+        if (last_status_us == 0 || (now_us - last_status_us) >= (STIMULUS_STATUS_PERIOD_MS * 1000LL)) {
+            if (last_status_us != 0) {
+                uint32_t frames = s_ctx.csi_frame_count;
+                int64_t elapsed_us = now_us - last_status_us;
+                uint32_t elapsed_ms = (uint32_t)(elapsed_us / 1000);
+                if (elapsed_ms > 0) {
+                    s_ctx.csi_rate_hz_x10 = (uint32_t)(((uint64_t)(frames - last_frame_count) * 10000ULL) / elapsed_ms);
+                }
+            }
+            last_frame_count = s_ctx.csi_frame_count;
+            last_status_us = now_us;
+            send_stimulus_state();
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));

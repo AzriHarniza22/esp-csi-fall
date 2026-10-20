@@ -376,10 +376,16 @@ static void handle_disconnected(wifi_event_sta_disconnected_t *event)
     s_mgr.info.ip[0] = '\0';
     s_mgr.info.reason = event ? event->reason : 0;
 
-    /* A failed association is reported as such; only a drop after GOT_IP is a plain disconnect. */
+    /*
+     * A failed association is reported as such; only a drop after GOT_IP is a plain disconnect.
+     * GOT_IP has to be listed here too: after a successful DHCP the state is GOT_IP, so
+     * omitting it made any later drop (AP expiring the session, roaming away) terminal and
+     * the unit never retried.
+     */
     bool wants_retry = s_mgr.auto_reconnect_enabled && !s_mgr.intentional_disconnect &&
                        (s_mgr.info.state == WIFI_RUNTIME_STATE_CONNECTED ||
-                        s_mgr.info.state == WIFI_RUNTIME_STATE_CONNECTING);
+                        s_mgr.info.state == WIFI_RUNTIME_STATE_CONNECTING ||
+                        s_mgr.info.state == WIFI_RUNTIME_STATE_GOT_IP);
     s_mgr.intentional_disconnect = false;
 
     if (wants_retry) {
