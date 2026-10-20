@@ -208,11 +208,6 @@
       color: var(--warn);
     }
 
-    .badge.warn {
-      background: rgba(255, 130, 90, 0.22);
-      color: var(--warn);
-    }
-
     .peer-meta {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -490,40 +485,6 @@
       </section>
 
       <section class="panel section">
-        <h2 id="recTitle">Data Recording</h2>
-        <div class="muted" id="recDesc">Label the AP channel with your own category names. A countdown runs first, then the selected duration is captured for offline analysis. Browser-side only, so a serial disconnect ends the segment and marks it incomplete.</div>
-        <div style="height: 12px;"></div>
-        <div class="status-pill">
-          <span class="badge" id="recBadge">-</span>
-          <strong id="recStateText">-</strong>
-        </div>
-        <div style="height: 6px;"></div>
-        <div class="muted" id="recCountdownText">-</div>
-        <div class="muted" id="recProgressText">-</div>
-        <div style="height: 12px;"></div>
-        <form id="recForm" class="wifi-form" autocomplete="off">
-          <label><span id="recCategoryLabel">Category</span><input id="recCategoryInput" type="text" maxlength="40" value="" placeholder="e.g. lie" autocomplete="off" /></label>
-          <label><span id="recDurationLabel">Duration (s)</span><input id="recDurationInput" type="number" min="1" max="3600" step="1" value="30" autocomplete="off" /></label>
-          <label><span id="recCountdownLabel">Countdown (s)</span><input id="recCountdownInput" type="number" min="0" max="30" step="1" value="3" autocomplete="off" /></label>
-        </form>
-        <div style="height: 10px;"></div>
-        <div class="button-row">
-          <button id="recStartBtn">-</button>
-          <button id="recStopBtn" class="secondary">-</button>
-          <button id="recMarkerBtn" class="secondary">-</button>
-        </div>
-        <div style="height: 8px;"></div>
-        <div class="button-row">
-          <button id="recCsvBtn" class="secondary small">-</button>
-          <button id="recJsonBtn" class="secondary small">-</button>
-          <button id="recClearBtn" class="secondary small">-</button>
-        </div>
-        <div style="height: 12px;"></div>
-        <div class="muted" id="recSegmentsTitle">-</div>
-        <div id="recSegments" class="muted">-</div>
-      </section>
-
-      <section class="panel section">
         <h2 id="eventLogTitle">Event Log</h2>
         <pre id="eventLog"></pre>
       </section>
@@ -687,26 +648,16 @@
      * the lock currently held, cancelled so a pending read() resolves at once. */
     let keepReading = false;
     let activeReader = null;
-    /* Consecutive reopen attempts with no usable data in between. Reset as soon
-     * as the device actually talks, so only a genuine loop trips the cap. */
-    let reopenStreak = 0;
     /* Opening a port resets the ESP32, which needs several seconds to boot, so
      * reopening is retried with this backoff instead of spinning. */
     const REOPEN_BACKOFF_MS = [1000, 2000, 4000, 8000];
-    /* A backoff alone cannot stop the loop: open() keeps succeeding, so the
-     * backoff above is never reached. This cap is what actually ends it. */
-    const REOPEN_MAX_STREAK = 5;
     const SERIAL_OPTIONS = {
       baudRate: 921600,
       dataBits: 8,
       stopBits: 1,
       parity: "none",
       flowControl: "none",
-      /* 4 KB is only ~44 ms of traffic at 921600 baud. The device pushes one
-       * sample line per peer every 50 ms, and the ESP32 boot log bursts tens of
-       * KB, so a small buffer overflows, drops bytes mid-line and yields
-       * "JSON parse failed". 256 KB absorbs the boot burst without loss. */
-      bufferSize: 262144,
+      bufferSize: 4096,
     };
     let selectedPeer = null;
     let appInfo = { target: "-", stream_period_ms: 0, amplitude_log_enabled: false };
@@ -848,8 +799,6 @@
         statTrainAction: "last train action",
         statTrainSamples: "template samples",
         statTrainBackgroundCount: "bg stats count",
-        statTrainBasisWander: "last basis wander",
-        statTrainBackgroundAvg: "bg wander avg",
         statWanderAverage: "wander avg (console)",
         statSomeoneThreshold: "someone thr (console)",
         statSomeoneStatus: "presence status",
@@ -883,41 +832,6 @@
         stimulusPauseRange: "pause must be 50..5000 ms",
         stimulusOn: "RUNNING",
         stimulusOff: "STOPPED",
-        stimulusDegraded: "NO CSI",
-        recTitle: "Data Recording",
-        recDesc: "Label the AP channel with your own category names. A countdown runs first, then the selected duration is captured for offline analysis. Browser-side only, so a serial disconnect ends the segment and marks it incomplete.",
-        recCategoryLabel: "Category",
-        recDurationLabel: "Duration (s)",
-        recCountdownLabel: "Countdown (s)",
-        recStartBtn: "Start",
-        recStopBtn: "Stop",
-        recMarkerBtn: "Marker",
-        recCsvBtn: "Export CSV",
-        recJsonBtn: "Export JSON",
-        recClearBtn: "Clear",
-        recIdle: "IDLE",
-        recCounting: "GET READY",
-        recRecording: "RECORDING",
-        recPaused: "DISCONNECTED",
-        recSamples: "samples",
-        recStored: "stored total",
-        recSegmentsTitle: "Segments",
-        recSegEmpty: "No segments yet.",
-        recNoData: "Nothing to export yet.",
-        recNeedCategory: "Enter a category name first",
-        recBadDuration: "Duration must be at least 1 s",
-        recFull: "Sample buffer full - export or clear first",
-        recNotRecording: "Not recording",
-        recStarted: "Recording started: {cat}",
-        recCountdownGo: "Recording now: {cat}",
-        recStopped: "Segment saved: {cat} ({n} samples, {d}s)",
-        recAutoStopped: "Duration reached, segment saved: {cat} ({n} samples)",
-        recCleared: "Recording buffer cleared",
-        recSaved: "Saved {file}",
-        recDisconnect: "Serial disconnected during recording, segment marked incomplete",
-        recMarkerSaved: "Marker #{n} at {t}s",
-        recCompleted: "complete",
-        recIncomplete: "incomplete",
         logWifiUpdated: "Wi-Fi configuration sent",
         wifiStateLabel: "Status",
         wifiStateBooting: "Booting",
@@ -971,7 +885,6 @@
         logReopening: "Device gone, reopening port",
         logReopened: "Port reopened",
         logReopenFailed: "Could not reopen the port",
-        logReopenLoopStopped: "Port reopened repeatedly but the device kept dropping - stopped reopening to avoid resetting it. Reconnect Serial to try again.",
         logPortGone: "Device removed",
         logDeviceUnplugged: "Device unplugged",
         logDeviceReplugged: "Device plugged back in",
@@ -982,7 +895,6 @@
         logTrainAutoStopped: "Training auto-stopped",
         logTrainTimerCleared: "Training timer cleared",
         logReady: "Page ready. Click \"Connect Serial\" to begin.",
-        logAutoResumed: "Resumed the previously granted serial port automatically.",
       },
       zh: {
         pageTitle: "ESP Wi-Fi Sensing Web Serial 监视器",
@@ -1047,8 +959,6 @@
         statTrainAction: "最近训练动作",
         statTrainSamples: "模板样本数",
         statTrainBackgroundCount: "背景统计数",
-        statTrainBasisWander: "最近判据 wander",
-        statTrainBackgroundAvg: "背景 wander 均值",
         statWanderAverage: "wander 均值(console)",
         statSomeoneThreshold: "有人阈值(console)",
         statSomeoneStatus: "存在状态",
@@ -1082,41 +992,6 @@
         stimulusPauseRange: "间隔必须为 50..5000 毫秒",
         stimulusOn: "运行中",
         stimulusOff: "已停止",
-        stimulusDegraded: "无CSI",
-        recTitle: "数据录制",
-        recDesc: "为 AP 通道贴上你自己的类别标签。先倒计时，再按设定时长采集，用于离线分析。仅在浏览器端运行，因此串口断开会结束当前片段并标记为不完整。",
-        recCategoryLabel: "类别",
-        recDurationLabel: "时长（秒）",
-        recCountdownLabel: "倒计时（秒）",
-        recStartBtn: "开始",
-        recStopBtn: "停止",
-        recMarkerBtn: "标记",
-        recCsvBtn: "导出 CSV",
-        recJsonBtn: "导出 JSON",
-        recClearBtn: "清空",
-        recIdle: "空闲",
-        recCounting: "准备",
-        recRecording: "录制中",
-        recPaused: "已断开",
-        recSamples: "个样本",
-        recStored: "已存总计",
-        recSegmentsTitle: "片段",
-        recSegEmpty: "还没有片段。",
-        recNoData: "没有可导出的数据。",
-        recNeedCategory: "请先填写类别名称",
-        recBadDuration: "时长至少 1 秒",
-        recFull: "样本缓冲区已满 — 请先导出或清空",
-        recNotRecording: "未在录制",
-        recStarted: "开始录制：{cat}",
-        recCountdownGo: "开始录制：{cat}",
-        recStopped: "片段已保存：{cat}（{n} 个样本，{d} 秒）",
-        recAutoStopped: "已到设定时长，片段已保存：{cat}（{n} 个样本）",
-        recCleared: "录制缓冲区已清空",
-        recSaved: "已保存 {file}",
-        recDisconnect: "录制中串口断开，片段标记为不完整",
-        recMarkerSaved: "标记 #{n}，位于 {t} 秒",
-        recCompleted: "完整",
-        recIncomplete: "不完整",
         logWifiUpdated: "Wi-Fi 配置已发送",
         wifiStateLabel: "状态",
         wifiStateBooting: "启动中",
@@ -1170,7 +1045,6 @@
         logReopening: "设备已断开，正在重新打开串口",
         logReopened: "串口已重新打开",
         logReopenFailed: "无法重新打开串口",
-        logReopenLoopStopped: "串口反复重开但设备一直掉线，为避免反复复位已停止重连。请重新点击 Connect Serial。",
         logPortGone: "设备已移除",
         logDeviceUnplugged: "设备已拔出",
         logDeviceReplugged: "设备已重新插入",
@@ -1181,7 +1055,6 @@
         logTrainAutoStopped: "训练已自动结束",
         logTrainTimerCleared: "训练计时已清除",
         logReady: "页面已就绪，点击“连接串口”开始。",
-        logAutoResumed: "已自动恢复之前授权的串口。",
       },
     };
 
@@ -1219,24 +1092,6 @@
     const toggleStimulusBtn = document.getElementById("toggleStimulusBtn");
     const applyStimulusBtn = document.getElementById("applyStimulusBtn");
     let stimulusState = null;
-    /* Zero-rate reports degrade the badge only after several consecutive
-     * updates, so the seconds a task spends spinning up do not flicker it. */
-    let stimulusZeroStrikes = 0;
-    const STIMULUS_DEGRADED_STRIKES = 4;
-    const recBadge = document.getElementById("recBadge");
-    const recStateText = document.getElementById("recStateText");
-    const recCountdownText = document.getElementById("recCountdownText");
-    const recProgressText = document.getElementById("recProgressText");
-    const recCategoryInput = document.getElementById("recCategoryInput");
-    const recDurationInput = document.getElementById("recDurationInput");
-    const recCountdownInput = document.getElementById("recCountdownInput");
-    const recStartBtn = document.getElementById("recStartBtn");
-    const recStopBtn = document.getElementById("recStopBtn");
-    const recMarkerBtn = document.getElementById("recMarkerBtn");
-    const recCsvBtn = document.getElementById("recCsvBtn");
-    const recJsonBtn = document.getElementById("recJsonBtn");
-    const recClearBtn = document.getElementById("recClearBtn");
-    const recSegments = document.getElementById("recSegments");
     const mainChart = document.getElementById("mainChart");
     const wanderChart = document.getElementById("wanderChart");
     const csiChart = document.getElementById("csiChart");
@@ -1312,19 +1167,6 @@
       }
       document.getElementById("applyStimulusBtn").textContent = "-";
       renderStimulusStatus();
-      document.getElementById("recTitle").textContent = t("recTitle");
-      document.getElementById("recDesc").textContent = t("recDesc");
-      document.getElementById("recCategoryLabel").textContent = t("recCategoryLabel");
-      document.getElementById("recDurationLabel").textContent = t("recDurationLabel");
-      document.getElementById("recCountdownLabel").textContent = t("recCountdownLabel");
-      document.getElementById("recStartBtn").textContent = t("recStartBtn");
-      document.getElementById("recStopBtn").textContent = t("recStopBtn");
-      document.getElementById("recMarkerBtn").textContent = t("recMarkerBtn");
-      document.getElementById("recCsvBtn").textContent = t("recCsvBtn");
-      document.getElementById("recJsonBtn").textContent = t("recJsonBtn");
-      document.getElementById("recClearBtn").textContent = t("recClearBtn");
-      document.getElementById("recSegmentsTitle").textContent = t("recSegmentsTitle");
-      renderRecording();
       document.getElementById("csiPanelTitle").textContent = t("csiPanelTitle");
       document.getElementById("csiPanelDesc").textContent = t("csiPanelDesc");
       document.getElementById("csiPeriodLabel").textContent = t("csiPeriodLabel");
@@ -1870,8 +1712,6 @@
         statItem(t("statTrainAction"), formatTrainActionName(latest.train_last_action_name)),
         statItem(t("statTrainSamples"), Number(latest.train_sample_count || 0)),
         statItem(t("statTrainBackgroundCount"), Number(latest.train_background_count || 0)),
-        statItem(t("statTrainBasisWander"), Number(latest.train_last_basis_wander || 0).toFixed(6)),
-        statItem(t("statTrainBackgroundAvg"), Number(latest.train_background_avg || 0).toFixed(6)),
       ].join("");
     }
 
@@ -2106,24 +1946,9 @@
       const burstKb = Math.round(Number(stimulusState.burst_bytes) / 1000);
       const hz = Number(stimulusState.csi_hz_x10 || 0) / 10;
 
-      /* A task can report running:true while producing nothing (link dead,
-       * bursts failing). Once CSI stays zero for a few consecutive reports the
-       * badge says so instead of showing a healthy RUNNING. */
-      if (running && hz <= 0) {
-        stimulusZeroStrikes += 1;
-      } else {
-        stimulusZeroStrikes = 0;
-      }
-      const degraded = running && stimulusZeroStrikes >= STIMULUS_DEGRADED_STRIKES;
-
       if (stimulusBadge) {
-        if (degraded) {
-          stimulusBadge.textContent = t("stimulusDegraded");
-          stimulusBadge.className = "badge warn";
-        } else {
-          stimulusBadge.textContent = running ? t("stimulusOn") : t("stimulusOff");
-          stimulusBadge.className = running ? "badge active" : "badge";
-        }
+        stimulusBadge.textContent = running ? t("stimulusOn") : t("stimulusOff");
+        stimulusBadge.className = running ? "badge active" : "badge";
       }
       stimulusStateText.textContent = `${burstKb} KB · every ${stimulusState.pause_ms} ms`;
 
@@ -2138,444 +1963,6 @@
         toggleStimulusBtn.textContent = stimulusState.enabled ? t("stimulusStopBtn") : t("stimulusStartBtn");
       }
       updateStimulusApplyState();
-    }
-
-    /*
-     * Data recording.
-     *
-     * Browser-side only: samples are captured from the already-parsed "sample"
-     * stream, so no firmware change is needed. The buffer is deliberately
-     * separate from peer.samples, which is capped at MAX_SAMPLES for the
-     * charts and would otherwise hold only ~14 seconds of history.
-     */
-    const REC_PEER = "AP";
-    const REC_MAX_SAMPLES = 30000;
-
-    const recording = {
-      phase: "idle", /* idle | counting | recording | paused */
-      category: "",
-      countdownEndMs: 0,
-      deadlineMs: 0,
-      startWallMs: 0,
-      startDevTs: 0,
-      lastBeepSec: -1,
-      samples: [],
-      markers: [],
-      segments: [],
-      ticker: null,
-    };
-
-    function recSamplesCount() {
-      return recording.samples.length;
-    }
-
-    /*
-     * Sample count that actually costs memory: the in-flight buffer plus every
-     * saved segment. Using the in-flight count alone would let a user record
-     * REC_MAX_SAMPLES, stop, and record again forever, growing the heap
-     * unbounded while the "full" guard never fires.
-     */
-    function recTotalStored() {
-      let n = recording.samples.length;
-      for (const s of recording.segments) {
-        n += s.sample_count;
-      }
-      return n;
-    }
-
-    function recPhaseLabel(phase) {
-      if (phase === "counting") return t("recCounting");
-      if (phase === "recording") return t("recRecording");
-      if (phase === "paused") return t("recPaused");
-      return t("recIdle");
-    }
-
-    function recFull() {
-      return recTotalStored() >= REC_MAX_SAMPLES;
-    }
-
-    function recBeep() {
-      try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) {
-          return;
-        }
-        const ac = new Ctx();
-        const osc = ac.createOscillator();
-        const gain = ac.createGain();
-        osc.connect(gain);
-        gain.connect(ac.destination);
-        osc.frequency.value = 880;
-        osc.type = "sine";
-        gain.gain.setValueAtTime(0.0001, ac.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.45, ac.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.4);
-        osc.start();
-        osc.stop(ac.currentTime + 0.45);
-        setTimeout(() => ac.close(), 800);
-      } catch (e) {
-        /* Audio is a nicety; never let it break recording. */
-      }
-    }
-
-    function recEnsureTicker() {
-      if (recording.ticker !== null) {
-        return;
-      }
-      recording.ticker = window.setInterval(recTick, 100);
-    }
-
-    function recDropTicker() {
-      if (recording.ticker !== null) {
-        window.clearInterval(recording.ticker);
-        recording.ticker = null;
-      }
-    }
-
-    function recTick() {
-      const now = Date.now();
-
-      if (recording.phase === "counting") {
-        const remainMs = recording.countdownEndMs - now;
-        const remainSec = Math.ceil(remainMs / 1000);
-        if (remainSec !== recording.lastBeepSec && remainSec > 0) {
-          recording.lastBeepSec = remainSec;
-          recBeep();
-        }
-        if (remainMs <= 0) {
-          recording.phase = "recording";
-          recording.lastBeepSec = -1;
-          recBeep();
-          logEvent(t("recCountdownGo").replace("{cat}", recording.category));
-          renderRecording();
-        } else {
-          renderRecording();
-        }
-        return;
-      }
-
-      if (recording.phase === "recording") {
-        const remainMs = recording.deadlineMs - now;
-        if (remainMs <= 0) {
-          recStop(true);
-          return;
-        }
-        renderRecording();
-      }
-    }
-
-    function recStart() {
-      if (recording.phase === "counting" || recording.phase === "recording") {
-        return;
-      }
-      const category = String(recCategoryInput.value || "").trim();
-      if (!category) {
-        logEvent(t("recNeedCategory"));
-        recCategoryInput.focus();
-        return;
-      }
-      const durationSec = Number(recDurationInput.value || 0);
-      if (!Number.isFinite(durationSec) || durationSec < 1) {
-        logEvent(t("recBadDuration"));
-        recDurationInput.focus();
-        return;
-      }
-      if (recFull()) {
-        logEvent(t("recFull"));
-        return;
-      }
-      const countdownSec = Math.max(0, Math.min(30, Number(recCountdownInput.value || 0) || 0));
-
-      const peer = peers.get(REC_PEER);
-      recording.phase = "counting";
-      recording.category = category;
-      recording.countdownEndMs = Date.now() + countdownSec * 1000;
-      recording.deadlineMs = recording.countdownEndMs + durationSec * 1000;
-      recording.startWallMs = recording.countdownEndMs;
-      recording.startDevTs = peer && peer.latest ? Number(peer.latest.ts_ms || 0) : 0;
-      recording.lastBeepSec = countdownSec;
-
-      logEvent(t("recStarted").replace("{cat}", category));
-      recEnsureTicker();
-      renderRecording();
-    }
-
-    function recStop(auto) {
-      if (recording.phase !== "recording" && recording.phase !== "counting" && recording.phase !== "paused") {
-        return;
-      }
-      const phaseAtStop = recording.phase;
-      recording.phase = "idle";
-      recDropTicker();
-
-      const n = recording.samples.length;
-      if (phaseAtStop === "recording" && n > 0) {
-        const endWall = Date.now();
-        const elapsedSec = (endWall - recording.startWallMs) / 1000;
-        recording.segments.push({
-          index: recording.segments.length + 1,
-          category: recording.category,
-          peer: REC_PEER,
-          started_at: new Date(recording.startWallMs).toISOString(),
-          ended_at: new Date(endWall).toISOString(),
-          duration_s: Number(elapsedSec.toFixed(3)),
-          sample_count: n,
-          start_ts_ms: recording.startDevTs,
-          end_ts_ms: n ? Number(recording.samples[n - 1].ts_ms || 0) : 0,
-          markers: recording.markers.slice(),
-          incomplete: phaseAtStop === "paused",
-          samples: recording.samples,
-        });
-        const msg = auto ? t("recAutoStopped") : t("recStopped");
-        logEvent(msg.replace("{cat}", recording.category).replace("{n}", n).replace("{d}", elapsedSec.toFixed(1)));
-      }
-
-      recording.samples = [];
-      recording.markers = [];
-      renderRecording();
-    }
-
-    function recAddMarker() {
-      if (recording.phase !== "recording") {
-        logEvent(t("recNotRecording"));
-        return;
-      }
-      const last = recording.samples.length ? recording.samples[recording.samples.length - 1] : null;
-      const elapsedMs = Math.round(Date.now() - recording.startWallMs);
-      const elapsedSec = elapsedMs / 1000;
-      recording.markers.push({
-        n: recording.markers.length + 1,
-        elapsed_ms: elapsedMs,
-        elapsed_s: Number(elapsedSec.toFixed(3)),
-        ts_ms: last ? Number(last.ts_ms || 0) : 0,
-      });
-      logEvent(t("recMarkerSaved").replace("{n}", recording.markers.length).replace("{t}", elapsedSec.toFixed(1)));
-      renderRecording();
-    }
-
-    function recCaptureSample(msg) {
-      if (recording.phase !== "recording") {
-        return;
-      }
-      if (msg.peer !== REC_PEER) {
-        return;
-      }
-      if (recFull()) {
-        return;
-      }
-      recording.samples.push({
-        elapsed_ms: Math.round(Date.now() - recording.startWallMs),
-        ts_ms: msg.ts_ms,
-        wander_value: msg.wander_value,
-        jitter_value: msg.jitter_value,
-        motion_status: msg.motion_status,
-        motion_state: msg.motion_state,
-        state_name: msg.state_name,
-        init_stage_name: msg.init_stage_name,
-        presence_ready: msg.presence_ready,
-        presence_wander_average: msg.presence_wander_average,
-        presence_someone_threshold: msg.presence_someone_threshold,
-        presence_someone_status: msg.presence_someone_status,
-        train_wander_threshold: msg.train_wander_threshold,
-        train_jitter_threshold: msg.train_jitter_threshold,
-        train_thresholds_valid: msg.train_thresholds_valid,
-        train_background_avg: msg.train_background_avg,
-        train_last_basis_wander: msg.train_last_basis_wander,
-        smooth_scaled: msg.smooth_scaled,
-        enter_level_scaled: msg.enter_level_scaled,
-        exit_level_scaled: msg.exit_level_scaled,
-      });
-    }
-
-    function recSegmentsHtml() {
-      const segs = recording.segments;
-      if (!segs.length) {
-        return t("recSegEmpty");
-      }
-      const total = segs.reduce((a, s) => a + s.sample_count, 0);
-      const rows = segs.map((s) => {
-        const flag = s.incomplete ? t("recIncomplete") : t("recCompleted");
-        return `${String(s.index).padStart(2, " ")}  ${s.category.padEnd(18, " ").slice(0, 18)}  ` +
-               `${String(s.sample_count).padStart(6, " ")} ${t("recSamples").padEnd(8, " ")} ` +
-               `${s.duration_s.toFixed(1).padStart(6, " ")}s  mk:${String(s.markers.length).padStart(2, "0")}  ${flag}`;
-      });
-      return rows.join("\n") + `\n\ntotal: ${segs.length} ${t("recSegmentsTitle").toLowerCase()}, ${total} ${t("recSamples")}`;
-    }
-
-    function renderRecording() {
-      if (!recBadge) {
-        return;
-      }
-      const phase = recording.phase;
-      recBadge.textContent = recPhaseLabel(phase);
-      recBadge.className = "badge" + (phase === "recording" || phase === "counting" ? " active" : "");
-      recStateText.textContent = recording.category || t("recIdle");
-
-      const now = Date.now();
-      if (phase === "counting") {
-        const remain = Math.max(0, Math.ceil((recording.countdownEndMs - now) / 1000));
-        recCountdownText.textContent = `${t("recCounting")} ${remain}`;
-      } else if (phase === "recording") {
-        const remain = Math.max(0, (recording.deadlineMs - now) / 1000);
-        const elapsed = (now - recording.startWallMs) / 1000;
-        recCountdownText.textContent = `${remain.toFixed(1)}s / ${elapsed.toFixed(1)}s`;
-      } else if (phase === "paused") {
-        recCountdownText.textContent = t("recDisconnect");
-      } else {
-        recCountdownText.textContent = "-";
-      }
-
-      recProgressText.textContent = `${recSamplesCount()} / ${REC_MAX_SAMPLES} ${t("recSamples")}` +
-        (recording.segments.length ? ` · ${recTotalStored()} ${t("recStored")}` : "");
-      recSegments.textContent = recSegmentsHtml();
-
-      const busy = phase === "counting" || phase === "recording" || phase === "paused";
-      const hasData = recTotalStored() > 0;
-      recStartBtn.disabled = busy || recFull();
-      recStopBtn.disabled = !busy;
-      recMarkerBtn.disabled = phase !== "recording";
-      recCategoryInput.disabled = busy;
-      recDurationInput.disabled = busy;
-      recCountdownInput.disabled = busy;
-      recCsvBtn.disabled = !hasData;
-      recJsonBtn.disabled = !hasData;
-      recClearBtn.disabled = !hasData;
-    }
-
-    function recDownload(filename, mime, text) {
-      const blob = new Blob([text], { type: mime });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      logEvent(t("recSaved").replace("{file}", filename));
-    }
-
-    function recStamp() {
-      const d = new Date();
-      const p = (n, w) => String(n).padStart(w || 2, "0");
-      return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-    }
-
-    /* A marker lands on the first sample at or after it. Markers and samples
-       never share a millisecond, so an exact lookup always misses and the
-       column would be empty. */
-    function recLabeledSamples(s) {
-      const mk = s.markers
-        .map((m) => ({ ms: m.elapsed_ms !== undefined ? m.elapsed_ms : Math.round(m.elapsed_s * 1000), n: m.n }))
-        .sort((a, b) => a.ms - b.ms);
-      let mi = 0;
-      let lastMarker = "";
-      return s.samples.map((r) => {
-        while (mi < mk.length && mk[mi].ms <= r.elapsed_ms) {
-          lastMarker = mk[mi].n;
-          mi++;
-        }
-        return { ...r, segment: s.index, category: s.category, marker_id: lastMarker };
-      });
-    }
-
-    /* Category names are free-form, so they may contain a comma or a quote. */
-    function recCsvField(v) {
-      const s = String(v);
-      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    }
-
-    function recBuildCsv() {
-      const cols = ["segment", "category", "marker_id", "elapsed_ms", "ts_ms", "wander_value", "jitter_value",
-        "motion_status", "motion_state", "state_name", "init_stage_name", "presence_ready",
-        "presence_wander_average", "presence_someone_threshold", "presence_someone_status",
-        "train_wander_threshold", "train_jitter_threshold", "train_thresholds_valid",
-        "train_background_avg", "train_last_basis_wander", "smooth_scaled",
-        "enter_level_scaled", "exit_level_scaled"];
-      const lines = [];
-      lines.push(`# recording_${recStamp()}.csv`);
-      lines.push(`# generated=${new Date().toISOString()}`);
-      lines.push(`# peer=${REC_PEER}`);
-      lines.push(`# segments=${recording.segments.length}`);
-      lines.push(`# total_samples=${recTotalStored()}`);
-      recording.segments.forEach((s) => {
-        lines.push(`# segment ${s.index}: category=${s.category} samples=${s.sample_count} ` +
-                   `duration_s=${s.duration_s} markers=${s.markers.length} ` +
-                   `incomplete=${s.incomplete} started_at=${s.started_at}`);
-      });
-      lines.push(cols.join(","));
-      for (const s of recording.segments) {
-        for (const r of recLabeledSamples(s)) {
-          const row = cols.map((c) => {
-            const v = r[c];
-            if (v === undefined || v === null) return "";
-            if (typeof v === "boolean") return v ? "true" : "false";
-            return recCsvField(v);
-          });
-          lines.push(row.join(","));
-        }
-      }
-      return lines.join("\n") + "\n";
-    }
-
-    function recExportCsv() {
-      if (!recTotalStored()) {
-        logEvent(t("recNoData"));
-        return;
-      }
-      recDownload(`recording_${recStamp()}.csv`, "text/csv;charset=utf-8", recBuildCsv());
-    }
-
-    function recExportJson() {
-      if (!recTotalStored()) {
-        logEvent(t("recNoData"));
-        return;
-      }
-      recDownload(`recording_${recStamp()}.json`, "application/json;charset=utf-8",
-                  JSON.stringify(recBuildJson(), null, 2));
-    }
-
-    function recBuildJson() {
-      return {
-        meta: {
-          generated_at: new Date().toISOString(),
-          peer: REC_PEER,
-          max_samples: REC_MAX_SAMPLES,
-          segments: recording.segments.length,
-          total_samples: recTotalStored(),
-        },
-        segments: recording.segments.map((s) => ({
-          index: s.index,
-          category: s.category,
-          peer: s.peer,
-          started_at: s.started_at,
-          ended_at: s.ended_at,
-          duration_s: s.duration_s,
-          sample_count: s.sample_count,
-          start_ts_ms: s.start_ts_ms,
-          end_ts_ms: s.end_ts_ms,
-          incomplete: s.incomplete,
-          markers: s.markers,
-        })),
-        samples: recording.segments.flatMap((s) => recLabeledSamples(s)),
-      };
-    }
-
-    function recClear() {
-      if (!recTotalStored()) {
-        return;
-      }
-      if (!window.confirm(t("recCleared") + "?")) {
-        return;
-      }
-      recDropTicker();
-      recording.phase = "idle";
-      recording.category = "";
-      recording.samples = [];
-      recording.markers = [];
-      recording.segments = [];
-      logEvent(t("recCleared"));
-      renderRecording();
     }
 
     /*
@@ -2703,7 +2090,6 @@
         while (peer.samples.length > MAX_SAMPLES) {
           peer.samples.shift();
         }
-        recCaptureSample(msg);
       } else if (msg.type === "stimulus") {
         handleStimulusMessage(msg);
       } else if (msg.type === "ack") {
@@ -2746,44 +2132,6 @@
       await sendCommand("GET_STIMULUS");
     }
 
-    /*
-     * The ESP32 devkit resets when the UART bridge asserts DTR or RTS: the
-     * auto-reset circuit pulls EN (and sometimes GPIO0) low through a
-     * transistor. Chrome drives both lines active when a port is opened, so
-     * every open() restarted the chip, the stream broke, and the read loop
-     * reopened again - roughly once a second, forever. Deasserting both lines
-     * right after open() holds the board running.
-     *
-     * Chrome does not specify the signal state after open(), so this must be
-     * re-applied on every open rather than assumed. Platforms without output
-     * signal support simply keep the old behaviour.
-     */
-    async function holdDeviceOutOfReset(targetPort) {
-      if (!targetPort || typeof targetPort.setSignals !== "function") {
-        return false;
-      }
-      try {
-        await targetPort.setSignals({ dataTerminalReady: false, requestToSend: false });
-        return true;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    /* Shared by the button path and the auto-resume path so both apply the
-     * same DTR/RTS deassert, read loop and handshake. */
-    async function attachPort(targetPort) {
-      port = targetPort;
-      await port.open(SERIAL_OPTIONS);
-      await holdDeviceOutOfReset(port);
-      reopenStreak = 0;
-      writer = port.writable.getWriter();
-      setConnected(true);
-      logEvent(t("logConnected"));
-      startReadLoop();
-      await sendInitialHandshake();
-    }
-
     async function connectSerial() {
       if (!("serial" in navigator)) {
         logEvent(t("logUnsupported"));
@@ -2791,40 +2139,13 @@
       }
       try {
         clearConfigForm();
-        const chosen = await navigator.serial.requestPort();
-        await attachPort(chosen);
-      } catch (error) {
-        logEvent(`${t("logConnectFailed")}: ${error.message}`);
-      }
-    }
-
-    /* getPorts() returns ports the user already granted, and the spec puts no
-     * user gesture on it, so a reload can resume the session on its own. That
-     * matters here because requestPort() opens a native chooser that no DOM
-     * automation can click.
-     *
-     * Scope is narrower than it looks: the grant does NOT survive a browser
-     * restart. After restarting Brave, getPorts() returns an empty array -
-     * checked in Default/Preferences, serial_chooser_data and serial_guard are
-     * both empty. So this saves the repeated reloads within a session, not the
-     * one chooser click after a cold start. */
-    async function autoResumeSerial() {
-      if (!("serial" in navigator) || port) {
-        return;
-      }
-      let granted = [];
-      try {
-        granted = await navigator.serial.getPorts();
-      } catch (error) {
-        return;
-      }
-      if (!granted.length) {
-        return;
-      }
-      try {
-        clearConfigForm();
-        await attachPort(granted[0]);
-        logEvent(t("logAutoResumed"));
+        port = await navigator.serial.requestPort();
+        await port.open(SERIAL_OPTIONS);
+        writer = port.writable.getWriter();
+        setConnected(true);
+        logEvent(t("logConnected"));
+        startReadLoop();
+        await sendInitialHandshake();
       } catch (error) {
         logEvent(`${t("logConnectFailed")}: ${error.message}`);
       }
@@ -2854,14 +2175,12 @@
           writer = null;
         }
         if (port) {
-          await holdDeviceOutOfReset(port);
           await port.close();
           port = null;
         }
       } catch (error) {
         logEvent(`${t("logDisconnectError")}: ${error.message}`);
       } finally {
-        reopenStreak = 0;
         cancelTrainAutomation(null);
         clearConfigForm();
         setConnected(false);
@@ -2876,10 +2195,6 @@
       reader = null;
       writer = null;
       setConnected(false);
-      if (recording.phase === "recording" || recording.phase === "counting") {
-        recording.phase = "paused";
-        recStop(false);
-      }
       if (reason) {
         logEvent(reason);
       }
@@ -2904,9 +2219,6 @@
         }
         writer = null;
       }
-      /* Deassert before closing: releasing the port would otherwise let the
-       auto-reset circuit drop EN and restart the chip on the way out. */
-      await holdDeviceOutOfReset(port);
       try {
         await port.close();
       } catch (error) {
@@ -2924,18 +2236,7 @@
         markDisconnected(t("logPortGone"));
         return false;
       }
-      if (reopenStreak >= REOPEN_MAX_STREAK) {
-        /* Reopening keeps succeeding yet the device keeps dropping off. Another
-         * attempt would just reset the ESP32 again, so stop and say why. */
-        markDisconnected(t("logReopenLoopStopped"));
-        return false;
-      }
-      reopenStreak++;
       logEvent(t("logReopening"));
-      /* Recorded so a real failure is visible instead of being swallowed as
-       * "still booting". Anything other than the port already being open means
-       * something is actually wrong. */
-      let lastError = "";
       for (const delay of REOPEN_BACKOFF_MS) {
         await sleep(delay);
         if (!keepReading) {
@@ -2943,7 +2244,6 @@
         }
         try {
           await port.open(SERIAL_OPTIONS);
-          await holdDeviceOutOfReset(port);
           writer = port.writable.getWriter();
           setConnected(true);
           logEvent(t("logReopened"));
@@ -2951,10 +2251,9 @@
           return true;
         } catch (error) {
           /* Device still booting; try the next backoff step. */
-          lastError = error && error.name ? `${error.name}: ${error.message}` : String(error);
         }
       }
-      markDisconnected(lastError ? `${t("logReopenFailed")} (${lastError})` : t("logReopenFailed"));
+      markDisconnected(t("logReopenFailed"));
       return false;
     }
 
@@ -2997,11 +2296,6 @@
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop();
-            /* Real traffic proves the port is healthy, so the reopen cap starts
-             * counting from scratch. */
-            if (lines.length) {
-              reopenStreak = 0;
-            }
             for (const rawLine of lines) {
               const line = rawLine.replace(/\r$/, "");
               appendRawLine(line);
@@ -3170,17 +2464,6 @@
       document.getElementById("trainRemoveBtn").addEventListener("click", handleTrainRemove);
       document.getElementById("applyRadarBtn").addEventListener("click", () => applyRadarConfig());
       document.getElementById("applyStimulusBtn").addEventListener("click", () => applyStimulusValues());
-      recStartBtn.addEventListener("click", recStart);
-      recStopBtn.addEventListener("click", () => recStop(false));
-      recMarkerBtn.addEventListener("click", recAddMarker);
-      recCsvBtn.addEventListener("click", recExportCsv);
-      recJsonBtn.addEventListener("click", recExportJson);
-      recClearBtn.addEventListener("click", recClear);
-      recCategoryInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          recStart();
-        }
-      });
     document.getElementById("toggleStimulusBtn").addEventListener("click", () => toggleStimulusState());
     if (refreshStimulusBtn) {
       refreshStimulusBtn.addEventListener("click", () => sendCommand("GET_STIMULUS"));
@@ -3240,7 +2523,6 @@
     startRenderLoop();
     renderAll();
     logEvent(t("logReady"));
-    autoResumeSerial();
   </script>
 </body>
 </html>

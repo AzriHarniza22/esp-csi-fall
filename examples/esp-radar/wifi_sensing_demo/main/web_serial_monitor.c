@@ -88,14 +88,6 @@ typedef struct {
     uint32_t csi_dropped_count;
     int64_t csi_last_rx_us;
     /*
-     * Watchdog staleness floor: keeps advancing while the Wi-Fi link is down so
-     * the frame age accumulated during an outage is not misread on the fresh
-     * link a reconnect just established.
-     */
-    int64_t csi_wd_baseline_us;
-    bool csi_wd_link_up;
-    int64_t csi_wd_outage_us;
-    /*
      * CSI frame rate, derived from csi_frame_count in the monitor task. The
      * counter is only incremented inside the Wi-Fi callback, never read there,
      * so the callback stays a single increment. csi_rate_hz_x10 carries tenths
@@ -474,63 +466,18 @@ static void csi_watchdog_task(void *arg)
     vTaskDelete(NULL);
 }
 
-static void csi_watchdog_fire(int64_t now_us, const char *why, long long elapsed_ms)
-{
-    ESP_LOGW(TAG, "csi watchdog: %s for %lld ms, forcing reconnect", why, elapsed_ms);
-    s_ctx.csi_wd_last_reconnect_us = now_us;
-    s_ctx.csi_wd_reconnecting = true;
-    if (xTaskCreate(csi_watchdog_task, "csi_wd", CSI_WD_TASK_STACK, NULL,
-                    tskIDLE_PRIORITY + 5, NULL) != pdPASS) {
-        s_ctx.csi_wd_reconnecting = false;
-    }
-}
-
 static void csi_watchdog_check(void *arg)
 {
     (void)arg;
     if (!s_ctx.initialized || !s_ctx.csi_wd_enabled || s_ctx.csi_wd_reconnecting) {
         return;
     }
-    if (!ht_stimulus_is_enabled()) {
-        return;
-    }
     wifi_runtime_info_t info;
     wifi_runtime_manager_get_info(&info);
-    int64_t now_us = esp_timer_get_time();
-
-    if (info.connected && info.has_ip) {
-        s_ctx.csi_wd_link_up = true;
-        s_ctx.csi_wd_outage_us = 0;
-    } else {
-        /* Link down: the next frame can only arrive once the link returns, so
-         * keep moving the staleness floor instead of charging it to the outage. */
-        s_ctx.csi_wd_baseline_us = now_us;
-        if (s_ctx.csi_wd_link_up) {
-            s_ctx.csi_wd_link_up = false;
-            s_ctx.csi_wd_outage_us = now_us;
-        } else if (s_ctx.csi_wd_outage_us == 0) {
-            s_ctx.csi_wd_outage_us = now_us;
-        }
-        /*
-         * A link that never comes back on its own would silence CSI forever, so
-         * after the same staleness window hand the outage to the reconnect
-         * task. Skipped until the first CSI frame of the boot so bring-up stays
-         * owned by app_main's retry loop.
-         */
-        if (s_ctx.csi_last_rx_us > 0 &&
-            now_us - s_ctx.csi_wd_last_reconnect_us >= (int64_t)CSI_WD_MIN_INTERVAL_MS * 1000LL) {
-            int64_t down_us = now_us - s_ctx.csi_wd_outage_us;
-            if (down_us >= (int64_t)CSI_WD_STALE_MS * 1000LL) {
-                csi_watchdog_fire(now_us, "link down", (long long)(down_us / 1000));
-            }
-        }
+    if (!info.connected || !info.has_ip) {
         return;
     }
-
-    int64_t baseline_us = s_ctx.csi_last_rx_us;
-    if (s_ctx.csi_wd_baseline_us > baseline_us) {
-        baseline_us = s_ctx.csi_wd_baseline_us;
-    }
+    int64_t now_us = esp_timer_get_time();
     if (now_us - s_ctx.csi_wd_last_reconnect_us < (int64_t)CSI_WD_MIN_INTERVAL_MS * 1000LL) {
         return;
     }
@@ -543,11 +490,18 @@ static void csi_watchdog_check(void *arg)
     if (s_ctx.csi_last_rx_us <= 0) {
         return;
     }
-    int64_t age_us = now_us - baseline_us;
+    int64_t age_us = now_us - s_ctx.csi_last_rx_us;
     if (age_us < (int64_t)CSI_WD_STALE_MS * 1000LL) {
         return;
     }
-    csi_watchdog_fire(now_us, "no CSI", (long long)(age_us / 1000));
+    ESP_LOGW(TAG, "csi watchdog: no CSI for %lld ms, forcing reconnect",
+             (long long)(age_us / 1000));
+    s_ctx.csi_wd_last_reconnect_us = now_us;
+    s_ctx.csi_wd_reconnecting = true;
+    if (xTaskCreate(csi_watchdog_task, "csi_wd", CSI_WD_TASK_STACK, NULL,
+                    tskIDLE_PRIORITY + 5, NULL) != pdPASS) {
+        s_ctx.csi_wd_reconnecting = false;
+    }
 }
 
 static void send_error(const char *message)

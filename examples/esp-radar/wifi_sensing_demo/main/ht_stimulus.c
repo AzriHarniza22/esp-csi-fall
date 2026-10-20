@@ -214,11 +214,6 @@ bool ht_stimulus_is_running(void)
     return s_running;
 }
 
-bool ht_stimulus_is_enabled(void)
-{
-    return s_enabled;
-}
-
 esp_err_t ht_stimulus_set_config(const ht_stimulus_config_t *cfg)
 {
     if (!cfg) {
@@ -275,11 +270,6 @@ void ht_stimulus_stop(void)
 }
 
 bool ht_stimulus_is_running(void)
-{
-    return false;
-}
-
-bool ht_stimulus_is_enabled(void)
 {
     return false;
 }
