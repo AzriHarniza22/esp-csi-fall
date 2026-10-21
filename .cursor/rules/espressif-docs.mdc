@@ -1,0 +1,20 @@
+---
+description: Wajibkan preflight dokumentasi Espressif sebelum mengubah firmware, UI, atau konfigurasi radio.
+alwaysApply: true
+---
+
+Sebelum edit pertama pada `examples/esp-radar/wifi_sensing_demo/main/**`,
+`tools/**`, `sdkconfig*`, atau apa pun yang menyentuh driver Wi-Fi/BT, radio,
+keamanan, atau protokol:
+
+1. Baca `docs/agent-preflight.md`.
+2. Tuliskan `Dokumen: <nama komponen> <versi> <path/URL>` dan satu baris
+   `Kutipan:` yang diambil persis dari dokumen tersebut.
+3. Sertakan trailer `Docs:` pada pesan commit.
+4. Catat perubahan dan alasannya di `docs/agent-changes.md` (entri baru di
+   paling bawah) sebelum commit. Commit yang mengubah kode tanpa entri itu
+   ditolak oleh `.githooks/commit-msg`.
+
+Proyek ini di-build dengan ESP-IDF v5.5.3. Jangan memakai MCP `esp-idf` v6.0
+untuk pertanyaan tentang proyek ini; sebutkan ketidakcocokan versinya bila
+hanya v6.0 yang tersedia.

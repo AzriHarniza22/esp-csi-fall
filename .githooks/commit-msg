@@ -1,0 +1,63 @@
+#!/bin/sh
+# Gate dokumentasi:
+#   1. Setiap commit yang mengubah kode wajib menyentuh docs/agent-changes.md.
+#   2. Commit yang menyentuh perilaku runtime wajib punya trailer "Docs:".
+# Aktifkan sekali per clone dengan: git config core.hooksPath .githooks
+# Lihat docs/agent-preflight.md dan docs/agent-changes.md.
+
+msg_file=$1
+
+# Merge commit tidak membawa perubahan baru; lewati.
+if [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+    exit 0
+fi
+
+CODE='\.(c|h|cpp|hpp|cc|py|js|ts|tsx|html|css|sh|cmake)$|(^|/)CMakeLists\.txt$|(^|/)Kconfig|(^|/)sdkconfig|(^|/)\.githooks/'
+CHANGELOG='^docs/agent-changes\.md$'
+SENSITIVE='^(examples/esp-radar/wifi_sensing_demo/(main/|tools/|sdkconfig)|managed_components/)'
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if printf '%s\n' "$staged" | grep -Eq "$CODE"; then
+    if ! printf '%s\n' "$staged" | grep -Eq "$CHANGELOG"; then
+        cat >&2 <<'EOF'
+Commit ditolak: ada perubahan kode tanpa entri di docs/agent-changes.md.
+
+Tambahkan satu entri baru ke docs/agent-changes.md, lalu stage ulang:
+  File: ...
+  Perubahan: ...
+  Alasan: ...
+  Dokumen: <komponen> <versi> <path/URL>
+  Verifikasi: build/log/uji yang dipakai
+
+Format lengkap ada di bagian atas docs/agent-changes.md.
+Bypass darurat: git commit --no-verify
+EOF
+        exit 1
+    fi
+fi
+
+if ! printf '%s\n' "$staged" | grep -Eq "$SENSITIVE"; then
+    exit 0
+fi
+
+if grep -Eq '^Docs: .+' "$msg_file"; then
+    exit 0
+fi
+
+cat >&2 <<'EOF'
+Commit ditolak: perubahan menyentuh perilaku runtime tanpa trailer Docs:.
+
+Tambahkan baris ini ke pesan commit (bukan komentar):
+  Docs: <komponen> <versi> <path/URL>
+
+Contoh:
+  Docs: esp_wifi_sensing 0.1.1 managed_components/espressif__esp_wifi_sensing/README.md
+
+Bila dokumentasi tidak ditemukan:
+  Docs: none (tidak ditemukan; alasan: ...)
+
+Lihat docs/agent-preflight.md. Bypass darurat: git commit --no-verify
+EOF
+
+exit 1

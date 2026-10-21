@@ -1,5 +1,21 @@
 # Aturan kerja untuk proyek ini
 
+## Preflight wajib
+
+Sebelum menyentuh perilaku runtime, baca `docs/agent-preflight.md` dan
+tuliskan bukti `Dokumen: ...` + `Kutipan: ...` sebelum edit pertama. Daftar
+sumber, versi terpasang, dan format trailer commit ada di sana. Commit yang
+menyentuh `main/`, `tools/`, `sdkconfig*`, atau `managed_components/` tanpa
+trailer `Docs:` ditolak oleh `.githooks/commit-msg`.
+
+## Log perubahan wajib
+
+Setiap perubahan kode **wajib** dicatat di `docs/agent-changes.md` sebelum
+commit: file yang berubah, apa yang berubah, alasannya, dokumen yang dipakai,
+dan verifikasinya. Ini bukan ringkasan diff. Commit yang mengubah kode tanpa
+menyentuh file itu ditolak oleh `.githooks/commit-msg`. Format entri ada di
+bagian atas `docs/agent-changes.md`; tambahkan entri baru di paling bawah.
+
 ## Riset dulu, baru mengubah perilaku
 
 Sebelum mengubah apa pun yang mengubah perilaku runtime — driver Wi-Fi/BT,
