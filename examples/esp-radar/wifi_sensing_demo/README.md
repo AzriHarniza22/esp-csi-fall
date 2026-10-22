@@ -69,7 +69,7 @@ The serial monitor also exposes the main runtime controls used by the demo:
 - `HMSCMD WIFI_INFO`
 - `HMSCMD START_CSI_STREAM`
 - `HMSCMD STOP_CSI_STREAM`
-- `HMSCMD SET_CSI_PERIOD <20..1000>`
+- `HMSCMD SET_CSI_PERIOD <0 or 20..1000>` (`0` emits every CSI callback; this is a demo-serial extension, not an ESP-IDF API)
 
 Here `<peer>` can be either the demo name (`AP`, `MAC_1`, `MAC_2`) or the peer
 MAC string.
@@ -81,12 +81,13 @@ To use the browser monitor:
 3. Connect to the board through Web Serial.
 4. Inspect live channel diagnostics or update channel parameters from the page.
 
-If the browser blocks `file://` access for Web Serial, serve the directory
-locally:
+If the browser blocks `file://` access for Web Serial, or you want to save CSI
+dataset takes under `recordings/`, serve the tools directory with the recorder
+server (not `python -m http.server`, which cannot accept uploads):
 
 ```bash
 cd tools
-python3 -m http.server
+python3 csi_recorder_server.py
 ```
 
 Then open `http://127.0.0.1:8000/web_serial_monitor.html`.
@@ -102,7 +103,18 @@ individual curve over the bounded CSI history, matching the `console_test`
 visualization model. Step `5` is the low-cost view used by `console_test`; step
 `1` draws every available subcarrier (for example, all 52 LLTF subcarriers).
 CSI frames are sent as base64 with a sequence number, source MAC, RSSI, raw
-length, data type, and dropped-frame counter.
+length, filtered `valid` payload, `rx_ctrl` radio fields, device `ts_us`, data
+type, and dropped-frame counter.
+
+The CSI Recorder panel follows the `console_test` collect window: label, countdown,
+duration, and optional repeat count. Each take writes `*.csi_data.csv` (official
+`CSI_DATA` header), `*.iq.csv` (I/Q per subcarrier), and `*.meta.json` under
+`recordings/<label>/`. The Recordings panel lists, deletes, heatmaps, and
+plots those files. Its amplitude heatmap puts recorded frames on the x-axis and
+subcarriers on the y-axis, with color showing `|I+jQ|`; the color scale clips
+the 2nd and 98th percentiles to keep outlier frames from hiding typical
+variation. On this hardware, HT stimulus usually has to be running or the take
+is marked incomplete.
 
 ## Demo Behavior
 
@@ -112,4 +124,3 @@ length, data type, and dropped-frame counter.
 - When the AP channel returns to INACTIVE, the LED fades out.
 - The two fixed peer channels remain visible in logs and the browser monitor as
   extra sensing references.
-

@@ -90,3 +90,7 @@ docs/docusaurus/website/node_modules
 
 # tool cache (lokal saja)
 .serena/
+
+# CSI dataset takes (keep recordings/README.md)
+examples/esp-radar/wifi_sensing_demo/recordings/**/*.csv
+examples/esp-radar/wifi_sensing_demo/recordings/**/*.meta.json

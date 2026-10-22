@@ -288,6 +288,10 @@
       display: block;
     }
 
+    canvas[hidden] {
+      display: none;
+    }
+
     .config-form {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -312,6 +316,10 @@
       gap: 12px;
     }
 
+    #recCsiToolbar[hidden] {
+      display: none;
+    }
+
     .csi-toolbar label {
       min-width: 130px;
     }
@@ -332,6 +340,35 @@
       color: var(--muted);
       font-size: 12px;
       margin-top: 10px;
+    }
+
+    .record-warn {
+      color: var(--warn);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .recordings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .recordings-table th,
+    .recordings-table td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .recordings-table button {
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+
+    canvas.heatmap {
+      height: 340px;
     }
 
     label {
@@ -537,6 +574,90 @@
       </section>
 
       <section class="panel section">
+        <h2 id="recPanelTitle">CSI Recorder</h2>
+        <div id="recPanelDesc" class="muted">Label, countdown, then record every CSI frame for the configured duration. Files are stored under recordings/.</div>
+        <div style="height: 12px;"></div>
+        <div class="config-form">
+          <label><span id="recLabelPresetLabel">Label</span>
+            <select id="recLabelSelect">
+              <option value="kosong">kosong</option>
+              <option value="duduk">duduk</option>
+              <option value="berdiri">berdiri</option>
+              <option value="jongkok">jongkok</option>
+              <option value="jatuh">jatuh</option>
+              <option value="berjalan">berjalan</option>
+              <option value="__custom__">custom</option>
+            </select>
+          </label>
+          <label><span id="recLabelCustomLabel">Custom label</span><input id="recLabelCustom" type="text" maxlength="48" autocomplete="off" /></label>
+          <label><span id="recCountdownLabel">Countdown (s)</span><input id="recCountdownInput" type="number" min="0" step="1" value="5" autocomplete="off" /></label>
+          <label><span id="recDurationLabel">Duration (s)</span><input id="recDurationInput" type="number" min="1" step="1" value="10" autocomplete="off" /></label>
+          <label><span id="recTakesLabel">Takes</span><input id="recTakesInput" type="number" min="1" step="1" value="1" autocomplete="off" /></label>
+        </div>
+        <div id="recStimulusWarn" class="record-warn" hidden></div>
+        <div style="height: 10px;"></div>
+        <div class="status-pill">
+          <span id="recTimerLabel">Recorder</span>
+          <strong id="recTimerText">Idle</strong>
+        </div>
+        <div style="height: 10px;"></div>
+        <div class="button-row">
+          <button id="recStartBtn">Record</button>
+          <button id="recCancelBtn" class="secondary">Cancel</button>
+          <button id="recStartStimulusBtn" class="secondary">Start stimulus</button>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <h2 id="libPanelTitle">Recordings</h2>
+        <div id="libPanelDesc" class="muted">Manage saved CSI takes. Requires csi_recorder_server.py.</div>
+        <div style="height: 10px;"></div>
+        <div class="button-row">
+          <label><span id="libFilterLabel">Filter label</span><input id="libFilterInput" type="text" autocomplete="off" /></label>
+          <button id="libRefreshBtn" class="secondary">Refresh</button>
+        </div>
+        <div id="libStatusText" class="csi-status"></div>
+        <div style="height: 10px;"></div>
+        <div style="overflow:auto;">
+          <table class="recordings-table">
+            <thead>
+              <tr>
+                <th id="libColLabel">Label</th>
+                <th id="libColTime">Time</th>
+                <th id="libColDuration">Duration</th>
+                <th id="libColFrames">Frames</th>
+                <th id="libColComplete">Complete</th>
+                <th id="libColActions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="libTableBody"></tbody>
+          </table>
+        </div>
+        <div id="recordingVisualizer" hidden>
+          <div style="height: 12px;"></div>
+          <div id="libVisualTitle" class="muted"></div>
+          <div id="libVisualDesc" class="muted"></div>
+          <div id="recCsiToolbar" class="csi-toolbar" hidden>
+            <label><span id="recCsiViewLabel">View</span>
+              <select id="recCsiViewSelect">
+                <option value="amplitude">Amplitude</option>
+                <option value="real">Real</option>
+                <option value="imaginary">Imaginary</option>
+              </select>
+            </label>
+            <label class="csi-step-control"><span id="recCsiStepLabel">Subcarrier step</span>
+              <select id="recCsiStepSelect">
+                <option value="5">5 (light)</option>
+                <option value="1">1 (all)</option>
+              </select>
+            </label>
+          </div>
+          <canvas id="recHeatmap" class="heatmap" width="1200" height="220" hidden></canvas>
+          <canvas id="recCsiChart" width="1200" height="280" hidden></canvas>
+        </div>
+      </section>
+
+      <section class="panel section">
         <h2 id="configPanelTitle">Configuration</h2>
         <div style="height: 12px;"></div>
         <form id="configForm" class="config-form" autocomplete="off">
@@ -630,6 +751,7 @@
     </main>
   </div>
 
+  <script src="csi_recorder.js"></script>
   <script>
     const HMS_PREFIX = "HMS:";
     const MAX_SAMPLES = 240;
@@ -725,7 +847,8 @@
       }
       chartsDirty = false;
       renderCharts();
-      drawCsiChart();
+      drawCsiChart(csiChart, csiHistory, csiSubcarrierCount, csiViewSelect.value,
+        Number(csiStepSelect.value) || 5, "csiChart");
     }
 
     function renderDom() {
@@ -783,7 +906,57 @@
         rawDataDesc: "Every serial line received by the browser is shown here, including ordinary logs and structured `HMS:` messages.",
         rawLineCountLabel: "Lines",
         clearRawLogBtn: "Clear Window",
-        footerNote: "Note: this page only parses JSON lines prefixed with <code>HMS:</code>, so ordinary device logs will not interfere with the charts. If your browser blocks Web Serial on <code>file://</code>, run <code>python3 -m http.server</code> in this directory and open <code>http://127.0.0.1:8000/</code>.",
+        footerNote: "Note: this page only parses JSON lines prefixed with <code>HMS:</code>, so ordinary device logs will not interfere with the charts. Serve this directory with <code>python3 csi_recorder_server.py</code> so recordings can be saved under <code>recordings/</code>, then open <code>http://127.0.0.1:8000/</code>.",
+        recPanelTitle: "CSI Recorder",
+        recPanelDesc: "Choose a label, wait through the countdown, then capture every CSI frame for the configured duration. Each take writes CSI_DATA CSV, I/Q CSV, and metadata.",
+        recLabelPresetLabel: "Label",
+        recLabelCustomLabel: "Custom label",
+        recCountdownLabel: "Countdown (s)",
+        recDurationLabel: "Duration (s)",
+        recTakesLabel: "Takes",
+        recTimerLabel: "Recorder",
+        recTimerIdle: "Idle",
+        recTimerCountdown: "Countdown",
+        recTimerRecording: "Recording",
+        recTimerSaving: "Saving",
+        recStartBtn: "Record",
+        recCancelBtn: "Cancel",
+        recStartStimulusBtn: "Start stimulus",
+        recNeedLabel: "Enter a label before recording.",
+        recNeedSerial: "Connect serial before recording.",
+        recStimulusOff: "HT stimulus is stopped. CSI on this hardware usually needs it; start it before recording.",
+        recSaved: "Saved recording",
+        recSaveFailed: "Could not save to the recorder server; downloaded a backup instead.",
+        recIncomplete: "Recording marked incomplete",
+        recCancelled: "Recording cancelled",
+        recNeedServer: "Recording library needs python3 csi_recorder_server.py (not python -m http.server).",
+        recDeleteConfirm: "Delete this recording?",
+        recReplayBlocked: "Cannot replay while a recording is running.",
+        libPanelTitle: "Recordings",
+        libPanelDesc: "List, visualize, download, or delete takes stored under recordings/.",
+        libFilterLabel: "Filter label",
+        libRefreshBtn: "Refresh",
+        libColLabel: "Label",
+        libColTime: "Time",
+        libColDuration: "Duration",
+        libColFrames: "Frames",
+        libColComplete: "Complete",
+        libColActions: "Actions",
+        libHeatmapTitle: "CSI amplitude heatmap",
+        heatmapTimeAxis: "Time (frame)",
+        heatmapSubcarrierAxis: "Subcarrier",
+        heatmapAmplitudeAxis: "Amplitude |I+jQ|",
+        heatmapScaleHint: "Color scale clips values below the 2nd and above the 98th percentile.",
+        csiGraphHint: "Each line shows one subcarrier across the recorded frames.",
+        libCsiGraphTitle: "Recorded CSI",
+        libVisualHint: "Choose Heatmap or CSI graph in a recording row to view it here.",
+        libHeatmap: "Heatmap",
+        libCsiGraph: "CSI graph",
+        recCsiViewLabel: "View",
+        recCsiStepLabel: "Subcarrier step",
+        libDownloadCsi: "CSI_DATA",
+        libDownloadIq: "I/Q",
+        libDelete: "Delete",
         peerStateLabel: "State",
         peerInitLabel: "Init",
         peerJitterLabel: "Jitter",
@@ -943,7 +1116,7 @@
         rawDataDesc: "串口收到的每一行数据都会集中显示在这里，包含普通日志和 `HMS:` 数据。",
         rawLineCountLabel: "行数",
         clearRawLogBtn: "清空窗口",
-        footerNote: "说明：这个页面只解析串口里以 <code>HMS:</code> 开头的 JSON 行，因此即使设备还在输出普通日志，也不会影响图表显示。如果浏览器不允许直接从 <code>file://</code> 使用 Web Serial，请在当前目录执行 <code>python3 -m http.server</code> 后通过 <code>http://127.0.0.1:8000/</code> 打开。",
+        footerNote: "说明：这个页面只解析串口里以 <code>HMS:</code> 开头的 JSON 行。请用 <code>python3 csi_recorder_server.py</code> 提供本目录，采集文件会写入 <code>recordings/</code>，然后打开 <code>http://127.0.0.1:8000/</code>。",
         peerStateLabel: "状态",
         peerInitLabel: "初始化",
         peerJitterLabel: "jitter",
@@ -1023,6 +1196,56 @@
         csiRunning: "CSI 流运行中",
         csiFrames: "帧",
         csiDropped: "丢弃",
+        recPanelTitle: "CSI 采集",
+        recPanelDesc: "选择标签，倒计时后按设定时长采集每一帧 CSI。每次采集写入 CSI_DATA CSV、I/Q CSV 和元数据。",
+        recLabelPresetLabel: "标签",
+        recLabelCustomLabel: "自定义标签",
+        recCountdownLabel: "倒计时（秒）",
+        recDurationLabel: "时长（秒）",
+        recTakesLabel: "次数",
+        recTimerLabel: "采集器",
+        recTimerIdle: "空闲",
+        recTimerCountdown: "倒计时",
+        recTimerRecording: "采集中",
+        recTimerSaving: "保存中",
+        recStartBtn: "开始采集",
+        recCancelBtn: "取消",
+        recStartStimulusBtn: "启动激励",
+        recNeedLabel: "请先填写标签。",
+        recNeedSerial: "请先连接串口再采集。",
+        recStimulusOff: "HT 激励已停止。此硬件上的 CSI 通常需要激励；请先启动再采集。",
+        recSaved: "已保存",
+        recSaveFailed: "无法写入采集服务器，已改为下载备份。",
+        recIncomplete: "采集标记为不完整",
+        recCancelled: "已取消采集",
+        recNeedServer: "数据管理需要 python3 csi_recorder_server.py（不能只用 python -m http.server）。",
+        recDeleteConfirm: "删除这条采集？",
+        recReplayBlocked: "正在采集时不能回放。",
+        libPanelTitle: "采集库",
+        libPanelDesc: "列出、可视化、下载或删除 recordings/ 中的样本。",
+        libFilterLabel: "按标签筛选",
+        libRefreshBtn: "刷新",
+        libColLabel: "标签",
+        libColTime: "时间",
+        libColDuration: "时长",
+        libColFrames: "帧数",
+        libColComplete: "完整",
+        libColActions: "操作",
+        libHeatmapTitle: "CSI 幅度热力图",
+        heatmapTimeAxis: "时间（帧）",
+        heatmapSubcarrierAxis: "子载波",
+        heatmapAmplitudeAxis: "幅度 |I+jQ|",
+        heatmapScaleHint: "颜色范围裁剪至第 2–98 百分位。",
+        csiGraphHint: "每条曲线表示一个子载波随采集帧的变化。",
+        libCsiGraphTitle: "录制 CSI 曲线",
+        libVisualHint: "点击记录行中的“热力图”或“CSI 曲线”在此查看。",
+        libHeatmap: "热力图",
+        libCsiGraph: "CSI 曲线",
+        recCsiViewLabel: "视图",
+        recCsiStepLabel: "子载波步长",
+        libDownloadCsi: "CSI_DATA",
+        libDownloadIq: "I/Q",
+        libDelete: "删除",
         yes: "是",
         no: "否",
         logTrainNoPeer: "请先选择一个通道再执行训练命令。",
@@ -1101,6 +1324,10 @@
     const csiViewSelect = document.getElementById("csiViewSelect");
     const csiStepSelect = document.getElementById("csiStepSelect");
     const csiStatusText = document.getElementById("csiStatusText");
+    const recCsiChart = document.getElementById("recCsiChart");
+    const recCsiToolbar = document.getElementById("recCsiToolbar");
+    const recCsiViewSelect = document.getElementById("recCsiViewSelect");
+    const recCsiStepSelect = document.getElementById("recCsiStepSelect");
 
     let csiStreamActive = false;
     let csiFrameCount = 0;
@@ -1108,6 +1335,36 @@
     const CSI_HISTORY_LENGTH = 180;
     let csiHistory = [];
     let csiSubcarrierCount = 0;
+
+    const recTimerText = document.getElementById("recTimerText");
+    const recStimulusWarn = document.getElementById("recStimulusWarn");
+    const recHeatmap = document.getElementById("recHeatmap");
+    const recordingVisualizer = document.getElementById("recordingVisualizer");
+    const libVisualTitle = document.getElementById("libVisualTitle");
+    const libVisualDesc = document.getElementById("libVisualDesc");
+    const libTableBody = document.getElementById("libTableBody");
+    const libStatusText = document.getElementById("libStatusText");
+    const libFilterInput = document.getElementById("libFilterInput");
+    const recordingVisualization = {
+      id: "",
+      mode: "",
+      frames: [],
+      subcarriers: 0,
+    };
+    const csiRecorder = {
+      phase: "idle",
+      cancelled: false,
+      disconnected: false,
+      frames: [],
+      droppedStart: 0,
+      restorePeriod: 100,
+      restoreStream: false,
+      ticker: null,
+      phaseEndsAt: 0,
+      take: 0,
+      takes: 1,
+      library: [],
+    };
 
     const configInputs = {
       motion_sensitivity: document.getElementById("cfgSensitivity"),
@@ -1177,6 +1434,46 @@
       document.getElementById("csiViewSelect").options[2].textContent = t("csiImaginary");
       document.getElementById("startCsiBtn").textContent = t("startCsiBtn");
       document.getElementById("stopCsiBtn").textContent = t("stopCsiBtn");
+      document.getElementById("recPanelTitle").textContent = t("recPanelTitle");
+      document.getElementById("recPanelDesc").textContent = t("recPanelDesc");
+      document.getElementById("recLabelPresetLabel").textContent = t("recLabelPresetLabel");
+      document.getElementById("recLabelCustomLabel").textContent = t("recLabelCustomLabel");
+      document.getElementById("recCountdownLabel").textContent = t("recCountdownLabel");
+      document.getElementById("recDurationLabel").textContent = t("recDurationLabel");
+      document.getElementById("recTakesLabel").textContent = t("recTakesLabel");
+      document.getElementById("recTimerLabel").textContent = t("recTimerLabel");
+      document.getElementById("recStartBtn").textContent = t("recStartBtn");
+      document.getElementById("recCancelBtn").textContent = t("recCancelBtn");
+      document.getElementById("recStartStimulusBtn").textContent = t("recStartStimulusBtn");
+      document.getElementById("libPanelTitle").textContent = t("libPanelTitle");
+      document.getElementById("libPanelDesc").textContent = t("libPanelDesc");
+      document.getElementById("libFilterLabel").textContent = t("libFilterLabel");
+      document.getElementById("libRefreshBtn").textContent = t("libRefreshBtn");
+      document.getElementById("libColLabel").textContent = t("libColLabel");
+      document.getElementById("libColTime").textContent = t("libColTime");
+      document.getElementById("libColDuration").textContent = t("libColDuration");
+      document.getElementById("libColFrames").textContent = t("libColFrames");
+      document.getElementById("libColComplete").textContent = t("libColComplete");
+      document.getElementById("libColActions").textContent = t("libColActions");
+      const visualTitleKey = recordingVisualization.mode === "heatmap"
+        ? "libHeatmapTitle"
+        : recordingVisualization.mode === "csi"
+          ? "libCsiGraphTitle"
+          : "libVisualHint";
+      libVisualTitle.textContent = t(visualTitleKey);
+      const visualDescKey = recordingVisualization.mode === "heatmap"
+        ? "heatmapScaleHint"
+        : recordingVisualization.mode === "csi"
+          ? "csiGraphHint"
+          : "";
+      libVisualDesc.textContent = visualDescKey ? t(visualDescKey) : "";
+      document.getElementById("recCsiViewLabel").textContent = t("recCsiViewLabel");
+      document.getElementById("recCsiStepLabel").textContent = t("recCsiStepLabel");
+      recCsiViewSelect.options[0].textContent = t("csiAmplitude");
+      recCsiViewSelect.options[1].textContent = t("csiReal");
+      recCsiViewSelect.options[2].textContent = t("csiImaginary");
+      renderRecorderStatus();
+      renderStimulusWarn();
       document.getElementById("eventLogTitle").textContent = t("eventLogTitle");
       document.getElementById("targetLabel").textContent = t("targetLabel");
       document.getElementById("selectedPeerLabel").textContent = t("selectedPeerLabel");
@@ -1205,6 +1502,7 @@
     function toggleLanguage() {
       currentLanguage = currentLanguage === "en" ? "zh" : "en";
       applyLanguage();
+      renderRecordingsTable();
       renderAll();
     }
 
@@ -1259,18 +1557,18 @@
       csiStatusText.textContent = `${state} · ${csiFrameCount} ${t("csiFrames")} · ${csiDroppedCount} ${t("csiDropped")}`;
     }
 
-    function drawCsiChart() {
-      const ctx = csiChart.getContext("2d");
+    function drawCsiChart(canvas, history, subcarrierCount, view, step, scaleKey) {
+      const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
-      const width = csiChart.clientWidth;
-      const height = csiChart.clientHeight;
-      if (csiChart.width !== Math.floor(width * dpr) || csiChart.height !== Math.floor(height * dpr)) {
-        csiChart.width = Math.floor(width * dpr);
-        csiChart.height = Math.floor(height * dpr);
+      const width = canvas.clientWidth || 800;
+      const height = canvas.clientHeight || 280;
+      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      if (!csiHistory.length || !csiSubcarrierCount) {
+      if (!history.length || !subcarrierCount) {
         ctx.fillStyle = "rgba(255,255,255,0.6)";
         ctx.fillText(t("noData"), 56, 38);
         return;
@@ -1279,7 +1577,6 @@
       const padding = { top: 18, right: 20, bottom: 28, left: 52 };
       const plotWidth = width - padding.left - padding.right;
       const plotHeight = height - padding.top - padding.bottom;
-      const view = csiViewSelect.value;
       const readValue = (sample) => {
         if (view === "real") {
           return sample[0];
@@ -1289,10 +1586,10 @@
         }
         return Math.hypot(sample[0], sample[1]);
       };
-      const values = csiHistory.flat().map(readValue);
+      const values = history.flat().map(readValue);
       const csiMin = view === "amplitude" ? 0 : Math.min(...values);
       const csiMax = Math.max(...values);
-      const { min, max } = stickyRange(`csiChart:${view}`, csiMin, csiMax);
+      const { min, max } = stickyRange(`${scaleKey}:${view}`, csiMin, csiMax);
 
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1;
@@ -1310,17 +1607,16 @@
         ctx.fillText(value.toFixed(1), 8, padding.top + (plotHeight * index) / 4 + 4);
       }
 
-      const step = Number(csiStepSelect.value) || 5;
-      for (let subcarrier = 0; subcarrier < csiSubcarrierCount; subcarrier += step) {
+      for (let subcarrier = 0; subcarrier < subcarrierCount; subcarrier += step) {
         ctx.beginPath();
-        ctx.strokeStyle = `hsl(${(subcarrier * 360) / Math.max(csiSubcarrierCount, 1)}, 82%, 68%)`;
+        ctx.strokeStyle = `hsl(${(subcarrier * 360) / Math.max(subcarrierCount, 1)}, 82%, 68%)`;
         ctx.lineWidth = step === 1 ? 1 : 1.5;
-        csiHistory.forEach((frame, frameIndex) => {
+        history.forEach((frame, frameIndex) => {
           const value = readValue(frame[subcarrier]);
           if (!Number.isFinite(value)) {
             return;
           }
-          const x = padding.left + (plotWidth * frameIndex) / Math.max(csiHistory.length - 1, 1);
+          const x = padding.left + (plotWidth * frameIndex) / Math.max(history.length - 1, 1);
           const y = padding.top + ((max - value) / (max - min)) * plotHeight;
           if (frameIndex === 0) {
             ctx.moveTo(x, y);
@@ -1441,6 +1737,9 @@
     }
 
     async function startCsiStream() {
+      if (recorderBusy()) {
+        return;
+      }
       const period = Math.min(1000, Math.max(20, Number(csiPeriodInput.value) || 100));
       csiPeriodInput.value = String(period);
       await sendCommand(`SET_CSI_PERIOD ${period}`);
@@ -1453,6 +1752,489 @@
       await sendCommand("STOP_CSI_STREAM");
       csiStreamActive = false;
       renderCsiStatus();
+    }
+
+    function waitMs(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    function recorderBusy() {
+      return csiRecorder.phase !== "idle";
+    }
+
+    function renderStimulusWarn() {
+      if (!recStimulusWarn) {
+        return;
+      }
+      const off = stimulusState && stimulusState.running === false;
+      recStimulusWarn.hidden = !off;
+      recStimulusWarn.textContent = off ? t("recStimulusOff") : "";
+    }
+
+    function renderRecorderStatus() {
+      if (!recTimerText) {
+        return;
+      }
+      const remainingSec = Math.max(0, Math.ceil((csiRecorder.phaseEndsAt - Date.now()) / 1000));
+      const takePart = csiRecorder.takes > 1 ? ` · ${csiRecorder.take}/${csiRecorder.takes}` : "";
+      if (csiRecorder.phase === "countdown") {
+        recTimerText.textContent = `${t("recTimerCountdown")} ${remainingSec}s${takePart}`;
+        return;
+      }
+      if (csiRecorder.phase === "recording") {
+        recTimerText.textContent = `${t("recTimerRecording")} ${remainingSec}s · ${csiRecorder.frames.length} ${t("csiFrames")}${takePart}`;
+        return;
+      }
+      if (csiRecorder.phase === "saving") {
+        recTimerText.textContent = `${t("recTimerSaving")}${takePart}`;
+        return;
+      }
+      recTimerText.textContent = t("recTimerIdle");
+    }
+
+    function clearRecorderTicker() {
+      if (csiRecorder.ticker !== null) {
+        window.clearInterval(csiRecorder.ticker);
+        csiRecorder.ticker = null;
+      }
+    }
+
+    function startRecorderTicker() {
+      clearRecorderTicker();
+      csiRecorder.ticker = window.setInterval(renderRecorderStatus, 200);
+      renderRecorderStatus();
+    }
+
+    function currentRecorderLabel() {
+      return CsiRecorder.resolveLabel(
+        document.getElementById("recLabelSelect").value,
+        document.getElementById("recLabelCustom").value
+      );
+    }
+
+    function downloadTextFile(filename, text) {
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    async function restoreCsiAfterRecord() {
+      const period = Math.min(1000, Math.max(20, Number(csiRecorder.restorePeriod) || 100));
+      csiPeriodInput.value = String(period);
+      await sendCommand(`SET_CSI_PERIOD ${period}`);
+      if (csiRecorder.restoreStream) {
+        await sendCommand("START_CSI_STREAM");
+        csiStreamActive = true;
+      } else {
+        await sendCommand("STOP_CSI_STREAM");
+        csiStreamActive = false;
+      }
+      renderCsiStatus();
+    }
+
+    async function waitRecorderPhase(ms) {
+      csiRecorder.phaseEndsAt = Date.now() + ms;
+      startRecorderTicker();
+      while (!csiRecorder.cancelled && Date.now() < csiRecorder.phaseEndsAt) {
+        await waitMs(150);
+      }
+    }
+
+    function drawHeatmap(iqFrames) {
+      const ctx = recHeatmap.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const width = recHeatmap.clientWidth || 800;
+      const height = recHeatmap.clientHeight || 340;
+      recHeatmap.width = Math.floor(width * dpr);
+      recHeatmap.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      const columns = CsiRecorder.downsampleHeatmap(iqFrames, 400);
+      if (!columns.length || !columns[0].length) {
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillText(t("noData"), 24, 28);
+        return;
+      }
+      const amplitudes = [];
+      for (const col of columns) {
+        amplitudes.push(...col);
+      }
+      amplitudes.sort((a, b) => a - b);
+      const percentile = (p) => amplitudes[Math.floor((amplitudes.length - 1) * p)];
+      const minAmp = percentile(0.02);
+      const maxAmp = Math.max(minAmp + 1e-9, percentile(0.98));
+      const padding = { top: 24, right: 94, bottom: 48, left: 60 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const cellW = plotWidth / columns.length;
+      const cellH = plotHeight / columns[0].length;
+      const colorStops = [
+        [68, 1, 84],
+        [59, 82, 139],
+        [33, 145, 140],
+        [94, 201, 98],
+        [253, 231, 37],
+      ];
+      const heatColor = (value) => {
+        const scaled = Math.max(0, Math.min(1, (value - minAmp) / (maxAmp - minAmp)));
+        const segment = scaled * (colorStops.length - 1);
+        const index = Math.min(colorStops.length - 2, Math.floor(segment));
+        const fraction = segment - index;
+        const rgb = colorStops[index].map((channel, i) =>
+          Math.round(channel + (colorStops[index + 1][i] - channel) * fraction)
+        );
+        return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+      };
+      for (let x = 0; x < columns.length; x++) {
+        const col = columns[x];
+        for (let y = 0; y < col.length; y++) {
+          ctx.fillStyle = heatColor(col[y]);
+          ctx.fillRect(
+            padding.left + x * cellW,
+            padding.top + (col.length - 1 - y) * cellH,
+            cellW + 0.5,
+            cellH + 0.5
+          );
+        }
+      }
+
+      const plotBottom = padding.top + plotHeight;
+      ctx.strokeStyle = "rgba(255,255,255,0.38)";
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.lineWidth = 1;
+      ctx.font = "11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const timeTicks = 4;
+      for (let tick = 0; tick <= timeTicks; tick++) {
+        const x = padding.left + (plotWidth * tick) / timeTicks;
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, plotBottom);
+        ctx.stroke();
+        const frame = Math.round(((iqFrames.length - 1) * tick) / timeTicks);
+        ctx.fillText(String(frame), x, plotBottom + 5);
+      }
+      const subcarrierTicks = 4;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let tick = 0; tick <= subcarrierTicks; tick++) {
+        const y = padding.top + (plotHeight * tick) / subcarrierTicks;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + plotWidth, y);
+        ctx.stroke();
+        const subcarrier = Math.round(
+          (columns[0].length - 1) * (1 - tick / subcarrierTicks)
+        );
+        ctx.fillText(String(subcarrier), padding.left - 8, y);
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(t("heatmapTimeAxis"), padding.left + plotWidth / 2, height - 2);
+      ctx.save();
+      ctx.translate(14, padding.top + plotHeight / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(t("heatmapSubcarrierAxis"), 0, 0);
+      ctx.restore();
+
+      const barX = padding.left + plotWidth + 16;
+      const barY = padding.top;
+      const barWidth = 14;
+      const barHeight = plotHeight;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      for (let y = 0; y < barHeight; y++) {
+        const value = maxAmp - (maxAmp - minAmp) * (y / Math.max(barHeight - 1, 1));
+        ctx.fillStyle = heatColor(value);
+        ctx.fillRect(barX, barY + y, barWidth, 1);
+      }
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(t("heatmapAmplitudeAxis"), barX + barWidth / 2, barY - 4);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(maxAmp.toFixed(1), barX + barWidth + 5, barY);
+      ctx.fillText(((maxAmp + minAmp) / 2).toFixed(1), barX + barWidth + 5, barY + barHeight / 2);
+      ctx.fillText(minAmp.toFixed(1), barX + barWidth + 5, barY + barHeight);
+    }
+
+    function drawRecordingVisualization() {
+      if (!recordingVisualization.mode) {
+        return;
+      }
+      if (recordingVisualization.mode === "heatmap") {
+        drawHeatmap(recordingVisualization.frames);
+        return;
+      }
+      const history = recordingVisualization.frames.map((frame) => frame.iq);
+      drawCsiChart(
+        recCsiChart,
+        history,
+        recordingVisualization.subcarriers,
+        recCsiViewSelect.value,
+        Number(recCsiStepSelect.value) || 5,
+        `recordingCsiChart:${recordingVisualization.id}`
+      );
+    }
+
+    async function showRecordingVisualization(id, mode) {
+      try {
+        if (recordingVisualization.id !== id) {
+          const rec = await fetchRecording(id);
+          const parsed = CsiRecorder.parseIqCsv(rec.iq_csv || "");
+          recordingVisualization.id = id;
+          recordingVisualization.frames = parsed.frames;
+          recordingVisualization.subcarriers = parsed.subcarriers;
+        }
+        recordingVisualization.mode = mode;
+        const showHeatmap = mode === "heatmap";
+        recordingVisualizer.hidden = false;
+        recHeatmap.hidden = !showHeatmap;
+        recCsiChart.hidden = showHeatmap;
+        recCsiToolbar.hidden = showHeatmap;
+        libVisualTitle.textContent = t(showHeatmap ? "libHeatmapTitle" : "libCsiGraphTitle");
+        libVisualDesc.textContent = t(showHeatmap ? "heatmapScaleHint" : "csiGraphHint");
+        drawRecordingVisualization();
+      } catch (error) {
+        logEvent(`${t("logError")}: ${error.message}`);
+      }
+    }
+
+    async function saveTake(label, takeIndex, countdownS, durationS) {
+      csiRecorder.phase = "saving";
+      renderRecorderStatus();
+      const started = new Date(csiRecorder.phaseEndsAt - durationS * 1000);
+      const ended = new Date();
+      const completeness = CsiRecorder.recordingCompleteness({
+        frames: csiRecorder.frames,
+        droppedStart: csiRecorder.droppedStart,
+        droppedEnd: csiDroppedCount,
+        disconnected: csiRecorder.disconnected,
+        stimulusOn: !(stimulusState && stimulusState.running === false),
+      });
+      const recId = CsiRecorder.makeRecordingId(label, started, takeIndex);
+      const meta = CsiRecorder.buildMeta({
+        id: recId,
+        label,
+        countdown_s: countdownS,
+        duration_s: durationS,
+        take: takeIndex,
+        take_count: csiRecorder.takes,
+        started_at_utc: started.toISOString(),
+        ended_at_utc: ended.toISOString(),
+        frames: completeness.frames,
+        dropped_on_device: csiDroppedCount,
+        dropped_delta: completeness.dropped_delta,
+        complete: completeness.complete,
+        csi_period_ms: 0,
+        data_source: csiRecorder.frames.some((frame) => frame.validBytes && frame.validBytes.length)
+          ? "valid_data"
+          : "raw_data",
+        subcarriers: csiRecorder.frames[0]?.iq?.length || 0,
+      });
+      const csiCsv = CsiRecorder.buildCsiDataCsv(csiRecorder.frames, { label, takeSeq: takeIndex });
+      const iqCsv = CsiRecorder.buildIqCsv(csiRecorder.frames);
+      if (!completeness.complete) {
+        logEvent(`${t("recIncomplete")}: ${recId}`);
+      }
+      try {
+        const response = await fetch("/api/recordings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: recId,
+            label,
+            csi_data_csv: csiCsv,
+            iq_csv: iqCsv,
+            meta,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        logEvent(`${t("recSaved")}: ${recId}`);
+        await refreshRecordingsLibrary();
+      } catch (error) {
+        downloadTextFile(`${recId}.csi_data.csv`, csiCsv);
+        downloadTextFile(`${recId}.iq.csv`, iqCsv);
+        downloadTextFile(`${recId}.meta.json`, JSON.stringify(meta, null, 2));
+        logEvent(`${t("recSaveFailed")}: ${error.message}`);
+      }
+    }
+
+    async function startRecorderSession() {
+      if (recorderBusy()) {
+        return;
+      }
+      if (!writer) {
+        logEvent(t("recNeedSerial"));
+        return;
+      }
+      const label = currentRecorderLabel();
+      if (!label || !CsiRecorder.slugLabel(label)) {
+        logEvent(t("recNeedLabel"));
+        return;
+      }
+      const countdownS = Math.max(0, Math.floor(Number(document.getElementById("recCountdownInput").value) || 0));
+      const durationS = Math.max(1, Math.floor(Number(document.getElementById("recDurationInput").value) || 1));
+      const takes = Math.max(1, Math.floor(Number(document.getElementById("recTakesInput").value) || 1));
+      renderStimulusWarn();
+      csiRecorder.cancelled = false;
+      csiRecorder.disconnected = false;
+      csiRecorder.takes = takes;
+      csiRecorder.restorePeriod = Number(csiPeriodInput.value) || 100;
+      csiRecorder.restoreStream = csiStreamActive;
+      document.getElementById("recStartBtn").disabled = true;
+      await sendCommand("SET_CSI_PERIOD 0");
+      await sendCommand("START_CSI_STREAM");
+      csiStreamActive = true;
+      renderCsiStatus();
+      try {
+        for (let take = 1; take <= takes && !csiRecorder.cancelled; take++) {
+          csiRecorder.take = take;
+          csiRecorder.frames = [];
+          csiRecorder.phase = "countdown";
+          if (countdownS > 0 || take > 1) {
+            const waitS = countdownS > 0 ? countdownS : 1;
+            await waitRecorderPhase(waitS * 1000);
+          }
+          if (csiRecorder.cancelled) {
+            break;
+          }
+          csiRecorder.droppedStart = csiDroppedCount;
+          csiRecorder.frames = [];
+          csiRecorder.phase = "recording";
+          await waitRecorderPhase(durationS * 1000);
+          if (csiRecorder.cancelled) {
+            break;
+          }
+          await saveTake(label, take, countdownS, durationS);
+        }
+      } finally {
+        clearRecorderTicker();
+        csiRecorder.phase = "idle";
+        csiRecorder.frames = [];
+        document.getElementById("recStartBtn").disabled = false;
+        renderRecorderStatus();
+        if (writer && !csiRecorder.disconnected) {
+          await restoreCsiAfterRecord();
+        }
+        if (csiRecorder.cancelled) {
+          logEvent(t("recCancelled"));
+        }
+      }
+    }
+
+    function cancelRecorderSession() {
+      if (!recorderBusy()) {
+        return;
+      }
+      csiRecorder.cancelled = true;
+    }
+
+    function startRecorderStimulus() {
+      const values = readStimulusInputs();
+      if (!values) {
+        return;
+      }
+      sendCommand(`SET_STIMULUS on ${values.burstBytes} ${values.pauseMs}`);
+    }
+
+    async function refreshRecordingsLibrary() {
+      try {
+        const response = await fetch("/api/recordings");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        csiRecorder.library = Array.isArray(payload.recordings) ? payload.recordings : [];
+        libStatusText.textContent = "";
+        renderRecordingsTable();
+      } catch (error) {
+        csiRecorder.library = [];
+        libStatusText.textContent = t("recNeedServer");
+        renderRecordingsTable();
+      }
+    }
+
+    function renderRecordingsTable() {
+      const filter = (libFilterInput.value || "").trim().toLowerCase();
+      const rows = csiRecorder.library
+        .filter((row) => !filter || String(row.label || "").toLowerCase().includes(filter))
+        .sort((a, b) => String(b.started_at_utc || "").localeCompare(String(a.started_at_utc || "")));
+      libTableBody.replaceChildren();
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        const cells = [
+          row.label || "",
+          row.started_at_utc || "",
+          String(row.duration_s ?? ""),
+          String(row.frames ?? ""),
+          String(row.complete ?? ""),
+        ];
+        for (const text of cells) {
+          const td = document.createElement("td");
+          td.textContent = text;
+          tr.appendChild(td);
+        }
+        const actions = document.createElement("td");
+        const makeBtn = (labelKey, handler) => {
+          const btn = document.createElement("button");
+          btn.className = "secondary";
+          btn.textContent = t(labelKey);
+          btn.addEventListener("click", handler);
+          return btn;
+        };
+        actions.appendChild(makeBtn("libHeatmap", () => showRecordingVisualization(row.id, "heatmap")));
+        actions.appendChild(makeBtn("libCsiGraph", () => showRecordingVisualization(row.id, "csi")));
+        actions.appendChild(makeBtn("libDownloadCsi", () => downloadRecording(row.id, "csi_data_csv", `${row.id}.csi_data.csv`)));
+        actions.appendChild(makeBtn("libDownloadIq", () => downloadRecording(row.id, "iq_csv", `${row.id}.iq.csv`)));
+        actions.appendChild(makeBtn("libDelete", () => deleteRecording(row.id)));
+        tr.appendChild(actions);
+        libTableBody.appendChild(tr);
+      }
+    }
+
+    async function fetchRecording(id) {
+      const response = await fetch(`/api/recordings/${encodeURIComponent(id)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function downloadRecording(id, field, filename) {
+      try {
+        const rec = await fetchRecording(id);
+        downloadTextFile(filename, rec[field] || "");
+      } catch (error) {
+        logEvent(`${t("logError")}: ${error.message}`);
+      }
+    }
+
+    async function deleteRecording(id) {
+      if (!window.confirm(t("recDeleteConfirm"))) {
+        return;
+      }
+      try {
+        const response = await fetch(`/api/recordings/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        await refreshRecordingsLibrary();
+      } catch (error) {
+        logEvent(`${t("logError")}: ${error.message}`);
+      }
     }
 
     function clearRawLines() {
@@ -1956,6 +2738,7 @@
         stimulusDetailText.textContent = t("stimulusRate").replace("{hz}", hz.toFixed(1));
       }
 
+      renderStimulusWarn();
       if (toggleStimulusBtn) {
         /* Label follows `enabled` (the requested state), not `running`, so the
          * label always describes what clicking will do. During the brief window
@@ -2058,15 +2841,10 @@
       } else if (msg.type === "wifi_result") {
         handleWifiResultMessage(msg);
       } else if (msg.type === "csi") {
-        const bytes = decodeBase64Bytes(msg.data || "");
-        const frame = [];
-        const sampleBytes = Number(msg.data_type) === 1 ? 2 : 1;
-        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        for (let index = 0; index + sampleBytes * 2 <= bytes.length; index += sampleBytes * 2) {
-          const real = sampleBytes === 2 ? view.getInt16(index, true) : bytes[index];
-          const imaginary = sampleBytes === 2 ? view.getInt16(index + sampleBytes, true) : bytes[index + 1];
-          frame.push([real, imaginary]);
-        }
+        const rawBytes = decodeBase64Bytes(msg.data || "");
+        const validBytes = msg.valid ? decodeBase64Bytes(msg.valid) : new Int8Array(0);
+        const sourceBytes = validBytes.length ? validBytes : rawBytes;
+        const frame = CsiRecorder.decodePairs(sourceBytes, msg.data_type);
         if (frame.length) {
           csiSubcarrierCount = frame.length;
           csiHistory.push(frame);
@@ -2074,9 +2852,39 @@
             csiHistory.shift();
           }
         }
+        if (csiRecorder.phase === "recording") {
+          csiRecorder.frames.push({
+            seq: Number(msg.seq || 0),
+            mac: msg.mac || "",
+            rssi: Number(msg.rssi || 0),
+            raw_len: Number(msg.raw_len || rawBytes.length),
+            valid_len: Number(msg.valid_len || validBytes.length),
+            data_type: Number(msg.data_type || 0),
+            dropped: Number(msg.dropped || 0),
+            ts_us: Number(msg.ts_us || 0),
+            rate: Number(msg.rate || 0),
+            sig_mode: Number(msg.sig_mode || 0),
+            mcs: Number(msg.mcs || 0),
+            bandwidth: Number(msg.bandwidth || 0),
+            stbc: Number(msg.stbc || 0),
+            noise_floor: Number(msg.noise_floor || 0),
+            channel: Number(msg.channel || 0),
+            secondary_channel: Number(msg.secondary_channel || 0),
+            local_timestamp: Number(msg.local_timestamp || 0),
+            agc_gain: Number(msg.agc_gain || 0),
+            fft_gain: Number(msg.fft_gain || 0),
+            rawBytes,
+            validBytes,
+            iq: frame,
+          });
+        }
         csiFrameCount++;
         csiDroppedCount = Number(msg.dropped || 0);
         renderCsiStatus();
+        if (csiRecorder.phase === "recording") {
+          /* Skip chart dirty during capture so the serial parser stays ahead. */
+          return;
+        }
       } else if (msg.type === "config") {
         const peer = ensurePeer(msg.peer, msg.mac);
         peer.cfg = msg;
@@ -2159,6 +2967,10 @@
       try {
         if (activeReader) {
           await activeReader.cancel();
+        }
+        if (recorderBusy()) {
+          csiRecorder.disconnected = true;
+          csiRecorder.cancelled = true;
         }
         if (csiStreamActive && writer) {
           await stopCsiStream();
@@ -2487,11 +3299,21 @@
       document.getElementById("wifiInfoBtn").addEventListener("click", () => sendCommand("WIFI_INFO"));
       document.getElementById("startCsiBtn").addEventListener("click", startCsiStream);
       document.getElementById("stopCsiBtn").addEventListener("click", stopCsiStream);
+      document.getElementById("recStartBtn").addEventListener("click", startRecorderSession);
+      document.getElementById("recCancelBtn").addEventListener("click", cancelRecorderSession);
+      document.getElementById("recStartStimulusBtn").addEventListener("click", startRecorderStimulus);
+      document.getElementById("libRefreshBtn").addEventListener("click", refreshRecordingsLibrary);
+      libFilterInput.addEventListener("input", renderRecordingsTable);
       csiViewSelect.addEventListener("change", () => {
         resetChartScale(`csiChart:${csiViewSelect.value}`);
         markChartsDirty();
       });
       csiStepSelect.addEventListener("change", markChartsDirty);
+      recCsiViewSelect.addEventListener("change", () => {
+        resetChartScale(`recordingCsiChart:${recordingVisualization.id}:${recCsiViewSelect.value}`);
+        drawRecordingVisualization();
+      });
+      recCsiStepSelect.addEventListener("change", drawRecordingVisualization);
       document.getElementById("clearRawLogBtn").addEventListener("click", clearRawLines);
       document.getElementById("applyConfigBtn").addEventListener("click", (event) => {
         event.preventDefault();
@@ -2508,10 +3330,14 @@
       if (!domTimer) {
         domTimer = window.setInterval(renderDom, 200);
       }
-      window.addEventListener("resize", markChartsDirty);
+      window.addEventListener("resize", () => {
+        markChartsDirty();
+        drawRecordingVisualization();
+      });
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) {
           markChartsDirty();
+          drawRecordingVisualization();
         }
       });
       markChartsDirty();
@@ -2521,6 +3347,7 @@
     applyLanguage();
     clearConfigForm();
     startRenderLoop();
+    refreshRecordingsLibrary();
     renderAll();
     logEvent(t("logReady"));
   </script>

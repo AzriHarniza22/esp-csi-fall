@@ -43,12 +43,19 @@
  * A full sample line with three MAC strings and the FSM's float fields reaches
  * roughly 900 bytes, so 1 KiB left no margin and truncation produced invalid JSON.
  */
-#define WEB_SERIAL_TX_BUF_SIZE       2048
+#define WEB_SERIAL_TX_BUF_SIZE       3072
 #define WEB_SERIAL_RX_POLL_BUF_SIZE  64
 #define WEB_SERIAL_DEFAULT_PERIOD_MS 50
 #define WEB_SERIAL_CSI_DEFAULT_PERIOD_MS 100
 #define WEB_SERIAL_CSI_MAX_RAW_LEN 512
 #define WEB_SERIAL_CSI_MAX_ENCODED_LEN (((WEB_SERIAL_CSI_MAX_RAW_LEN + 2) / 3) * 4 + 1)
+
+/*
+ * Period 0 is a demo-serial extension: emit every CSI callback. It is not an
+ * esp_wifi / esp-radar API. Live charts still use 20..1000 ms.
+ */
+#define WEB_SERIAL_CSI_MIN_PERIOD_MS 20
+#define WEB_SERIAL_CSI_MAX_PERIOD_MS 1000
 
 /* How often the stimulus state is pushed so the panel shows a live CSI frame
  * rate and a live "last frame" age without the user having to refresh. */
@@ -367,6 +374,10 @@ static const web_serial_monitor_peer_t *find_peer_by_name_or_mac(const char *tok
  */
 static char *s_tx_line = NULL;
 static SemaphoreHandle_t s_tx_lock = NULL;
+/* CSI base64 lives here, not on the radar callback stack (that stack already
+ * overflowed when a 2 KiB line buffer was local). */
+static char s_csi_b64_raw[WEB_SERIAL_CSI_MAX_ENCODED_LEN];
+static char s_csi_b64_valid[WEB_SERIAL_CSI_MAX_ENCODED_LEN];
 
 static int write_line(const char *fmt, ...)
 {
@@ -432,8 +443,9 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
     }
 
     int64_t now_us = esp_timer_get_time();
-    if (s_ctx.csi_last_emit_us > 0 &&
-        now_us - s_ctx.csi_last_emit_us < (int64_t)s_ctx.csi_stream_period_ms * 1000LL) {
+    if (s_ctx.csi_stream_period_ms > 0 &&
+            s_ctx.csi_last_emit_us > 0 &&
+            now_us - s_ctx.csi_last_emit_us < (int64_t)s_ctx.csi_stream_period_ms * 1000LL) {
         s_ctx.csi_dropped_count++;
         return;
     }
@@ -441,20 +453,68 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
         s_ctx.csi_dropped_count++;
         return;
     }
-
-    char encoded[WEB_SERIAL_CSI_MAX_ENCODED_LEN] = {0};
-    size_t encoded_len = 0;
-    if (mbedtls_base64_encode((unsigned char *)encoded, sizeof(encoded) - 1, &encoded_len,
-                              (const unsigned char *)info->raw_data, info->raw_len) != 0) {
+    if (!s_tx_line || !s_tx_lock ||
+            xSemaphoreTake(s_tx_lock, pdMS_TO_TICKS(50)) != pdTRUE) {
         s_ctx.csi_dropped_count++;
         return;
     }
-    encoded[encoded_len] = '\0';
+
+    size_t encoded_raw_len = 0;
+    if (mbedtls_base64_encode((unsigned char *)s_csi_b64_raw, sizeof(s_csi_b64_raw) - 1,
+                              &encoded_raw_len, (const unsigned char *)info->raw_data,
+                              info->raw_len) != 0) {
+        s_ctx.csi_dropped_count++;
+        xSemaphoreGive(s_tx_lock);
+        return;
+    }
+    s_csi_b64_raw[encoded_raw_len] = '\0';
+
+    uint16_t valid_len = info->valid_len;
+    s_csi_b64_valid[0] = '\0';
+    if (valid_len > 0 && valid_len <= WEB_SERIAL_CSI_MAX_RAW_LEN) {
+        size_t encoded_valid_len = 0;
+        if (mbedtls_base64_encode((unsigned char *)s_csi_b64_valid, sizeof(s_csi_b64_valid) - 1,
+                                  &encoded_valid_len, (const unsigned char *)info->valid_data,
+                                  valid_len) != 0) {
+            s_csi_b64_valid[0] = '\0';
+            valid_len = 0;
+        } else {
+            s_csi_b64_valid[encoded_valid_len] = '\0';
+        }
+    } else {
+        valid_len = 0;
+    }
+
+    const esp_radar_rx_ctrl_info_t *rx = &info->rx_ctrl_info;
+    int prefix_len = snprintf(s_tx_line, WEB_SERIAL_TX_BUF_SIZE, "%s", WEB_SERIAL_PREFIX);
+    int body_len = 0;
+    if (prefix_len > 0 && prefix_len < WEB_SERIAL_TX_BUF_SIZE) {
+        body_len = snprintf(
+            s_tx_line + prefix_len, WEB_SERIAL_TX_BUF_SIZE - prefix_len,
+            "{\"type\":\"csi\",\"seq\":%" PRIu32 ",\"mac\":\"" MACSTR "\",\"rssi\":%d,"
+            "\"raw_len\":%u,\"valid_len\":%u,\"data_type\":%d,\"dropped\":%" PRIu32 ","
+            "\"ts_us\":%" PRId64 ",\"rate\":%u,\"sig_mode\":%d,\"mcs\":%u,\"bandwidth\":%u,"
+            "\"stbc\":%u,\"noise_floor\":%d,\"channel\":%u,\"secondary_channel\":%u,"
+            "\"local_timestamp\":%" PRIu32 ",\"agc_gain\":%u,\"fft_gain\":%d,"
+            "\"data\":\"%s\",\"valid\":\"%s\"}\n",
+            info->seq_id, MAC2STR(info->mac), rx->rssi, info->raw_len, valid_len,
+            (int)info->data_type, s_ctx.csi_dropped_count, now_us,
+            (unsigned)rx->rate, (int)rx->signal_mode, (unsigned)rx->mcs, (unsigned)rx->cwb,
+            (unsigned)rx->stbc, (int)rx->noise_floor, (unsigned)rx->channel,
+            (unsigned)rx->secondary_channel, rx->timestamp, (unsigned)rx->agc_gain,
+            (int)rx->fft_gain, s_csi_b64_raw, s_csi_b64_valid);
+    }
+    int total_len = prefix_len + body_len;
+    if (prefix_len <= 0 || body_len < 0 || total_len >= WEB_SERIAL_TX_BUF_SIZE) {
+        s_ctx.truncated_msg_count++;
+        s_ctx.csi_dropped_count++;
+        xSemaphoreGive(s_tx_lock);
+        return;
+    }
     s_ctx.csi_last_emit_us = now_us;
-    (void)write_line(
-        "{\"type\":\"csi\",\"seq\":%" PRIu32 ",\"mac\":\"" MACSTR "\",\"rssi\":%d,\"raw_len\":%u,\"data_type\":%d,\"dropped\":%" PRIu32 ",\"data\":\"%s\"}\n",
-        info->seq_id, MAC2STR(info->mac), info->rx_ctrl_info.rssi, info->raw_len,
-        (int)info->data_type, s_ctx.csi_dropped_count, encoded);
+    (void)fwrite(s_tx_line, 1, total_len, stdout);
+    fflush(stdout);
+    xSemaphoreGive(s_tx_lock);
 }
 
 static void csi_watchdog_task(void *arg)
@@ -977,8 +1037,10 @@ static void handle_command(char *line)
 
     if (strncmp(cmd, "SET_CSI_PERIOD ", 15) == 0) {
         uint32_t period_ms = (uint32_t)strtoul(cmd + 15, NULL, 10);
-        if (period_ms < 20 || period_ms > 1000) {
-            send_ack("SET_CSI_PERIOD", false, "period must be 20..1000 ms");
+        if (period_ms != 0 &&
+                (period_ms < WEB_SERIAL_CSI_MIN_PERIOD_MS ||
+                 period_ms > WEB_SERIAL_CSI_MAX_PERIOD_MS)) {
+            send_ack("SET_CSI_PERIOD", false, "period must be 0 or 20..1000 ms");
             return;
         }
         s_ctx.csi_stream_period_ms = period_ms;
