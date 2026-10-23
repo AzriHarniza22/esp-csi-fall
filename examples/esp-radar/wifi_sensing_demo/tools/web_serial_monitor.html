@@ -1647,8 +1647,12 @@
     }
 
     function translateWifiState(state) {
-      const name = String(state || "");
-      return t(`wifiState${name.charAt(0)}${name.slice(1).toLowerCase()}`);
+      const suffix = String(state || "")
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join("");
+      return t(`wifiState${suffix}`);
     }
 
     function handleWifiMessage(msg) {

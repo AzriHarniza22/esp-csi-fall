@@ -127,3 +127,50 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   menunjukkan plot berwarna, sumbu X 0–197 frame, sumbu Y 0–163 subcarrier,
   colorbar amplitudo, dan hint clipping. Kanvas grafik yang tersembunyi
   terkonfirmasi `display:none`; terjemahan heatmap English/Chinese diuji.
+
+## 2026-10-22 — Audit offline dataset CSI untuk fall detection
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `fall_detection/__init__.py`, `fall_detection/audit_dataset.py`,
+  `fall_detection/tests/test_audit_dataset.py`, `fall_detection/README.md`,
+  `docs/agent-changes.md`
+- Perubahan: menambahkan auditor offline berbasis Python standard library
+  untuk memvalidasi metadata take, kelengkapan, jumlah frame, kolom I/Q,
+  jumlah subcarrier, dan nilai numerik; melaporkan take yang layak secara
+  struktural tanpa menyimpulkan label atau kecukupan dataset.
+- Alasan: pemeriksaan rekaman lokal menunjukkan hanya satu take lengkap
+  (`kosong`, 198 frame/164 subcarrier); take `tes` tidak lengkap dan memiliki
+  0 subcarrier. Belum ada kelas jatuh yang terverifikasi, sehingga training
+  supervised belum dapat dijalankan secara sahih.
+- Dokumen: format proyek `examples/esp-radar/wifi_sensing_demo/recordings/README.md`
+  — "`*.iq.csv` — one row per frame, I/Q columns per subcarrier"; format dan
+  metadata juga diperiksa di `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`.
+  Tidak mengubah firmware, driver, radio, atau serial runtime protocol.
+- Verifikasi: `python3 -m unittest discover -s fall_detection/tests -v`
+  (4 PASS); `python3 fall_detection/audit_dataset.py` melaporkan 1 eligible
+  take (`kosong`, 198 frame/164 subcarrier), 1 excluded (`tes`, incomplete/0
+  subcarrier), dan training gate blocked karena baru satu label. Mode `--json`
+  juga diuji; Pylance diagnostics kedua file Python: tidak ada temuan.
+
+## 2026-10-23 — Terjemahkan status Wi-Fi GOT_IP di UI
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `docs/agent-changes.md`
+- Perubahan: konversi state protokol seperti `GOT_IP` ke suffix key UI
+  sekarang mengubah pemisah underscore menjadi camel-case (`GotIp`), agar
+  status mendapat label “Connected” alih-alih menampilkan key mentah.
+- Alasan: perangkat melaporkan `GOT_IP` bersama IP/BSSID/channel/RSSI, tetapi
+  UI menghasilkan key `wifiStateGot_ip` yang tidak cocok dengan entri
+  `wifiStateGotIp`; itu kegagalan pemetaan terjemahan, bukan status koneksi.
+- Dokumen: ESP-IDF v5.5.3 Wi-Fi Guide,
+  <https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-guides/wifi.html#ip-event-sta-got-ip>
+  — “This event arises when the DHCP client successfully gets the IPV4 address
+  from the DHCP server.”
+- Verifikasi: evaluasi fungsi UI yang diekstrak dari file menghasilkan
+  `GOT_IP -> Connected`, `CONNECTED -> Associated`, `FAILED -> Failed`, dan
+  `DISCONNECTED -> Disconnected`; `git diff --check` bersih. Browser server
+  lokal tidak sedang berjalan saat pemeriksaan, sehingga verifikasi visual live
+  tidak dilakukan.
