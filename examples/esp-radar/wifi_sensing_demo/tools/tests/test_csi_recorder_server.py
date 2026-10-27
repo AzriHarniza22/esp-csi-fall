@@ -70,7 +70,23 @@ class HttpApiTests(unittest.TestCase):
                 "label": "duduk",
                 "csi_data_csv": "type,data\nCSI_DATA,1\n",
                 "iq_csv": "timestamp_us,seq\n1,1\n",
-                "meta": {"frames": 1, "complete": True, "duration_s": 10, "started_at_utc": "2026-10-22T01:45:32Z"},
+                "meta": {
+                    "frames": 1,
+                    "complete": True,
+                    "duration_s": 10,
+                    "started_at_utc": "2026-10-22T01:45:32Z",
+                    "motion_peer": "peer-1",
+                    "motion_samples": [
+                        {
+                            "ts_ms": 1000,
+                            "peer": "peer-1",
+                            "motion_status": True,
+                            "smooth_scaled": 1200,
+                            "enter_level_scaled": 1000,
+                            "exit_level_scaled": 500,
+                        }
+                    ],
+                },
             },
         )
         self.assertEqual(status, 200)
@@ -84,6 +100,8 @@ class HttpApiTests(unittest.TestCase):
         status, one = self._json("GET", f"/api/recordings/{rec_id}")
         self.assertEqual(status, 200)
         self.assertIn("CSI_DATA", one["csi_data_csv"])
+        self.assertEqual(len(one["motion_samples"]), 1)
+        self.assertEqual(one["motion_samples"][0]["motion_status"], True)
 
         status, deleted = self._json("DELETE", f"/api/recordings/{rec_id}")
         self.assertEqual(status, 200, deleted)

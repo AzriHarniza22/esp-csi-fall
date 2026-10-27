@@ -177,6 +177,20 @@
     return { complete, frames: count, dropped_delta: droppedDelta };
   }
 
+  function parseBatchSettings({ takes, durationS, gapS }) {
+    const count = Number(takes);
+    const duration = Number(durationS);
+    const gap = Number(gapS);
+    if (
+      !Number.isInteger(count) || count < 1 || count > 100 ||
+      !Number.isInteger(duration) || duration < 1 || duration > 60 ||
+      !Number.isInteger(gap) || gap < 0 || gap > 60
+    ) {
+      return null;
+    }
+    return { takes: count, durationS: duration, gapS: gap };
+  }
+
   function utcStamp(date) {
     const d = date instanceof Date ? date : new Date(date);
     return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -215,6 +229,30 @@
     return { frames, subcarriers };
   }
 
+  function makeMotionSample(message) {
+    if (!message || message.type !== "sample") {
+      return null;
+    }
+    const sample = {
+      ts_ms: Number(message.ts_ms),
+      peer: String(message.peer || ""),
+      motion_status: message.motion_status,
+      smooth_scaled: Number(message.smooth_scaled),
+      enter_level_scaled: Number(message.enter_level_scaled),
+      exit_level_scaled: Number(message.exit_level_scaled),
+    };
+    if (
+      !Number.isFinite(sample.ts_ms) ||
+      typeof sample.motion_status !== "boolean" ||
+      !Number.isFinite(sample.smooth_scaled) ||
+      !Number.isFinite(sample.enter_level_scaled) ||
+      !Number.isFinite(sample.exit_level_scaled)
+    ) {
+      return null;
+    }
+    return sample;
+  }
+
   function downsampleHeatmap(iqFrames, maxCols) {
     const limit = Math.max(1, maxCols || 400);
     if (!iqFrames.length) {
@@ -248,9 +286,11 @@
     buildCsiDataCsv,
     buildIqCsv,
     recordingCompleteness,
+    parseBatchSettings,
     utcStamp,
     makeRecordingId,
     parseIqCsv,
+    makeMotionSample,
     downsampleHeatmap,
     buildMeta,
     framePayloadBytes,

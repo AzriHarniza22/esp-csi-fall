@@ -32,6 +32,7 @@
 
 #include "ht_stimulus.h"
 #include "web_serial_monitor.h"
+#include "activity_classifier.h"
 #include "wifi_runtime_manager.h"
 
 #define WEB_SERIAL_PREFIX            "HMS:"
@@ -427,6 +428,66 @@ done:
     return result;
 }
 
+static bool json_escape_string(const char *source, char *destination, size_t capacity)
+{
+    static const char hex[] = "0123456789abcdef";
+    size_t output = 0;
+
+    if (!source || !destination || capacity == 0) {
+        return false;
+    }
+
+    while (*source) {
+        const unsigned char value = (unsigned char)*source++;
+        if (value == '"' || value == '\\') {
+            if (output + 2 >= capacity) {
+                return false;
+            }
+            destination[output++] = '\\';
+            destination[output++] = (char)value;
+        } else if (value < 0x20) {
+            if (output + 6 >= capacity) {
+                return false;
+            }
+            destination[output++] = '\\';
+            destination[output++] = 'u';
+            destination[output++] = '0';
+            destination[output++] = '0';
+            destination[output++] = hex[value >> 4];
+            destination[output++] = hex[value & 0x0f];
+        } else {
+            if (output + 1 >= capacity) {
+                return false;
+            }
+            destination[output++] = (char)value;
+        }
+    }
+
+    destination[output] = '\0';
+    return true;
+}
+
+void web_serial_monitor_publish_activity(const char *label, float score,
+                                         const char *runner_up_label,
+                                         float runner_up_score)
+{
+    char escaped_label[96];
+    char escaped_runner_up[96];
+
+    if (!isfinite(score) || !isfinite(runner_up_score) ||
+            !json_escape_string(label, escaped_label, sizeof(escaped_label)) ||
+            !json_escape_string(runner_up_label, escaped_runner_up, sizeof(escaped_runner_up))) {
+        ESP_LOGW(TAG, "Skipping activity result with invalid label or score");
+        return;
+    }
+
+    (void)write_line(
+        "{\"type\":\"activity\",\"class\":\"%s\",\"score\":%.3f,"
+        "\"runner_up\":\"%s\",\"runner_up_score\":%.3f,"
+        "\"confidence_available\":false}\n",
+        escaped_label, (double)score, escaped_runner_up, (double)runner_up_score);
+}
+
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info)
 {
     (void)ctx;
@@ -437,6 +498,8 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
 
     s_ctx.csi_last_rx_us = esp_timer_get_time();
     s_ctx.csi_frame_count++;
+
+    activity_classifier_enqueue(info);
 
     if (!s_ctx.csi_stream_enabled) {
         return;

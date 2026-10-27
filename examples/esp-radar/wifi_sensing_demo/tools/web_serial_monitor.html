@@ -354,12 +354,26 @@
       font-size: 12px;
     }
 
+    #libTableViewport {
+      max-height: 320px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
     .recordings-table th,
     .recordings-table td {
       text-align: left;
       padding: 8px 6px;
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
+    }
+
+    .recordings-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--panel);
     }
 
     .recordings-table button {
@@ -499,6 +513,20 @@
       </section>
 
       <section class="panel section">
+        <h2 id="activityPanelTitle">Live Activity Classification</h2>
+        <div id="activityPanelDesc" class="muted">Experimental CSI activity model. Scores are model-specific, not confidence. This is not fall detection.</div>
+        <div style="height: 10px;"></div>
+        <div class="status-pill">
+          <span id="activityClassLabel">Current activity</span>
+          <strong id="activityClassValue">Waiting for classifier...</strong>
+        </div>
+        <div style="height: 8px;"></div>
+        <div id="activityDistanceValue" class="wifi-status">Model score: -</div>
+        <div id="activityRunnerUpValue" class="wifi-status">Runner-up: -</div>
+        <div id="activityConfidenceValue" class="wifi-status">Confidence: unavailable</div>
+      </section>
+
+      <section class="panel section">
         <h2 id="stimulusPanelTitle">HT Stimulus</h2>
         <div id="stimulusPanelDesc" class="muted">Downloads through the AP so it keeps emitting HT frames. Tuning this changes how much CSI arrives and how long the channel stays quiet between bursts.</div>
         <div style="height: 12px;"></div>
@@ -575,7 +603,7 @@
 
       <section class="panel section">
         <h2 id="recPanelTitle">CSI Recorder</h2>
-        <div id="recPanelDesc" class="muted">Label, countdown, then record every CSI frame for the configured duration. Files are stored under recordings/.</div>
+        <div id="recPanelDesc" class="muted">Capture consecutive fixed-duration takes. Gap 0 keeps acquisition continuous; use a gap for one-shot actions so you can reset the starting pose.</div>
         <div style="height: 12px;"></div>
         <div class="config-form">
           <label><span id="recLabelPresetLabel">Label</span>
@@ -592,7 +620,8 @@
           <label><span id="recLabelCustomLabel">Custom label</span><input id="recLabelCustom" type="text" maxlength="48" autocomplete="off" /></label>
           <label><span id="recCountdownLabel">Countdown (s)</span><input id="recCountdownInput" type="number" min="0" step="1" value="5" autocomplete="off" /></label>
           <label><span id="recDurationLabel">Duration (s)</span><input id="recDurationInput" type="number" min="1" step="1" value="10" autocomplete="off" /></label>
-          <label><span id="recTakesLabel">Takes</span><input id="recTakesInput" type="number" min="1" step="1" value="1" autocomplete="off" /></label>
+          <label><span id="recTakesLabel">Takes (max 100)</span><input id="recTakesInput" type="number" min="1" max="100" step="1" value="1" autocomplete="off" /></label>
+          <label><span id="recGapLabel">Gap between takes (s)</span><input id="recGapInput" type="number" min="0" max="60" step="1" value="0" autocomplete="off" /></label>
         </div>
         <div id="recStimulusWarn" class="record-warn" hidden></div>
         <div style="height: 10px;"></div>
@@ -617,8 +646,9 @@
           <button id="libRefreshBtn" class="secondary">Refresh</button>
         </div>
         <div id="libStatusText" class="csi-status"></div>
+        <div id="libCountText" class="csi-status"></div>
         <div style="height: 10px;"></div>
-        <div style="overflow:auto;">
+        <div id="libTableViewport">
           <table class="recordings-table">
             <thead>
               <tr>
@@ -636,7 +666,9 @@
         <div id="recordingVisualizer" hidden>
           <div style="height: 12px;"></div>
           <div id="libVisualTitle" class="muted"></div>
+          <div id="libVisualSelection" class="muted"></div>
           <div id="libVisualDesc" class="muted"></div>
+          <div class="legend" id="recMotionLegend" hidden></div>
           <div id="recCsiToolbar" class="csi-toolbar" hidden>
             <label><span id="recCsiViewLabel">View</span>
               <select id="recCsiViewSelect">
@@ -654,6 +686,9 @@
           </div>
           <canvas id="recHeatmap" class="heatmap" width="1200" height="220" hidden></canvas>
           <canvas id="recCsiChart" width="1200" height="280" hidden></canvas>
+          <div id="recMotionStateTitle" class="muted" hidden></div>
+          <div class="legend" id="recMotionStateLegend" hidden></div>
+          <canvas id="recMotionState" width="1200" height="44" hidden></canvas>
         </div>
       </section>
 
@@ -789,6 +824,7 @@
     let rawLogCharCount = 0;
     let rawLogFlushTimer = null;
     let currentLanguage = "en";
+    let activityClassification = null;
 
     // Decay is applied per redraw, and redraws are driven by incoming samples
     // (~20 Hz), so 0.995 gives an ~11s shrink time constant: the axis holds
@@ -908,12 +944,13 @@
         clearRawLogBtn: "Clear Window",
         footerNote: "Note: this page only parses JSON lines prefixed with <code>HMS:</code>, so ordinary device logs will not interfere with the charts. Serve this directory with <code>python3 csi_recorder_server.py</code> so recordings can be saved under <code>recordings/</code>, then open <code>http://127.0.0.1:8000/</code>.",
         recPanelTitle: "CSI Recorder",
-        recPanelDesc: "Choose a label, wait through the countdown, then capture every CSI frame for the configured duration. Each take writes CSI_DATA CSV, I/Q CSV, and metadata.",
+        recPanelDesc: "Choose a label and capture consecutive fixed-duration takes. Gap 0 keeps acquisition continuous; use a gap for one-shot actions so you can reset the starting pose. Each take is saved separately.",
         recLabelPresetLabel: "Label",
         recLabelCustomLabel: "Custom label",
         recCountdownLabel: "Countdown (s)",
         recDurationLabel: "Duration (s)",
-        recTakesLabel: "Takes",
+        recTakesLabel: "Takes (max 100)",
+        recGapLabel: "Gap between takes (s)",
         recTimerLabel: "Recorder",
         recTimerIdle: "Idle",
         recTimerCountdown: "Countdown",
@@ -924,6 +961,7 @@
         recStartStimulusBtn: "Start stimulus",
         recNeedLabel: "Enter a label before recording.",
         recNeedSerial: "Connect serial before recording.",
+        recInvalidBatch: "Use 1–100 takes, 1–60 seconds per take, and a 0–60 second gap.",
         recStimulusOff: "HT stimulus is stopped. CSI on this hardware usually needs it; start it before recording.",
         recSaved: "Saved recording",
         recSaveFailed: "Could not save to the recorder server; downloaded a backup instead.",
@@ -933,7 +971,8 @@
         recDeleteConfirm: "Delete this recording?",
         recReplayBlocked: "Cannot replay while a recording is running.",
         libPanelTitle: "Recordings",
-        libPanelDesc: "List, visualize, download, or delete takes stored under recordings/.",
+        libPanelDesc: "List, visualize, or delete takes stored under recordings/.",
+        libCount: "{shown} of {total} recordings",
         libFilterLabel: "Filter label",
         libRefreshBtn: "Refresh",
         libColLabel: "Label",
@@ -943,19 +982,25 @@
         libColComplete: "Complete",
         libColActions: "Actions",
         libHeatmapTitle: "CSI amplitude heatmap",
+        libMotionGraphTitle: "Recorded motion detection",
+        libSelectedRecording: "Selected: {label} · {started} · {frames} frames",
         heatmapTimeAxis: "Time (frame)",
         heatmapSubcarrierAxis: "Subcarrier",
         heatmapAmplitudeAxis: "Amplitude |I+jQ|",
         heatmapScaleHint: "Color scale clips values below the 2nd and above the 98th percentile.",
         csiGraphHint: "Each line shows one subcarrier across the recorded frames.",
+        motionGraphHint: "ESP detector telemetry: smoothed signal (green), enter threshold (orange), and exit threshold (red). The strip shows the recorded motion state.",
+        motionGraphMissing: "This recording has no saved motion-detector telemetry. Re-record it with the updated recorder.",
+        libMotionGraph: "Motion graph",
+        motionStateLabel: "Motion state",
+        motionActive: "ACTIVE",
+        motionInactive: "INACTIVE",
         libCsiGraphTitle: "Recorded CSI",
-        libVisualHint: "Choose Heatmap or CSI graph in a recording row to view it here.",
+        libVisualHint: "Choose Heatmap, CSI graph, or Motion graph in a recording row to view it here.",
         libHeatmap: "Heatmap",
         libCsiGraph: "CSI graph",
         recCsiViewLabel: "View",
         recCsiStepLabel: "Subcarrier step",
-        libDownloadCsi: "CSI_DATA",
-        libDownloadIq: "I/Q",
         libDelete: "Delete",
         peerStateLabel: "State",
         peerInitLabel: "Init",
@@ -992,6 +1037,14 @@
         wifiNotConnected: "Not connected",
         wifiConnected: "Connected",
         wifiInvalid: "Enter an SSID.",
+        activityPanelTitle: "Live Activity Classification",
+        activityPanelDesc: "Experimental CSI activity model. Scores are model-specific, not confidence. This is not fall detection.",
+        activityClassLabel: "Current activity",
+        activityWaiting: "Waiting for classifier...",
+        activityDistance: "Model score: {value}",
+        activityRunnerUp: "Runner-up: {label} (score {value})",
+        activityConfidenceUnavailable: "Confidence: unavailable (not calibrated)",
+        activityConfidence: "Confidence: {value}%",
         stimulusPanelTitle: "HT Stimulus",
         stimulusPanelDesc: "Downloads through the AP so it keeps emitting HT frames. Tuning this changes how much CSI arrives and how long the channel stays quiet between bursts.",
         stimulusBurstLabel: "Burst (KB)",
@@ -1152,6 +1205,14 @@
         wifiNotConnected: "未连接",
         wifiConnected: "已连接",
         wifiInvalid: "请输入 SSID。",
+        activityPanelTitle: "实时活动分类",
+        activityPanelDesc: "实验性 CSI 活动模型。分数因模型而异，不代表置信度；不用于跌倒检测。",
+        activityClassLabel: "当前活动",
+        activityWaiting: "等待分类器结果...",
+        activityDistance: "模型分数：{value}",
+        activityRunnerUp: "次高类别：{label}（分数 {value}）",
+        activityConfidenceUnavailable: "置信度：不可用（未校准）",
+        activityConfidence: "置信度：{value}%",
         stimulusPanelTitle: "HT 刺激流量",
         stimulusPanelDesc: "通过 AP 持续下载，使其不断发送 HT 帧。调整此项会改变 CSI 的到达量以及两次突发之间的静默时长。",
         stimulusBurstLabel: "单次流量（KB）",
@@ -1197,12 +1258,13 @@
         csiFrames: "帧",
         csiDropped: "丢弃",
         recPanelTitle: "CSI 采集",
-        recPanelDesc: "选择标签，倒计时后按设定时长采集每一帧 CSI。每次采集写入 CSI_DATA CSV、I/Q CSV 和元数据。",
+        recPanelDesc: "选择标签后连续采集多个定长样本。间隔设为 0 时连续采集；单次转换动作应设置间隔，以便恢复起始姿势。每次样本分别保存为文件。",
         recLabelPresetLabel: "标签",
         recLabelCustomLabel: "自定义标签",
         recCountdownLabel: "倒计时（秒）",
         recDurationLabel: "时长（秒）",
-        recTakesLabel: "次数",
+        recTakesLabel: "次数（最多 100）",
+        recGapLabel: "样本间隔（秒）",
         recTimerLabel: "采集器",
         recTimerIdle: "空闲",
         recTimerCountdown: "倒计时",
@@ -1213,6 +1275,7 @@
         recStartStimulusBtn: "启动激励",
         recNeedLabel: "请先填写标签。",
         recNeedSerial: "请先连接串口再采集。",
+        recInvalidBatch: "次数须为 1–100，每条时长须为 1–60 秒，间隔须为 0–60 秒。",
         recStimulusOff: "HT 激励已停止。此硬件上的 CSI 通常需要激励；请先启动再采集。",
         recSaved: "已保存",
         recSaveFailed: "无法写入采集服务器，已改为下载备份。",
@@ -1222,7 +1285,8 @@
         recDeleteConfirm: "删除这条采集？",
         recReplayBlocked: "正在采集时不能回放。",
         libPanelTitle: "采集库",
-        libPanelDesc: "列出、可视化、下载或删除 recordings/ 中的样本。",
+        libPanelDesc: "列出、可视化或删除 recordings/ 中的样本。",
+        libCount: "显示 {shown} / 共 {total} 条记录",
         libFilterLabel: "按标签筛选",
         libRefreshBtn: "刷新",
         libColLabel: "标签",
@@ -1232,19 +1296,25 @@
         libColComplete: "完整",
         libColActions: "操作",
         libHeatmapTitle: "CSI 幅度热力图",
+        libMotionGraphTitle: "录制的运动检测",
+        libSelectedRecording: "当前记录：{label} · {started} · {frames} 帧",
         heatmapTimeAxis: "时间（帧）",
         heatmapSubcarrierAxis: "子载波",
         heatmapAmplitudeAxis: "幅度 |I+jQ|",
         heatmapScaleHint: "颜色范围裁剪至第 2–98 百分位。",
         csiGraphHint: "每条曲线表示一个子载波随采集帧的变化。",
+        motionGraphHint: "ESP 检测器遥测：平滑信号（绿）、进入阈值（橙）和退出阈值（红）。状态条显示记录的运动状态。",
+        motionGraphMissing: "此记录没有保存运动检测遥测。请使用更新后的采集器重新录制。",
+        libMotionGraph: "运动图",
+        motionStateLabel: "运动状态",
+        motionActive: "运动中",
+        motionInactive: "静止",
         libCsiGraphTitle: "录制 CSI 曲线",
-        libVisualHint: "点击记录行中的“热力图”或“CSI 曲线”在此查看。",
+        libVisualHint: "点击记录行中的“热力图”、“CSI 曲线”或“运动图”在此查看。",
         libHeatmap: "热力图",
         libCsiGraph: "CSI 曲线",
         recCsiViewLabel: "视图",
         recCsiStepLabel: "子载波步长",
-        libDownloadCsi: "CSI_DATA",
-        libDownloadIq: "I/Q",
         libDelete: "删除",
         yes: "是",
         no: "否",
@@ -1341,8 +1411,14 @@
     const recHeatmap = document.getElementById("recHeatmap");
     const recordingVisualizer = document.getElementById("recordingVisualizer");
     const libVisualTitle = document.getElementById("libVisualTitle");
+    const libVisualSelection = document.getElementById("libVisualSelection");
     const libVisualDesc = document.getElementById("libVisualDesc");
+    const recMotionLegend = document.getElementById("recMotionLegend");
+    const recMotionStateTitle = document.getElementById("recMotionStateTitle");
+    const recMotionStateLegend = document.getElementById("recMotionStateLegend");
+    const recMotionState = document.getElementById("recMotionState");
     const libTableBody = document.getElementById("libTableBody");
+    const libCountText = document.getElementById("libCountText");
     const libStatusText = document.getElementById("libStatusText");
     const libFilterInput = document.getElementById("libFilterInput");
     const recordingVisualization = {
@@ -1350,12 +1426,17 @@
       mode: "",
       frames: [],
       subcarriers: 0,
+      motionSamples: [],
+      recording: null,
+      request: 0,
     };
     const csiRecorder = {
       phase: "idle",
       cancelled: false,
       disconnected: false,
       frames: [],
+      motionSamples: [],
+      motionPeer: "",
       droppedStart: 0,
       restorePeriod: 100,
       restoreStream: false,
@@ -1363,6 +1444,8 @@
       phaseEndsAt: 0,
       take: 0,
       takes: 1,
+      gapS: 0,
+      batchId: "",
       library: [],
     };
 
@@ -1415,6 +1498,10 @@
       document.getElementById("wifiConnectBtn").textContent = t("wifiConnectBtn");
       document.getElementById("wifiDisconnectBtn").textContent = t("wifiDisconnectBtn");
       document.getElementById("wifiInfoBtn").textContent = t("wifiInfoBtn");
+      document.getElementById("activityPanelTitle").textContent = t("activityPanelTitle");
+      document.getElementById("activityPanelDesc").textContent = t("activityPanelDesc");
+      document.getElementById("activityClassLabel").textContent = t("activityClassLabel");
+      renderActivityClassification();
       document.getElementById("stimulusPanelTitle").textContent = t("stimulusPanelTitle");
       document.getElementById("stimulusPanelDesc").textContent = t("stimulusPanelDesc");
       document.getElementById("stimulusBurstLabel").textContent = t("stimulusBurstLabel");
@@ -1441,6 +1528,7 @@
       document.getElementById("recCountdownLabel").textContent = t("recCountdownLabel");
       document.getElementById("recDurationLabel").textContent = t("recDurationLabel");
       document.getElementById("recTakesLabel").textContent = t("recTakesLabel");
+      document.getElementById("recGapLabel").textContent = t("recGapLabel");
       document.getElementById("recTimerLabel").textContent = t("recTimerLabel");
       document.getElementById("recStartBtn").textContent = t("recStartBtn");
       document.getElementById("recCancelBtn").textContent = t("recCancelBtn");
@@ -1455,18 +1543,7 @@
       document.getElementById("libColFrames").textContent = t("libColFrames");
       document.getElementById("libColComplete").textContent = t("libColComplete");
       document.getElementById("libColActions").textContent = t("libColActions");
-      const visualTitleKey = recordingVisualization.mode === "heatmap"
-        ? "libHeatmapTitle"
-        : recordingVisualization.mode === "csi"
-          ? "libCsiGraphTitle"
-          : "libVisualHint";
-      libVisualTitle.textContent = t(visualTitleKey);
-      const visualDescKey = recordingVisualization.mode === "heatmap"
-        ? "heatmapScaleHint"
-        : recordingVisualization.mode === "csi"
-          ? "csiGraphHint"
-          : "";
-      libVisualDesc.textContent = visualDescKey ? t(visualDescKey) : "";
+      updateRecordingVisualizationLabels();
       document.getElementById("recCsiViewLabel").textContent = t("recCsiViewLabel");
       document.getElementById("recCsiStepLabel").textContent = t("recCsiStepLabel");
       recCsiViewSelect.options[0].textContent = t("csiAmplitude");
@@ -1980,6 +2057,10 @@
         drawHeatmap(recordingVisualization.frames);
         return;
       }
+      if (recordingVisualization.mode === "motion") {
+        drawMotionGraph(recordingVisualization.motionSamples);
+        return;
+      }
       const history = recordingVisualization.frames.map((frame) => frame.iq);
       drawCsiChart(
         recCsiChart,
@@ -1991,37 +2072,168 @@
       );
     }
 
-    async function showRecordingVisualization(id, mode) {
+    function drawMotionStateTimeline(samples) {
+      const ctx = recMotionState.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const width = recMotionState.clientWidth || 800;
+      const height = recMotionState.clientHeight || 44;
+      recMotionState.width = Math.floor(width * dpr);
+      recMotionState.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      if (!samples.length) {
+        return;
+      }
+
+      const times = samples.map((sample) => sample.ts_ms);
+      const first = times[0];
+      const last = times[times.length - 1];
+      const span = last - first;
+      const interval = samples.length > 1
+        ? Math.max(1, (last - first) / (samples.length - 1))
+        : 1;
+      for (let index = 0; index < samples.length; index++) {
+        const x0 = span > 0
+          ? ((times[index] - first) / span) * width
+          : (index / samples.length) * width;
+        const nextX = index + 1 < samples.length
+          ? (span > 0 ? ((times[index + 1] - first) / span) * width : ((index + 1) / samples.length) * width)
+          : Math.min(width, x0 + (span > 0 ? (interval / span) * width : width / samples.length));
+        ctx.fillStyle = samples[index].motion_status ? "#24543e" : "#58313a";
+        ctx.fillRect(x0, 4, Math.max(1, nextX - x0), height - 8);
+      }
+    }
+
+    function drawMotionGraph(samples) {
+      const hasSamples = samples.length > 0;
+      const series = [
+        {
+          label: "smooth_scaled",
+          color: "#7bffb6",
+          values: samples.map((sample) => sample.smooth_scaled / 1000),
+        },
+        {
+          label: "enter_level_scaled",
+          color: "#ffb454",
+          width: 1.5,
+          values: samples.map((sample) => sample.enter_level_scaled / 1000),
+        },
+        {
+          label: "exit_level_scaled",
+          color: "#ff6b81",
+          width: 1.5,
+          values: samples.map((sample) => sample.exit_level_scaled / 1000),
+        },
+      ];
+      recMotionLegend.hidden = !hasSamples;
+      recMotionStateTitle.hidden = !hasSamples;
+      recMotionStateLegend.hidden = !hasSamples;
+      recMotionState.hidden = !hasSamples;
+      if (!hasSamples) {
+        recMotionLegend.replaceChildren();
+        return;
+      }
+      buildLegend(recMotionLegend, series);
+      recMotionStateTitle.textContent = t("motionStateLabel");
+      buildLegend(recMotionStateLegend, [
+        { label: t("motionActive"), color: "#7bffb6" },
+        { label: t("motionInactive"), color: "#ff6b81" },
+      ]);
+      drawLineChart(
+        recCsiChart,
+        series,
+        (value) => value.toFixed(3),
+        samples.map((sample) => sample.ts_ms),
+        `recordingMotion:${recordingVisualization.id}`
+      );
+      drawMotionStateTimeline(samples);
+    }
+
+    function updateRecordingVisualizationLabels() {
+      const visualTitleKey = {
+        heatmap: "libHeatmapTitle",
+        csi: "libCsiGraphTitle",
+        motion: "libMotionGraphTitle",
+      }[recordingVisualization.mode] || "libVisualHint";
+      let visualDescKey = "";
+      if (recordingVisualization.mode === "heatmap") {
+        visualDescKey = "heatmapScaleHint";
+      } else if (recordingVisualization.mode === "csi") {
+        visualDescKey = "csiGraphHint";
+      } else if (recordingVisualization.mode === "motion") {
+        visualDescKey = recordingVisualization.motionSamples.length
+          ? "motionGraphHint"
+          : "motionGraphMissing";
+      }
+      libVisualTitle.textContent = t(visualTitleKey);
+      libVisualDesc.textContent = visualDescKey ? t(visualDescKey) : "";
+      const recording = recordingVisualization.recording;
+      libVisualSelection.textContent = recording
+        ? t("libSelectedRecording")
+          .replace("{label}", recording.label || recording.id)
+          .replace("{started}", recording.started_at_utc || "")
+          .replace("{frames}", String(recording.frames ?? recordingVisualization.frames.length))
+        : "";
+    }
+
+    async function showRecordingVisualization(recording, mode) {
+      const id = recording.id;
+      const request = ++recordingVisualization.request;
       try {
         if (recordingVisualization.id !== id) {
           const rec = await fetchRecording(id);
+          if (request !== recordingVisualization.request) {
+            return;
+          }
           const parsed = CsiRecorder.parseIqCsv(rec.iq_csv || "");
           recordingVisualization.id = id;
           recordingVisualization.frames = parsed.frames;
           recordingVisualization.subcarriers = parsed.subcarriers;
+          recordingVisualization.motionSamples = Array.isArray(rec.motion_samples)
+            ? rec.motion_samples.map((sample) => CsiRecorder.makeMotionSample({
+              type: "sample",
+              ...sample,
+            })).filter(Boolean)
+            : [];
         }
+        if (request !== recordingVisualization.request) {
+          return;
+        }
+        recordingVisualization.recording = recording;
         recordingVisualization.mode = mode;
         const showHeatmap = mode === "heatmap";
         recordingVisualizer.hidden = false;
         recHeatmap.hidden = !showHeatmap;
         recCsiChart.hidden = showHeatmap;
         recCsiToolbar.hidden = showHeatmap;
-        libVisualTitle.textContent = t(showHeatmap ? "libHeatmapTitle" : "libCsiGraphTitle");
-        libVisualDesc.textContent = t(showHeatmap ? "heatmapScaleHint" : "csiGraphHint");
+        recMotionLegend.hidden = mode !== "motion";
+        recMotionStateTitle.hidden = mode !== "motion";
+        recMotionStateLegend.hidden = mode !== "motion";
+        recMotionState.hidden = mode !== "motion";
+        updateRecordingVisualizationLabels();
         drawRecordingVisualization();
       } catch (error) {
-        logEvent(`${t("logError")}: ${error.message}`);
+        if (request === recordingVisualization.request) {
+          logEvent(`${t("logError")}: ${error.message}`);
+        }
       }
     }
 
-    async function saveTake(label, takeIndex, countdownS, durationS) {
-      csiRecorder.phase = "saving";
-      renderRecorderStatus();
-      const started = new Date(csiRecorder.phaseEndsAt - durationS * 1000);
-      const ended = new Date();
+    async function saveTake(
+      label,
+      takeIndex,
+      countdownS,
+      durationS,
+      frames,
+      droppedStart,
+      started,
+      ended,
+      motionSamples,
+      motionPeer,
+    ) {
       const completeness = CsiRecorder.recordingCompleteness({
-        frames: csiRecorder.frames,
-        droppedStart: csiRecorder.droppedStart,
+        frames,
+        droppedStart,
         droppedEnd: csiDroppedCount,
         disconnected: csiRecorder.disconnected,
         stimulusOn: !(stimulusState && stimulusState.running === false),
@@ -2034,6 +2246,8 @@
         duration_s: durationS,
         take: takeIndex,
         take_count: csiRecorder.takes,
+        gap_s: csiRecorder.gapS,
+        batch_id: csiRecorder.batchId,
         started_at_utc: started.toISOString(),
         ended_at_utc: ended.toISOString(),
         frames: completeness.frames,
@@ -2041,13 +2255,15 @@
         dropped_delta: completeness.dropped_delta,
         complete: completeness.complete,
         csi_period_ms: 0,
-        data_source: csiRecorder.frames.some((frame) => frame.validBytes && frame.validBytes.length)
+        data_source: frames.some((frame) => frame.validBytes && frame.validBytes.length)
           ? "valid_data"
           : "raw_data",
-        subcarriers: csiRecorder.frames[0]?.iq?.length || 0,
+        subcarriers: frames[0]?.iq?.length || 0,
+        motion_peer: motionPeer,
+        motion_samples: motionSamples,
       });
-      const csiCsv = CsiRecorder.buildCsiDataCsv(csiRecorder.frames, { label, takeSeq: takeIndex });
-      const iqCsv = CsiRecorder.buildIqCsv(csiRecorder.frames);
+      const csiCsv = CsiRecorder.buildCsiDataCsv(frames, { label, takeSeq: takeIndex });
+      const iqCsv = CsiRecorder.buildIqCsv(frames);
       if (!completeness.complete) {
         logEvent(`${t("recIncomplete")}: ${recId}`);
       }
@@ -2067,7 +2283,6 @@
           throw new Error(`HTTP ${response.status}`);
         }
         logEvent(`${t("recSaved")}: ${recId}`);
-        await refreshRecordingsLibrary();
       } catch (error) {
         downloadTextFile(`${recId}.csi_data.csv`, csiCsv);
         downloadTextFile(`${recId}.iq.csv`, iqCsv);
@@ -2090,44 +2305,106 @@
         return;
       }
       const countdownS = Math.max(0, Math.floor(Number(document.getElementById("recCountdownInput").value) || 0));
-      const durationS = Math.max(1, Math.floor(Number(document.getElementById("recDurationInput").value) || 1));
-      const takes = Math.max(1, Math.floor(Number(document.getElementById("recTakesInput").value) || 1));
+      const batchSettings = CsiRecorder.parseBatchSettings({
+        durationS: document.getElementById("recDurationInput").value,
+        takes: document.getElementById("recTakesInput").value,
+        gapS: document.getElementById("recGapInput").value,
+      });
+      if (!batchSettings) {
+        logEvent(t("recInvalidBatch"));
+        return;
+      }
+      const { durationS, takes, gapS } = batchSettings;
+      if (takes > 1) {
+        try {
+          const response = await fetch("/api/recordings");
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+        } catch (error) {
+          logEvent(`${t("recNeedServer")}: ${error.message}`);
+          return;
+        }
+      }
       renderStimulusWarn();
       csiRecorder.cancelled = false;
       csiRecorder.disconnected = false;
       csiRecorder.takes = takes;
+      csiRecorder.gapS = gapS;
+      csiRecorder.batchId = CsiRecorder.makeRecordingId(label, new Date(), 1);
       csiRecorder.restorePeriod = Number(csiPeriodInput.value) || 100;
       csiRecorder.restoreStream = csiStreamActive;
       document.getElementById("recStartBtn").disabled = true;
-      await sendCommand("SET_CSI_PERIOD 0");
-      await sendCommand("START_CSI_STREAM");
-      csiStreamActive = true;
-      renderCsiStatus();
+      const pendingSaves = [];
       try {
+        await sendCommand("SET_CSI_PERIOD 0");
+        await sendCommand("START_CSI_STREAM");
+        csiStreamActive = true;
+        renderCsiStatus();
+
+        if (countdownS > 0) {
+          csiRecorder.take = 1;
+          csiRecorder.phase = "countdown";
+          await waitRecorderPhase(countdownS * 1000);
+        }
+
         for (let take = 1; take <= takes && !csiRecorder.cancelled; take++) {
           csiRecorder.take = take;
-          csiRecorder.frames = [];
-          csiRecorder.phase = "countdown";
-          if (countdownS > 0 || take > 1) {
-            const waitS = countdownS > 0 ? countdownS : 1;
-            await waitRecorderPhase(waitS * 1000);
+          if (take > 1 && gapS > 0) {
+            csiRecorder.phase = "countdown";
+            await waitRecorderPhase(gapS * 1000);
+            if (csiRecorder.cancelled) {
+              break;
+            }
           }
-          if (csiRecorder.cancelled) {
-            break;
-          }
+          const started = new Date();
           csiRecorder.droppedStart = csiDroppedCount;
           csiRecorder.frames = [];
+          csiRecorder.motionSamples = [];
+          csiRecorder.motionPeer = selectedPeer || "";
           csiRecorder.phase = "recording";
+          const phaseStart = Date.now();
           await waitRecorderPhase(durationS * 1000);
           if (csiRecorder.cancelled) {
             break;
           }
-          await saveTake(label, take, countdownS, durationS);
+          const frames = csiRecorder.frames;
+          const motionSamples = csiRecorder.motionSamples;
+          const motionPeer = csiRecorder.motionPeer;
+          const ended = new Date(phaseStart + durationS * 1000);
+          const droppedStart = csiRecorder.droppedStart;
+          csiRecorder.frames = [];
+          pendingSaves.push(
+            saveTake(
+              label,
+              take,
+              take === 1 ? countdownS : 0,
+              durationS,
+              frames,
+              droppedStart,
+              started,
+              ended,
+              motionSamples,
+              motionPeer,
+            ).catch((error) => {
+              logEvent(`${t("logError")}: ${error.message}`);
+            }),
+          );
+        }
+        if (pendingSaves.length) {
+          csiRecorder.phase = "saving";
+          renderRecorderStatus();
+          await Promise.all(pendingSaves);
+          if (!csiRecorder.disconnected) {
+            await refreshRecordingsLibrary();
+          }
         }
       } finally {
         clearRecorderTicker();
         csiRecorder.phase = "idle";
         csiRecorder.frames = [];
+        csiRecorder.motionSamples = [];
+        csiRecorder.motionPeer = "";
         document.getElementById("recStartBtn").disabled = false;
         renderRecorderStatus();
         if (writer && !csiRecorder.disconnected) {
@@ -2177,6 +2454,9 @@
         .filter((row) => !filter || String(row.label || "").toLowerCase().includes(filter))
         .sort((a, b) => String(b.started_at_utc || "").localeCompare(String(a.started_at_utc || "")));
       libTableBody.replaceChildren();
+      libCountText.textContent = t("libCount")
+        .replace("{shown}", String(rows.length))
+        .replace("{total}", String(csiRecorder.library.length));
       for (const row of rows) {
         const tr = document.createElement("tr");
         const cells = [
@@ -2199,10 +2479,9 @@
           btn.addEventListener("click", handler);
           return btn;
         };
-        actions.appendChild(makeBtn("libHeatmap", () => showRecordingVisualization(row.id, "heatmap")));
-        actions.appendChild(makeBtn("libCsiGraph", () => showRecordingVisualization(row.id, "csi")));
-        actions.appendChild(makeBtn("libDownloadCsi", () => downloadRecording(row.id, "csi_data_csv", `${row.id}.csi_data.csv`)));
-        actions.appendChild(makeBtn("libDownloadIq", () => downloadRecording(row.id, "iq_csv", `${row.id}.iq.csv`)));
+        actions.appendChild(makeBtn("libHeatmap", () => showRecordingVisualization(row, "heatmap")));
+        actions.appendChild(makeBtn("libCsiGraph", () => showRecordingVisualization(row, "csi")));
+        actions.appendChild(makeBtn("libMotionGraph", () => showRecordingVisualization(row, "motion")));
         actions.appendChild(makeBtn("libDelete", () => deleteRecording(row.id)));
         tr.appendChild(actions);
         libTableBody.appendChild(tr);
@@ -2215,15 +2494,6 @@
         throw new Error(`HTTP ${response.status}`);
       }
       return response.json();
-    }
-
-    async function downloadRecording(id, field, filename) {
-      try {
-        const rec = await fetchRecording(id);
-        downloadTextFile(filename, rec[field] || "");
-      } catch (error) {
-        logEvent(`${t("logError")}: ${error.message}`);
-      }
     }
 
     async function deleteRecording(id) {
@@ -2516,7 +2786,7 @@
       return peer?.samples || [];
     }
 
-    function drawLineChart(canvas, seriesList, formatter, times) {
+    function drawLineChart(canvas, seriesList, formatter, times, scaleKey) {
       const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
       const width = canvas.clientWidth;
@@ -2546,7 +2816,7 @@
       }
 
       const { min, max } = stickyRange(
-        `${canvas.id}:${selectedPeer || "none"}`,
+        scaleKey || `${canvas.id}:${selectedPeer || "none"}`,
         0,
         Math.max(...values),
       );
@@ -2827,6 +3097,59 @@
       sendCommand(`SET_STIMULUS ${keep} ${values.burstBytes} ${values.pauseMs}`);
     }
 
+    function renderActivityClassification() {
+      const classValue = document.getElementById("activityClassValue");
+      const scoreValue = document.getElementById("activityDistanceValue");
+      const runnerUpValue = document.getElementById("activityRunnerUpValue");
+      const confidenceValue = document.getElementById("activityConfidenceValue");
+      if (!activityClassification) {
+        classValue.textContent = t("activityWaiting");
+        scoreValue.textContent = t("activityDistance").replace("{value}", "-");
+        runnerUpValue.textContent = t("activityRunnerUp").replace("{label}", "-").replace("{value}", "-");
+        confidenceValue.textContent = t("activityConfidenceUnavailable");
+        return;
+      }
+
+      classValue.textContent = activityClassification.className || "-";
+      scoreValue.textContent = t("activityDistance").replace(
+        "{value}",
+        activityClassification.score.toFixed(2),
+      );
+      runnerUpValue.textContent = t("activityRunnerUp")
+        .replace("{label}", activityClassification.runnerUp || "-")
+        .replace("{value}", activityClassification.runnerUpScore.toFixed(2));
+      confidenceValue.textContent = activityClassification.confidence === null
+        ? t("activityConfidenceUnavailable")
+        : t("activityConfidence").replace(
+          "{value}",
+          (activityClassification.confidence * 100).toFixed(1),
+        );
+    }
+
+    function handleActivityMessage(msg) {
+      if (
+        typeof msg.class !== "string" ||
+        typeof msg.score !== "number" ||
+        !Number.isFinite(msg.score) ||
+        typeof msg.runner_up !== "string" ||
+        typeof msg.runner_up_score !== "number" ||
+        !Number.isFinite(msg.runner_up_score)
+      ) {
+        logEvent("Invalid activity-classification message received");
+        return;
+      }
+      activityClassification = {
+        className: msg.class,
+        score: msg.score,
+        runnerUp: msg.runner_up,
+        runnerUpScore: msg.runner_up_score,
+        confidence: msg.confidence_available === true && typeof msg.confidence === "number"
+          && Number.isFinite(msg.confidence) && msg.confidence >= 0 && msg.confidence <= 1
+          ? msg.confidence : null,
+      };
+      renderActivityClassification();
+    }
+
     function handleMessage(msg) {
       if (msg.type === "hello") {
         appInfo = msg;
@@ -2844,6 +3167,8 @@
         handleWifiMessage(msg);
       } else if (msg.type === "wifi_result") {
         handleWifiResultMessage(msg);
+      } else if (msg.type === "activity") {
+        handleActivityMessage(msg);
       } else if (msg.type === "csi") {
         const rawBytes = decodeBase64Bytes(msg.data || "");
         const validBytes = msg.valid ? decodeBase64Bytes(msg.valid) : new Int8Array(0);
@@ -2901,6 +3226,15 @@
         peer.samples.push(msg);
         while (peer.samples.length > MAX_SAMPLES) {
           peer.samples.shift();
+        }
+        if (csiRecorder.phase === "recording") {
+          const motionSample = CsiRecorder.makeMotionSample(msg);
+          if (motionSample && (!csiRecorder.motionPeer || csiRecorder.motionPeer === peer.name)) {
+            if (!csiRecorder.motionPeer) {
+              csiRecorder.motionPeer = peer.name;
+            }
+            csiRecorder.motionSamples.push(motionSample);
+          }
         }
       } else if (msg.type === "stimulus") {
         handleStimulusMessage(msg);

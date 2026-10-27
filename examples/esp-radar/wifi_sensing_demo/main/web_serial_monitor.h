@@ -47,6 +47,16 @@ typedef struct {
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info);
 
 /**
+ * @brief Publish an experimental activity classification to the browser.
+ *
+ * Scores are specific to the selected model and must not be interpreted as
+ * probabilities or confidence scores.
+ */
+void web_serial_monitor_publish_activity(const char *label, float score,
+                                         const char *runner_up_label,
+                                         float runner_up_score);
+
+/**
  * @brief Start the serial transport and command loop without a sensing FSM.
  *
  * Called before Wi-Fi so the browser already observes `BOOTING`, `CONNECTING`,

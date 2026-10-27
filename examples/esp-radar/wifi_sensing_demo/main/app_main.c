@@ -13,6 +13,7 @@
 #include "freertos/event_groups.h"
 #include "nvs_flash.h"
 #include "esp_err.h"
+#include "activity_classifier.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_wifi.h"
@@ -430,6 +431,8 @@ static void on_wifi_runtime_state(wifi_runtime_state_t state, const wifi_runtime
 
 void app_main(void)
 {
+    ESP_ERROR_CHECK(activity_classifier_init());
+
     /* Standard ESP-IDF bring-up, then hand Wi-Fi ownership to the runtime manager. */
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());

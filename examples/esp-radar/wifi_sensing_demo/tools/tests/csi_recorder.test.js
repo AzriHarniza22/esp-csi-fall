@@ -40,6 +40,27 @@ function main() {
   const parsed = CsiRecorder.parseIqCsv(iqCsv);
   report("parseIqCsv roundtrip", parsed.subcarriers === 2 && parsed.frames[0].iq[1][1] === 4);
 
+  const motionSample = CsiRecorder.makeMotionSample({
+    type: "sample",
+    ts_ms: 1000,
+    peer: "peer-1",
+    motion_status: true,
+    smooth_scaled: 1200,
+    enter_level_scaled: 1000,
+    exit_level_scaled: 500,
+  });
+  report("motion telemetry sample is retained",
+    motionSample?.peer === "peer-1" && motionSample.motion_status &&
+      motionSample.smooth_scaled === 1200 && motionSample.ts_ms === 1000);
+  report("invalid motion telemetry is rejected", CsiRecorder.makeMotionSample({
+    type: "sample",
+    ts_ms: 1000,
+    motion_status: true,
+    smooth_scaled: "bad",
+    enter_level_scaled: 1000,
+    exit_level_scaled: 500,
+  }) === null);
+
   const heat = CsiRecorder.downsampleHeatmap(parsed.frames, 400);
   report("heatmap amplitude", heat.length === 1 && heat[0].length === 2 && Math.abs(heat[0][0] - Math.hypot(1, 2)) < 1e-9);
 
@@ -69,6 +90,19 @@ function main() {
     stimulusOn: true,
   });
   report("clean take complete", ok.complete === true);
+  const batchSettings = CsiRecorder.parseBatchSettings({
+    takes: "100",
+    durationS: "8",
+    gapS: "0",
+  });
+  report("continuous batch accepts 100 takes with zero gap",
+    batchSettings?.takes === 100 && batchSettings.durationS === 8 && batchSettings.gapS === 0);
+  report("batch rejects over 100 takes", CsiRecorder.parseBatchSettings({
+    takes: 101, durationS: 8, gapS: 0,
+  }) === null);
+  report("batch rejects zero duration", CsiRecorder.parseBatchSettings({
+    takes: 10, durationS: 0, gapS: 0,
+  }) === null);
 
   const id = CsiRecorder.makeRecordingId("duduk", new Date("2026-10-22T01:45:32.000Z"), 1);
   report("recording id shape", id === "20261022T014532Z_duduk_001");
