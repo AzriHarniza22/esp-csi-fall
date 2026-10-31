@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import csv
 import json
 import math
@@ -30,6 +32,7 @@ from fall_detection.classifier_models import (  # noqa: E402
     fit_classifier,
     predict_scores,
 )
+from fall_detection.dataset_io import amplitude, decode_iq  # noqa: E402
 
 
 DEFAULT_RECORDINGS = (
@@ -75,13 +78,19 @@ def _has_supported_lltf_layout(row: dict[str, str], values: list[int]) -> bool:
 
     if bandwidth != 0 or secondary_channel != 0 or len(values) != data_length:
         return False
+    # The patched esp-radar drops the invalid leading int8 pair (raw bytes 2-3)
+    # when first_word_invalid is true, shortening the valid payload by 2 bytes
+    # for these secondary-NONE layouts. Accept both the full and the reduced
+    # (2 bytes shorter) length so re-recorded takes are not silently skipped.
     if signal_mode == 0:
-        return stbc == 0 and data_length == LLTF_BYTES
+        return stbc == 0 and data_length in (LLTF_BYTES, LLTF_BYTES - 2)
     if signal_mode == 1:
-        return (stbc == 0 and data_length == LLTF_BYTES + HT_LTF_BYTES) or (
-            stbc == 1
-            and data_length == LLTF_BYTES + HT_LTF_BYTES + STBC_HT_LTF_BYTES
-        )
+        ht_total = LLTF_BYTES + HT_LTF_BYTES
+        stbc_total = LLTF_BYTES + HT_LTF_BYTES + STBC_HT_LTF_BYTES
+        if stbc == 0:
+            return data_length in (ht_total, ht_total - 2)
+        if stbc == 1:
+            return data_length in (stbc_total, stbc_total - 2)
     return False
 
 
@@ -117,10 +126,111 @@ def read_amplitude_frames(csi_data_path: Path) -> list[list[float]]:
     return frames
 
 
+def _decode_payload(cell: str | None) -> bytes:
+    text = (cell or "").strip()
+    if not text or text == "na":
+        return b""
+    try:
+        return base64.b64decode(text, validate=False)
+    except (ValueError, binascii.Error):
+        return b""
+
+
+def _lltf_pair_count(lltf_len_cell: object, data_type: int) -> int | None:
+    """Complex LLTF pairs described by the frame's ``lltf_len`` column.
+
+    int8 stores one byte per I/Q component (2 bytes/pair); int16 stores two
+    (4 bytes/pair). Returns ``None`` when the column is absent or unparseable
+    so the caller can fall back to the legacy fixed width. Because the
+    vendored esp-radar patch now drops the invalid leading pair when
+    ``first_word_invalid`` is set, ``lltf_len`` can legitimately be 102 (51
+    int8 pairs) instead of 104, so the LLTF slice must follow this value and
+    never a hard-coded 52 that would bleed into the following HT-LTF segment.
+    """
+    text = (str(lltf_len_cell).strip() if lltf_len_cell is not None else "")
+    if not text or text == "na":
+        return None
+    try:
+        length = int(text)
+    except ValueError:
+        return None
+    if length <= 0:
+        return None
+    bytes_per_pair = 4 if data_type == 1 else 2
+    return length // bytes_per_pair
+
+
+def read_amplitude_frames_from_frames_csv(frames_path: Path) -> list[list[float]]:
+    """Amplitude frames from a v3 ``frames.csv`` (spec §4), mirroring the legacy
+    ``read_amplitude_frames`` math.
+
+    The LLTF segment is the leading ``lltf_len`` bytes of each frame's
+    ``valid`` payload (``lltf_len``/2 pairs for int8, ``lltf_len``/4 for
+    int16), mirroring the legacy ``read_amplitude_frames`` math. Amplitude
+    (magnitude) is invariant to the imaginary/real byte order, so these
+    magnitudes match the csi_data.csv path for the same supported packet
+    layouts. Frames whose layout is not one of the supported LLTF/HT/STBC
+    shapes are skipped, never zero-filled.
+    """
+    frames: list[list[float]] = []
+    with frames_path.open(encoding="utf-8", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        if reader.fieldnames is None or "valid_b64" not in reader.fieldnames:
+            raise ValueError(f"{frames_path}: missing frames.csv header")
+
+        for frame_number, row in enumerate(reader, start=1):
+            valid_bytes = _decode_payload(row.get("valid_b64"))
+            if not valid_bytes:
+                continue
+            try:
+                data_type = int(row.get("data_type") or 0)
+            except ValueError:
+                data_type = 0
+            shim = {
+                "sig_mode": row.get("sig_mode", ""),
+                "bandwidth": row.get("bandwidth", ""),
+                "stbc": row.get("stbc", ""),
+                "secondary_channel": row.get("secondary_channel", ""),
+                "len": row.get("valid_len", ""),
+            }
+            try:
+                supported = _has_supported_lltf_layout(shim, list(valid_bytes))
+            except ValueError:
+                continue
+            if not supported:
+                continue
+            pairs = decode_iq(valid_bytes, data_type)
+            lltf_pairs = _lltf_pair_count(row.get("lltf_len"), data_type)
+            if lltf_pairs is None:
+                lltf_pairs = CSI_SUBCARRIERS
+            if lltf_pairs <= 0 or len(pairs) < lltf_pairs:
+                continue
+            amplitudes = amplitude(pairs[:lltf_pairs])
+            if not all(math.isfinite(value) for value in amplitudes):
+                raise ValueError(
+                    f"{frames_path}: non-finite CSI in frame {frame_number}"
+                )
+            frames.append(amplitudes)
+    return frames
+
+
 def extract_window_features(amplitude_frames: list[list[float]]) -> list[tuple[float, ...]]:
-    """Mean log amplitude-change per fixed subcarrier band and time window."""
-    if any(len(frame) != CSI_SUBCARRIERS for frame in amplitude_frames):
-        raise ValueError(f"Every frame must contain {CSI_SUBCARRIERS} subcarriers")
+    """Mean log amplitude-change per fixed subcarrier band and time window.
+
+    The subcarrier width is taken from the frames themselves rather than a
+    module constant, so a recording whose LLTF was compacted to 51 pairs (a
+    ``first_word_invalid`` frame under the patched esp-radar) trains alongside
+    legacy 52-pair recordings. Both paths still emit ``FEATURE_COUNT`` bands.
+    """
+    if not amplitude_frames:
+        return []
+    width = len(amplitude_frames[0])
+    if width <= 0:
+        raise ValueError("Amplitude frames must contain at least one subcarrier")
+    if any(len(frame) != width for frame in amplitude_frames):
+        raise ValueError(
+            "Every frame in a recording must share the same subcarrier count"
+        )
     features: list[tuple[float, ...]] = []
     final_start = len(amplitude_frames) - WINDOW_FRAMES
     for start in range(0, final_start + 1, WINDOW_STRIDE):
@@ -129,8 +239,8 @@ def extract_window_features(amplitude_frames: list[list[float]]) -> list[tuple[f
         for frame_index in range(start + 1, start + WINDOW_FRAMES):
             previous = amplitude_frames[frame_index - 1]
             current = amplitude_frames[frame_index]
-            for subcarrier in range(CSI_SUBCARRIERS):
-                band = subcarrier * FEATURE_COUNT // CSI_SUBCARRIERS
+            for subcarrier in range(width):
+                band = subcarrier * FEATURE_COUNT // width
                 band_delta[band] += abs(current[subcarrier] - previous[subcarrier])
                 band_counts[band] += 1
         features.append(
@@ -179,9 +289,16 @@ def train_from_recordings(
                 f"Recording {audit.recording_id} is not eligible: "
                 + "; ".join(audit.reasons)
             )
-        frames = read_amplitude_frames(
-            meta_path.with_name(f"{audit.recording_id}.csi_data.csv")
-        )
+        frames_path = meta_path.with_name(f"{audit.recording_id}.frames.csv")
+        csi_path = meta_path.with_name(f"{audit.recording_id}.csi_data.csv")
+        if frames_path.is_file():
+            frames = read_amplitude_frames_from_frames_csv(frames_path)
+        elif csi_path.is_file():
+            frames = read_amplitude_frames(csi_path)
+        else:
+            raise ValueError(
+                f"Recording {audit.recording_id} has neither frames.csv nor csi_data.csv"
+            )
         features = extract_window_features(frames)
         if not features:
             raise ValueError(

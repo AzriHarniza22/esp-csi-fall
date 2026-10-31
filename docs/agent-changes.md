@@ -462,3 +462,522 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   app partition. `git diff --check` bersih. Tidak ada board direkam live pada
   sesi ini, jadi penyimpanan telemetri lewat sesi Web Serial nyata belum
   diverifikasi di perangkat.
+
+## 2026-10-27 — Memasang Logistic Regression tanggal 27 untuk uji ESP32
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.h`,
+  `docs/agent-changes.md`
+- Perubahan: mengganti model embedded dari nearest-centroid 7 kelas menjadi
+  Logistic Regression 3 kelas (`kosong`, `duduk`, `berjalan`), dilatih ulang
+  dari take eligible tanggal 27 Oktober saja. Linear SVM tidak dipasang pada
+  tahap ini agar pengguna dapat menguji algoritma di ESP satu per satu.
+- Alasan: perbandingan holdout tanggal 27 menempatkan Logistic Regression dan
+  Linear SVM seri pada skor teratas. Pengguna meminta menguji masing-masing
+  model secara berurutan di perangkat, dimulai dari salah satu model seri.
+- Dokumen: esp-radar 0.3.4
+  `examples/esp-radar/wifi_sensing_demo/managed_components/espressif__esp-radar/include/esp_radar.h`
+  — `valid_lltf_len` adalah “Length of the LL-LTF data after filtering”.
+  ESP-IDF v5.5.3
+  `/home/azri/.espressif/v5.5.3/esp-idf/docs/en/api-guides/tools/idf-py.rst`
+  — `idf.py flash` otomatis membangun proyek bila perlu, lalu melakukan flash.
+- Verifikasi: trainer Logistic Regression memakai tepat 44 take eligible
+  tanggal 27 (24 `kosong`, 10 `duduk`, 10 `berjalan`) dan header hasil
+  menyebut hanya ID take tanggal 27. Build ESP-IDF v5.5.3 berhasil; image
+  `0xecd40` byte dan sisa app partition `0x132c0` byte. Flash UART ke ESP32
+  `/dev/ttyUSB0` berhasil dan hash seluruh image terverifikasi. `git diff
+  --check` bersih. Monitor boot tidak dapat dijalankan karena tool monitor
+  membutuhkan TTY interaktif; klasifikasi CSI live belum diuji dengan target
+  Wi-Fi/CSI aktif.
+
+## 2026-10-27 — Memasang Linear SVM tanggal 27 untuk uji ESP32
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.h`,
+  `docs/agent-changes.md`
+- Perubahan: mengganti Logistic Regression dengan Linear SVM 3 kelas
+  (`kosong`, `duduk`, `berjalan`), dilatih ulang dari 44 take eligible tanggal
+  27 Oktober saja. Dataset, fitur, dan label tidak diubah agar tes perangkat
+  membandingkan algoritma satu per satu.
+- Alasan: pengguna melaporkan Logistic Regression hampir selalu mengeluarkan
+  `kosong` saat berjalan dan meminta mencoba Linear SVM berikutnya.
+- Dokumen: esp-radar 0.3.4
+  `examples/esp-radar/wifi_sensing_demo/managed_components/espressif__esp-radar/include/esp_radar.h`
+  — `valid_lltf_len` adalah “Length of the LL-LTF data after filtering”.
+  ESP-IDF v5.5.3
+  `/home/azri/.espressif/v5.5.3/esp-idf/docs/en/api-guides/tools/idf-py.rst`
+  — `idf.py flash` otomatis membangun proyek bila perlu, lalu melakukan flash.
+- Verifikasi: trainer menghasilkan Linear SVM dari 44 take tanggal 27 saja
+  (24 `kosong`, 10 `duduk`, 10 `berjalan`); header memilih
+  `ACTIVITY_MODEL_NAME "linear-svm"` dengan tiga kelas. Fall-detection tests
+  11 PASS; recorder tests 21 PASS; build ESP-IDF v5.5.3 berhasil (image
+  `0xecd40` byte, sisa partisi `0x132c0` byte). Flash ke ESP32
+  `/dev/ttyUSB0` berhasil dan hash image terverifikasi. `git diff --check`
+  bersih. Uji klasifikasi dengan CSI live belum dikonfirmasi melalui monitor.
+
+## 2026-10-29 — Recording CSI model-agnostic (payload mentah lengkap + skema v2)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File:
+  - `examples/esp-radar/wifi_sensing_demo/main/web_serial_monitor.c`
+  - `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.h`
+  - `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`
+  - `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`
+  - `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder_server.py`
+  - `examples/esp-radar/wifi_sensing_demo/tools/tests/csi_recorder.test.js`
+  - `examples/esp-radar/wifi_sensing_demo/tools/tests/test_csi_recorder_server.py`
+  - `fall_detection/dataset_io.py` (baru)
+  - `fall_detection/validate_recording.py` (baru)
+  - `fall_detection/tests/test_dataset_io.py` (baru)
+  - `fall_detection/tests/test_validate_recording.py` (baru)
+  - `docs/agent-changes.md`
+- Perubahan:
+  - **Firmware (`web_serial_monitor.c`):** menaikkan batas payload CSI
+    (`WEB_SERIAL_CSI_MAX_RAW_LEN` 512 → 612 sesuai maksimum byte mentah CSI
+    ESP32; `WEB_SERIAL_TX_BUF_SIZE` 3072 → 4096) agar seluruh payload yang
+    diterima driver terkirim tanpa pemotongan; mengambil timestamp monotonic
+    di awal callback (`cb_ts_us = esp_timer_get_time()`) bukan setelah enqueue;
+    menambah field JSON lossless per frame: `dmac`, `first_word_invalid`,
+    `rx_seq`, `lltf_len`, `ht_ltf_len`, `stbc_ht_ltf_len`,
+    `rx_gain_compensation`. Field HE-LTF sengaja tidak dikirim karena target
+    `esp32` tidak menghasilkannya.
+  - **Perekam (`csi_recorder.js`, `web_serial_monitor.html`,
+    `csi_recorder_server.py`):** menambah skema v2 lossless di atas output v1
+    yang tetap tidak berubah. `frames.csv` menyimpan kedua payload
+    (`raw_b64` dari `raw_data` dan `valid_b64` dari `valid_data`) plus seluruh
+    metadata per frame dengan `na` untuk field tak tersedia; `raw_iq.csv`
+    menyimpan pasangan I/Q panjang-variatif (imajiner dulu, lalu real) dengan
+    kolom `source` eksplisit tanpa zero-padding; `events.json` menyimpan
+    segmen aktivitas + telemetri motion; `meta.json` v2 menambah
+    `schema_version`, `recording_id`, `session_id`, `trial_id`, `subject_id`,
+    `recording_started_at_utc`/`ended_at_utc`, `payload_semantics`
+    (mengandung `iq_byte_order` dan catatan bahwa kolom `iq.csv` v1 lama
+    tertukar), dan `pipeline_versions` (baseline classifier: 52 pasangan
+    kompleks LLTF, 16 band log-amplitude-change, window 24, stride 12).
+    Browser menambah `host_receive_monotonic_ns` via `performance.now()`;
+    ketiga clock (callback `ts_us`, rx_ctrl `local_timestamp`, host ns)
+    disimpan terpisah. Server mempersisten dan mengembalikan file v2.
+  - **Reader model-agnostic (`fall_detection/dataset_io.py`):** stdlib-only,
+    membaca skema v2 maupun v1 (fallback `csi_data.csv`), mendekode I/Q
+    (imaginer-first), memotong komponen LTF dari panjang yang dilaporkan, dan
+    menyediakan adapter terpisah: `to_feature_matrix` (LR/SVM/DT/RF),
+    `to_time_series_tensor` (ROCKET/Hydra/TCN/CNN-LSTM), `to_observation_sequence`
+    (HMM/DTW/shapelet). `baseline_band_features` mereproduksi pipeline 16-band
+    yang terpasang tanpa mengubah classifier.
+  - **Validasi (`fall_detection/validate_recording.py`):** verdict
+    `VALID`/`WARNING`/`INVALID` dengan alasan; memeriksa integritas payload,
+    konsistensi jumlah frame, timestamp duplikat/mundur/gap (ambang gap relatif
+    8x median, bukan angka arbitrer), gap sequence, distribusi MAC/layout LTF,
+    dan status finalisasi. Menulis `<id>.quality_report.json`.
+  - **Perbaikan blocker build:** memulihkan
+    `activity_model_data.h` baris 19 yang terkorupsi di working tree
+    (`#define ACTIVITY_MODELNDOW_FRAMES` tanpa nilai) menjadi
+    `#define ACTIVITY_MODEL_WINDOW_FRAMES 24`, sesuai template generator
+    `train_activity_model.py` baris 291. Korupsi ini bukan dari pekerjaan
+    recording tetapi mematahkan build baseline classifier.
+- Alasan: fitur recording lama hanya menyimpan payload `valid_data` lewat
+  `csi_data.csv`/`iq.csv` v1 (langkah `framePayloadBytes` memilih valid di atas
+  raw), sehingga byte mentah driver dan metadata LTF hilang dan dataset tidak
+  bisa dipakai ulang untuk keluarga model lain tanpa merekam ulang. Task
+  meminta data mentah lengkap + timestamp terstandar + label/anotasi +
+  validasi kualitas tanpa mengubah baseline classifier atau merusak dataset lama.
+- Dokumen:
+  - ESP-IDF v5.5.3
+    `/home/azri/.espressif/v5.5.3/esp-idf/docs/en/api-guides/wifi.rst`
+    — “The first one is imaginary part and the second one is real part”; urutan
+    LTF “LLTF, HT-LTF, STBC-HT-LTF”; total byte CSI hingga 612 untuk
+    HT/40MHz/STBC; arti `first_word_invalid`.
+  - esp-radar 0.3.4
+    `examples/esp-radar/wifi_sensing_demo/managed_components/espressif__esp-radar/include/esp_radar.h`
+    — struct `wifi_csi_filtered_info_t` menyediakan `raw_len`/`raw_data`,
+    `valid_len`, `valid_lltf_len`, `valid_ht_ltf_len`, `valid_stbc_ht_ltf_len`,
+    `rx_gain_compensation`, `data_type`, `dmac`, dan pointer `info` ke
+    `wifi_csi_info_t` driver (sumber `first_word_invalid` dan `rx_seq`).
+  - `fall_detection/train_activity_model.py` baris 291 —
+    `#define ACTIVITY_MODEL_WINDOW_FRAMES {WINDOW_FRAMES}` dengan
+    `WINDOW_FRAMES = 24` (baris 17), dipakai untuk memulihkan header terkorupsi.
+- Verifikasi:
+  - `idf.py build` (ESP-IDF v5.5.3, target esp32) berhasil; image
+    `0xeced0` byte, sisa partisi app `0x13130` byte (7%). `web_serial_monitor.c`
+    dan `activity_classifier.c` terkompilasi tanpa error.
+  - `python3 -m unittest discover -s fall_detection/tests` → 35 test OK
+    (termasuk test audit_dataset dan train_activity_model lama → kompatibilitas
+    mundur terjaga).
+  - `node tests/csi_recorder.test.js` → semua PASS, exit 0 (termasuk test v2:
+    base64 roundtrip, urutan imaginer-first, header/kolom frames, kedua payload
+    raw+valid, tiga clock terpisah, payload_ok true/false, `na` untuk field tak
+    tersedia, raw_iq source/panjang-variatif, events, metaV2).
+  - `python3 tests/test_csi_recorder_server.py` → 5 test OK (termasuk
+    `test_post_v2_files_roundtrip`).
+  - `python3 -m fall_detection.validate_recording examples/esp-radar/wifi_sensing_demo/recordings`
+    → 53 recording: VALID=0 WARNING=53 INVALID=0, exit 0. Semua WARNING karena
+    file lama v1 tidak punya payload mentah driver dan sebagian tanpa
+    `session_id` — diharapkan dan tidak merusak arti dataset lama.
+  - **Sudah dijalankan (recording nyata):** pengguna merekam ulang dengan label
+    `tes recording` (target `20261029T154556Z_tes_recording_001`, 162 frame).
+    `dataset_io.load_recording` membacanya sebagai `schema_version=2` dari
+    `frames_csv`; tiap frame menyimpan `raw_payload` 384 byte **dan**
+    `valid_payload` 328 byte utuh (raw > valid → payload mentah driver tidak
+    dipotong). Ketiga clock (`callback_timestamp_us`, `rx_ctrl_timestamp_us`,
+    `host_receive_monotonic_ns`) tercatat terpisah. `validate_recording` →
+    status **VALID** (tanpa alasan); adapter menghasilkan input nyata:
+    `feature_matrix` 12×16, `time_series_tensor` 12×[164,24],
+    `observation_sequence` 162×164.
+  - **CATATAN (aktif after flash):** field metadata yang ditambahkan di
+    `web_serial_monitor.c` (`lltf_len`, `ht_ltf_len`, `stbc_ht_ltf_len`,
+    `first_word_invalid`, `rx_seq`, `dmac`, `rx_gain_compensation`) muncul
+    sebagai `na` pada recording pertama karena perangkat masih memakai
+    firmware lama (build v5.5.3 belum di-flash). Setelah `idf.py -p
+    /dev/ttyUSB0 flash` (image app 970448 byte, hash terverifikasi) dan
+    rekam ulang (`20261029T155155Z_tes_recording_001`, 148 frame), field itu
+    terisi dari perangkat: `lltf_len=104`, `ht_ltf_len=112`,
+    `stbc_ht_ltf_len=112` (jumlah = 328 = `valid_len`), `first_word_invalid=true`,
+    `rx_seq` dan `dmac` terisi. `dataset_io.ltf_sections` memotong LLTF
+    (0,104)/HT-LTF (104,216)/STBC-HT-LTF (216,328); `component_pairs` memberi
+    LLTF 52 pasangan kompleks (persis baseline), HT-LTF 56, STBC-HT-LTF 56.
+    `validate_recording` → **VALID** tanpa alasan/peringatan. Perangkat nyata
+    terbukti menghasilkan komponen HT-LTF/STBC-HT-LTF yang dulu dibuang.
+  - **NOT RUN (sisa):** uji variasi panjang/layout payload antar tipe paket
+    (recording ini hanya satu layout HT); perilaku pada pesan serial parsial
+    dan disconnect.
+
+## 2026-10-30 — Perbaikan tinjauan: raw I/Q dua payload, csi_period_ms, lintas-clock, first_word
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File:
+  - `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`
+  - `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`
+  - `examples/esp-radar/wifi_sensing_demo/tools/tests/csi_recorder.test.js`
+  - `fall_detection/dataset_io.py`
+  - `fall_detection/validate_recording.py`
+  - `fall_detection/tests/test_dataset_io.py`
+  - `fall_detection/tests/test_validate_recording.py`
+  - `docs/agent-changes.md`
+- Perubahan:
+  - **A — raw_iq.csv kini dua baris per frame.** `buildRawIqCsv` sebelumnya
+    memilih SATU payload (valid bila ada) sehingga I/Q raw_data (384 B = 192
+    pasangan) tidak pernah tersimpan. Sekarang tiap frame menulis satu baris per
+    payload yang tersedia (`source=raw_data` dan/atau `valid_data`) dengan
+    jumlah pasangan = panjang aktual tiap payload (tanpa zero-padding), urutan
+    imaginer-dulu sesuai dokumentasi.
+  - **csi_period_ms diisi dari konfigurasi nyata.** meta lama men-hardcode
+    `csi_period_ms: 0`. Sekarang `saveTake` membaca `appInfo.csi_stream_period_ms`
+    dari pesan `hello` firmware dan menuliskannya ke field top-level dan
+    `acquisition.csi_period_ms`, plus `acquisition.csi_period_note` yang
+    menjelaskan `0 = unthrottled (emit tiap callback)`, `>0 = throttle ms`.
+  - **C — selisih timestamp diberi label benar.** `_timestamp_report` menambah
+    `cross_clock_delta` (min/median/max `callback - rx_ctrl`) dengan
+    `interpretation` eksplisit bahwa itu offset antar-basis-clock, BUKAN latensi
+    pemrosesan. Analisis interval/gap tetap hanya memakai satu clock
+    (`callback_timestamp_us`).
+  - **D — first_word_invalid ditangani, tidak diam-diam.** dataset_io menambah
+    `leading_invalid_pairs(first_word_invalid, data_type)` (int8 → 2 pasangan,
+    int16 → 1, sesuai "empat byte pertama" ESP-IDF). Representation factories dan
+    ketiga adapter menerima `drop_first_word` (default **False** agar baseline 52
+    LLTF tak berubah). Validator menambahkan WARNING bila ada frame
+    `first_word_invalid` agar preprocessing tahu harus membuang pasangan awal.
+  - `payload_semantics` meta menambah kunci `raw_iq_rows` dan
+    `first_word_invalid`.
+- Alasan: tinjauan pengguna menemukan tiga gap pasca-implementasi v2: I/Q masih
+  hanya valid_data, `csi_period_ms` tidak informatif, selisih ~161 ms berisiko
+  disalahartikan sebagai latensi, dan `first_word_invalid` belum dipertimbangkan
+  saat memakai pasangan untuk training. Ini kebutuhan model-agnostic prioritas
+  tinggi karena konsumen I/Q belum mendapat kedua payload.
+- Dokumen:
+  - ESP-IDF v5.5.3
+    `/home/azri/.espressif/v5.5.3/esp-idf/components/esp_wifi/include/local/esp_wifi_types_native.h:64`
+    — `rx_ctrl.timestamp`: "The local time when this packet is received. It is
+    precise only if modem sleep or light sleep is not enabled. unit: microsecond"
+    (field 32-bit; beda basis dengan `esp_timer_get_time()`).
+  - ESP-IDF v5.5.3
+    `/home/azri/.espressif/v5.5.3/esp-idf/components/esp_wifi/include/local/esp_wifi_types_native.h:123`
+    dan `docs/en/api-guides/wifi.rst:2745` — `first_word_invalid` true berarti
+    "the first four bytes of CSI data is invalid due to a hardware limitation".
+  - `main/web_serial_monitor.c` hello — melaporkan `csi_stream_period_ms` sehingga
+    browser bisa membacanya; firmware throttle `csi_stream_period_ms > 0` di
+    callback berarti emit per periode, `0` = tanpa throttle.
+- Verifikasi:
+  - `python3 -m unittest discover -s fall_detection/tests` → **41 test OK**
+    (+6 test baru: `leading_invalid_pairs`, 3 test `FirstWordInvalid` termasuk
+    baseline tetap utuh saat default, `cross_clock_delta` non-latency, warning
+    `first_word_invalid`).
+  - `node tests/csi_recorder.test.js` → semua PASS, exit 0 (test raw_iq diperbarui
+    ke dua baris raw+valid, plus test metaV2 semantics/csi_period).
+  - `python3 tests/test_csi_recorder_server.py` → 5 test OK.
+  - Validator pada recording nyata `20261029T155155Z_tes_recording_001`: status
+    **WARNING**, `cross_clock_delta` median 161.533 ms (rentang 152.127–220.241)
+    berlabel non-latency, `first_word_invalid_frames=148` → warning. Sesuai
+    angka yang dilaporkan pengguna.
+  - **NOT RUN:** flash firmware + rekam ulang untuk mengisi `acquisition.csi_period_ms`
+    nyata dan `raw_iq.csv` dua-baris di file baru (perubahan format berlaku pada
+    rekaman berikutnya; rekaman lama di disk masih berformat raw_iq satu-baris,
+    dapat diregenerasi dari `frames.csv` karena `raw_b64` tersimpan utuh).
+
+## 2026-10-30 — Audit first_word_invalid: koreksi pemotongan ditunda, helper dibatasi
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File:
+  - `fall_detection/dataset_io.py`
+  - `fall_detection/validate_recording.py`
+  - `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`
+  - `fall_detection/tests/test_dataset_io.py`
+  - `docs/agent-changes.md`
+- Perubahan:
+  - **Tidak ada bagian recording v2 yang di-revert.** Raw+valid di `frames.csv`,
+    `raw_iq.csv` dua baris/frame, `csi_period_ms` dari firmware, label
+    cross-clock offset, dan flag `first_word_invalid` per frame + warning
+    validator semuanya dipertahankan.
+  - `drop_first_word` **dihapus** dari `amplitude_representation`,
+    `iq_representation`, `to_feature_matrix`, `to_time_series_tensor`, dan
+    `to_observation_sequence`. Ketiga fungsi itu membaca `valid_data` hasil
+    kompresi esp-radar, jadi satu-satunya jalur masuk pemotongan yang belum
+    terbukti kini menolak `TypeError`; `config` adapter mencatat
+    `first_word_invalid_handling: "metadata only; trimming deferred..."`.
+  - `leading_invalid_pairs()` dipertahankan sebagai utilitas hitung byte
+    (int8 → 2 pasangan, int16 → 1) **khusus buffer asli** (`raw_payload` /
+    `raw_data` = `wifi_csi_info_t.buf`); docstring kini memuat AUDIT LIMIT:
+    tidak boleh diterapkan ke `valid_data`/segmen LTF sebelum pemetaan per
+    layout terbukti.
+  - Teks warning validator dan `meta.json payload_semantics.first_word_invalid`
+    dipersempit: flag merusak empat byte pertama **buffer driver**, bukan
+    empat byte terdepan setiap payload turunan; larangan auto-trim dinyatakan
+    eksplisit.
+  - Tes: `test_adapters_reject_unverified_first_word_trim` (TypeError di tiga
+    adapter), `test_flagged_frames_are_not_trimmed` (output = daftar pasangan
+    utuh, 52 lebar), regression `test_baseline_feature_matrix_is_unchanged_by_default`
+    dipertahankan; tes counting helper tetap.
+- Alasan: tinjauan pengguna menunda penerapan otomatis koreksi
+  `first_word_invalid` sampai pemetaan byte/subcarrier terbukti. Audit jalur
+  data menemukan pemotongan depan `valid_data` **terbukti salah** untuk layout
+  nyata terekam: `esp_radar.c` menyusun `valid_data` dengan menempelkan
+  rentang sub-carrier dari `buf` (`csi_sub_carrier_table.c`), dan untuk layout
+  none/HT/20MHz/STBC (cocok dengan rekaman: raw 384, valid 104+112+112=328)
+  segmen LLTF dimulai dari `buf[76]`, bukan `buf[0]`. Verified pada frame 0
+  rekaman `20261029T155155Z`: `lltf[0:26] == raw[38:64]` (True) dan paruh
+  invalid `buf[2:4]` muncul di `lltf[26] == (93, 0)` — tengah segmen. Membuang
+  2 pasangan terdepan `valid_data` berarti membuang data sah `buf[76:80]`
+  sementara byte invalid justru ditinggal tetap.
+- Dokumen:
+  - ESP-IDF v5.5.3 `docs/en/api-guides/wifi.rst:2745` — "the first four bytes
+    of CSI data is invalid due to a hardware limitation"; dan bullet yang sama
+    menyatakan data CSI "stored in a buffer starting from the buf field" dengan
+    urutan LLTF → HT-LTF → STBC-HT-LTF (flag merujuk awal buffer, bukan awal
+    setiap LTF — sesuai penegasan collaborator Espressif di issue esp-faq #4).
+  - esp-radar 0.3.4 `src/esp_radar.c:836-837` — `filtered_info->raw_data =
+    info->buf; filtered_info->raw_len = info->len;` (raw = identitas buffer).
+  - esp-radar 0.3.4 `src/csi_sub_carrier_table.c:40-53` — entri none/HT/20
+    MHz/STBC: `.lltf = {{76, 128}, {2, 54}}`, `.ht_ltf = {{200, 256},
+    {130, 186}}`, `.stbc_ht_ltf = {{258, 314}, {328, 384}}`; `copy_subcarrier_data`
+    menyalin rentang itu berurutan ke `valid_data`.
+  - Status pemetaan: **terbukti** untuk layout satu ini (dok + data nyata);
+    **belum terverifikasi** untuk layout lain (non-HT, 40 MHz, STBC variants,
+    int16/lltf_bit_mode) — karena itu koreksi tidak diterapkan otomatis.
+- Verifikasi: `python3 -m unittest discover -s fall_detection/tests` → 42 OK.
+  `node tests/csi_recorder.test.js` → exit 0 semua PASS. `python3
+  tests/test_csi_recorder_server.py` → 5 OK. Validator pada rekaman nyata
+  `20261029T155155Z_tes_recording_001` → WARNING dengan teks baru (empat byte
+  pertama buffer driver; jangan auto-trim). Bukti empiris mapping dicetak dari
+  data rekaman (lihat Alasan). Rekaman baru untuk menguji `raw_iq.csv`
+  dua-baris belum dijalankan; tidak perlu flash karena perubahannya di sisi
+  browser/Python, bukan firmware.
+
+## 2026-10-30 — Verifikasi rekaman "tes record": raw_iq dua baris terbukti; csi_period_ms null diperbaiki di flow Start
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File:
+  - `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`
+  - `docs/agent-changes.md`
+- Perubahan: flow Start recording kini mengirim ulang `HMSCMD HELLO` setelah
+  `START_CSI_STREAM` supaya `appInfo` (dan `csi_period_ms` meta) terisi nilai
+  throttle live dari firmware sebelum `saveTake` berjalan.
+- Alasan: verifikasi rekaman nyata pengguna (`recordings/tes_record`, tiga
+  take 2026-10-29 18:52-18:53 UTC):
+  - **A TERBUKTI:** `raw_iq.csv` dua baris per frame — 138/138, 129/129,
+    146/146 frame menghasilkan pasangan 192 (`raw_data`) + 164
+    (`valid_data`); jumlah baris = 2x frame, `frame_sequence` unik per frame,
+    dan penghitungan frame validator memakai `frames.csv` sehingga dua baris
+    tidak pernah dihitung dua frame. Tidak ada zero-padding (panjang tetap
+    192/164 untuk semua frame).
+  - **csi_period_ms GAGAL:** meta menulis `null`, bukan `0`. Akar masalah:
+    `appInfo` hanya terisi dari pesan `hello`; respons `HELLO` firmware
+    digate `sensing_ready` (`web_serial_monitor.c:1086-1091`) sehingga
+    handshake saat connect bisa hanya membalas ack "sensing not ready" dan
+    field `csi_stream_period_ms` tidak pernah sampai ke halaman. Kejadian
+    persis (gate vs waktu connect) belum bisa direplikasi karena perangkat
+    tidak tercolok saat pemeriksaan; perbaikan di sisi browser aman untuk
+    kedua kemungkinan karena saat recording `sensing_ready` pasti benar
+    (frame mengalir). Nilai `SET_CSI_PERIOD 0` disimpan ke
+    `s_ctx.csi_stream_period_ms` (`web_serial_monitor.c:1133`) sehingga
+    `HELLO` setelah Start mengembalikan angka live; `0` berarti unthrottled
+    sesuai note meta, bukan 100 Hz.
+  - Warning `first_word_invalid` dan `cross_clock_delta` muncul dengan teks
+    audit baru pada ketiga take; tidak ada masalah integritas payload.
+- Dokumen: `main/web_serial_monitor.c` — gate `if (!s_ctx.sensing_ready)
+  { send_ack(cmd, false, "sensing not ready"); return; }` sebelum `HELLO`
+  (baris 1086-1096); `SET_CSI_PERIOD` menyimpan ke
+  `s_ctx.csi_stream_period_ms` (baris 1133); handler `HELLO` membalas
+  `send_hello()` berisi `csi_stream_period_ms` (baris 1091-1096, 871-876).
+- Verifikasi: `validate_recording` pada `recordings/` → ketiga take
+  `tes_record` WARNING hanya karena `first_word_invalid` (sesuai desain),
+  struktur `raw_iq.csv` diverifikasi dengan script counting sumber/pasangan.
+  Suite Node/Python/server tidak terpengaruh perubahan HTML.
+  **NOT RUN:** re-record singkat untuk mengonfirmasi `csi_period_ms: 0`
+  tertulis di meta setelah perbaikan flow Start (butuh perangkat + browser
+  reload; tanpa flash).
+  **TERVERIFIKASI 2026-10-30:** setelah hard refresh, take
+  `20261029T191238Z_tes_recording_001` (154 frame) menulis
+  `csi_period_ms: 0` di top-level dan `acquisition`; validator PASS dengan
+  dua WARNING jujur by-design (`first_word_invalid` seluruh frame, dan
+  1 gap `seq_id` yang memang 1 frame `dropped` di perangkat).
+- Verifikasi rekaman kedua 2026-10-30: `20261029T190253Z_tes_record_001`
+  (147 frame) mengonfirmasi raw_iq dua baris/frame (147×192 raw_data +
+  147×164 valid_data, tanpa padding) tetapi `csi_period_ms` masih `null`
+  — halaman masih berjalan dari HTML pra-fix (belum di-reload).
+- Probe serial langsung (perangkat dicolok ulang, port bebas; baud 921600
+  terbukti — 115200 menghasilkan byte sampah, 921600 100% ASCII line
+  `HMS:`): `HMSCMD HELLO` dijawab hello dengan
+  `"csi_stream_period_ms":100`. Jalur respons HELLO terbukti berfungsi
+  saat stream aktif; 100 adalah default firmware sesudah cold boot.
+  Implikasi jujur: take 18:52/19:02 ber-~25 fps ≈ throttle 100 ms, jadi
+  nilai keras `0` di v1 memang salah (poin B review) — nilai yang harus
+  tertulis di meta adalah sebesar yang dikembalikan hello saat itu, dan
+  baru bisa dibuktikan 0 sesudah browser menjalankan flow Start terbaru.
+
+## 2026-10-31 — Pipeline recording v3: dua file per take, 8 label aktivitas, audio cue, hapus dataset lama
+
+- Agent/tool: Qoder (Claude)
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`,
+  `tools/csi_recorder_server.py`, `tools/web_serial_monitor.html`,
+  `tools/tests/csi_recorder.test.js`, `tools/tests/test_csi_recorder_server.py`,
+  `fall_detection/dataset_io.py`, `fall_detection/validate_recording.py`,
+  `fall_detection/audit_dataset.py`, `fall_detection/train_activity_model.py`,
+  `fall_detection/tests/*` (baru: `test_dataset_io.py`,
+  `test_validate_recording.py`),
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`
+  (subjuk spesifikasi; entri ini mengacu padanya, bukan mengubahnya)
+- Perubahan: implementasi penuh spesifikasi `recording-pipeline-implementation.md`.
+  1) Kontrak output berubah dari empat file turunan per take
+     (`csi_data.csv`, `iq.csv`, `raw_iq.csv`, `events.json`) menjadi tepat dua
+     file: `<id>.frames.csv` (32 kolom, payload base64 `raw_b64`/`valid_b64`)
+     dan `<id>.meta.json` (`schema_version: 3`, events disatukan di node
+     `events.segments` + `timeline`). Builder lama (`buildCsiDataCsv`,
+     `buildIqCsv`, `buildRawIqCsv`, `buildEvents`, `buildMetaV2`) tetap ada
+     sebagai fungsi manual legacy tetapi tidak dipanggil di jalur recording.
+  2) 8 label aktivitas (`fall_forward/backward/left/right`, `walking`,
+     `fast_sitting`, `bending`, `object_drop`) dengan pemetaan biner
+     fall/non_fall, timeline fase tetap untuk durasi 10 s
+     (`TARGET_DURATION_S`), dan batch `parseBatchSettings` mengabaikan
+     `durationS` input (dipatok 10 s).
+  3) Perintah audio berbahasa Indonesia + tone cue di browser, dengan
+     preflight gating dan fallback visual-only yang dicatat ke meta sebagai
+     deviasi protokol saat `AudioContext` tidak `running`.
+  4) Tombol anotasi (`fall_start`, `fall_impact`) mencatat offset
+     monotonik `offset_s` + `timestamp_utc`; tidak ada auto-fill.
+  5) Server memvalidasi SEBELUM menulis (schema meta v3, header/jumlah baris
+     frames.csv, base64 harus valid), menulis frames.csv lalu meta.json
+     sebagai commit point; menolak field legacy (`csi_data_csv`, `iq_csv`,
+     `raw_iq_csv`, `events`, `label`) dengan 400 tanpa partial write;
+     `index.csv` adalah turunan dan ikut dibersihkan saat DELETE.
+  6) Pembaca Python (`dataset_io`, `validate_recording`, `audit_dataset`,
+     `train_activity_model`) mendapat cabang v3 (baca `frames.csv`, node
+     `recording`, `activity_label`) dengan fallback v1/v2 dipertahankan.
+     amplitude dihitung via `hypot(decode_iq(valid_b64))` — identik dengan
+     jalur lama karena `hypot` invarian terhadap ordo i/q dan tanda.
+  7) Dataset lama dihapus seluruhnya sesuai §14 spesifikasi (tanpa migrasi/
+     backup): 60 take v1/v2, 204 file, 13 direktori label, `index.csv`;
+     `README.md` dan `.gitkeep` dipertahankan. Penghapusan dieksekusi oleh
+     user setelah cakupan diverifikasi dari filesystem (0 file `schema_version: 3`).
+- Alasan: spesifikasi menuntut target tepat dua file utama per recording,
+  konsistensi timestamp satu jam monotonic, dan annotation yang siap-latih;
+  jalur empat-file lama redundan (semua turunan dapat direkonstruksi dari
+  frames.csv — dibuktikan oleh tes kesetaraan decode P1b sebelum penghapusan).
+  Dataset lama berisi label preset/usang (`kosong`, `tes record`) yang tidak
+  sesuai taksonomi 8-label dan spesifikasi eksplisit melarang migrasi.
+- Dokumen: `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md` —
+  "tepat dua file per recording"; §14 "Dataset recording lama harus dihapus
+  seluruhnya, tanpa migrasi dan tanpa backup". ESP-IDF v5.5.3
+  `/home/azri/.espressif/v5.5.3/esp-idf` `wifi_csi.h` — "The CSI data is
+  stored in `csi_data`... imaginary part comes before real part per
+  subcarrier" (sumber urutan decode `decode_iq`; tidak ada dokumen eksternal
+  baru yang diperlukan — perubahan murni host-side, firmware tidak disentuh
+  dan jalur wire frame CSI tidak berubah sehingga firmware lama tetap kompatibel).
+- Verifikasi: `python3 -m unittest discover fall_detection/tests` → 54 OK
+  (12 di antaranya tes v3 baru); `test_csi_recorder_server.py` → 11 OK
+  (rewrite untuk kontrak dua-file, termasuk test penolakan field v2 dan
+  no-partial-write); `node tools/tests/csi_recorder.test.js` → 96 PASS exit 0;
+  blok script HTML lolos parse (`new Function`, 0 error); smoke test browser
+  sungguhan (subagent playwright, port 8777): 0 console error, 8 opsi
+  aktivitas benar, pre/post-action `fall_forward` dan collapse `walking`
+  benar, audio status `ACTIVE · AudioContext: running`
+  (`.playwright-mcp/recorder_panel.png`). State pasca-hapus diverifikasi:
+  `find recordings/ -type f | wc -l` → 2 (`.gitkeep`, `README.md`).
+  **NOT RUN:** recording end-to-end dengan perangkat nyata (ESP32 tidak
+  tercolok saat sesi); validasi meta `csi_period_ms` pada take v3 pertama
+  masih butuh perangkat.
+
+## 2026-10-31 — Kompaksi CSI valid_data dibuat first_word_invalid-aware (patch esp-radar)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/esp-radar/` (salinan vendored
+  esp-radar 0.3.4 yang kini di-track git; `src/esp_radar.c` di-patch),
+  `examples/esp-radar/wifi_sensing_demo/main/idf_component.yml`,
+  `examples/esp-radar/wifi_sensing_demo/managed_components/espressif__esp-radar`
+  (dihapus agar tidak duplikat komponen), `tools/csi_recorder.js`,
+  `fall_detection/train_activity_model.py`,
+  `fall_detection/tests/test_csi_compaction.py` (baru).
+- Perubahan: `copy_subcarrier_data()` sekarang menerima `range_count` dan
+  `bool first_word_invalid`. Ketika flag true, rentang byte yang menyentuh
+  offset 0..3 di-clamp agar mulai dari byte 4 (`start = (stop<=4)?stop:4`);
+  rentang yang sudah mulai ≥4 tak tersentuh, dan entri padding nol
+  menyempit jadi panjang 0 lalu di-skip. Semua call-site (lltf count 2; ht_ltf,
+  stbc_ht_ltf, he_ltf, stbc_he_ltf count 4) meneruskan
+  `info->first_word_invalid`. Akibatnya payload `valid_b64` untuk layout
+  ESP32 secondary NONE (`.lltf={{76,128},{2,54}}`, int8) kehilangan satu
+  pasangan terdepan: `lltf_len` 104→102 dan `valid_len` 328→326. JS hanya
+  meneruskan byte firmware apa adanya (tidak ada pemotongan di browser);
+  metadata `PAYLOAD_SEMANTICS` diperbarui dengan `lltf_source_ranges` +
+  aturan clamp. Reader ML memotong LLTF berdasar `lltf_len` (bukan tetap
+  52), menerima layout nominal dan nominal−2, dan `extract_window_features`
+  menurunkan lebar dari frame (tetap 16 band fitur). `raw_b64` tidak diubah.
+- Alasan: reproduksi pada recording nyata `20261031T012305Z_walking_001`
+  (304 frame): seluruhnya `first_word_invalid=true`, `data_type=0`,
+  `raw_len=384`, `valid_len=328`, dan `valid[52:54]==raw[2:4]` pada 304/304
+  frame. Karena int8 menyimpan imajiner+real 2 byte/pasangan, byte 2-3
+  (raw pair 1) masih di dalam empat byte pertama yang didokumentasikan
+  invalid — jadi `valid_b64` lama menyisipkan data invalid dan memunculkan
+  garis artefak pada heatmap di posisi subcarrier tersebut. Perbaikan harus
+  di sumber pembentukan (tabel esp-radar), bukan menghapus indeks 26 di
+  viewer; tidak ada zero-padding atau nilai pengganti yang dibuat.
+- Dokumen: ESP-IDF v5.5.3
+  `/home/azri/.espressif/v5.5.3/esp-idf/components/esp_wifi/include/local/esp_wifi_types_native.h:123`
+  — "first four bytes of the CSI data is invalid or not, true indicates the
+  first four bytes is invalid due to hardware limitation". esp-radar 0.3.4
+  `src/csi_sub_carrier_table.c:50` — `.lltf = {{76, 128}, {2, 54}}` (sumber
+  kebocoran hanya pada baris secondary NONE; BELOW/ABOVE mulai dari byte 12).
+- Verifikasi: `idf.py build` exit 0, "Project build complete", bin 0xecf00
+  (7% free); `compile_commands.json` mengompilasi
+  `esp-radar/src/esp_radar.c` (vendored, override `override_path: ../esp-radar`
+  resolve benar) dan `copy_subcarrier_data` ada di `libesp-radar.a`. Suite:
+  `python3 -m unittest discover fall_detection/tests` → 66 OK (12 di antaranya
+  `test_csi_compaction.py`: clamp true mengeksklusi byte 0-3, dropping hanya
+  pasangan invalid, pasangan lain cocok mapping sumber, `valid_len` actual 326,
+  raw tak berubah, jalur false tetap 328, layout BELOW tak terpengaruh);
+  `test_csi_recorder_server.py` → 11 OK; `node tools/tests/csi_recorder.test.js`
+  → 96 PASS 0 FAIL exit 0. Fixture hex diturunkan langsung dari frame 0
+  recording nyata. **Diverifikasi di perangkat:** `idf.py -p /dev/ttyUSB0 flash`
+  exit 0 ("Hash of data verified"), lalu re-record walking
+  `20261031T143755Z_walking_001` (224 frame): seluruhnya `lltf_len=102`,
+  `valid_len=326`, kebocoran `val[52:54]==raw[2:4]` = 0/224, raw pair 0/1 tidak
+  ada di LLTF, mapping LLTF/HT/STBC cocok byte-exak, `raw_b64` tetap 384 B, tetap
+  dua file. `audit_dataset.py` melaporkan 163 subcarrier untuk take ini (vs 164
+  pada take firmware lama). Reader ML: 224 frame lebar 51 → 17 baris × 16 fitur.
+
+

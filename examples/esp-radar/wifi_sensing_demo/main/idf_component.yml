@@ -5,3 +5,12 @@ dependencies:
 
   esp_wifi_sensing:
     version: '>=0.1.1'
+
+  # esp-radar is pulled transitively by esp_wifi_sensing. It is overridden
+  # here with a locally vendored, git-tracked patch so the CSI sub-carrier
+  # compaction becomes first_word_invalid-aware (drops the invalid leading
+  # int8 pair instead of copying raw bytes 0..3 into valid_data). The folder
+  # is named exactly "esp-radar" so it registers under the short name that
+  # esp_wifi_sensing REQUIRES. See esp-radar/src/esp_radar.c:copy_subcarrier_data.
+  espressif/esp-radar:
+    override_path: ../esp-radar

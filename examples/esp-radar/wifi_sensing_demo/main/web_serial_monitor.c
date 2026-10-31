@@ -43,12 +43,16 @@
 /*
  * A full sample line with three MAC strings and the FSM's float fields reaches
  * roughly 900 bytes, so 1 KiB left no margin and truncation produced invalid JSON.
+ * CSI lines carry two base64 payloads (raw + valid). The ESP-IDF Wi-Fi CSI guide
+ * (v5.5.3, api-guides/wifi.rst) documents up to 612 raw bytes for
+ * HT/40 MHz/STBC frames, so both payloads plus the per-frame metadata must fit:
+ * 2 * 816 base64 chars + metadata leaves room in 4 KiB.
  */
-#define WEB_SERIAL_TX_BUF_SIZE       3072
+#define WEB_SERIAL_TX_BUF_SIZE       4096
 #define WEB_SERIAL_RX_POLL_BUF_SIZE  64
 #define WEB_SERIAL_DEFAULT_PERIOD_MS 50
 #define WEB_SERIAL_CSI_DEFAULT_PERIOD_MS 100
-#define WEB_SERIAL_CSI_MAX_RAW_LEN 512
+#define WEB_SERIAL_CSI_MAX_RAW_LEN 612
 #define WEB_SERIAL_CSI_MAX_ENCODED_LEN (((WEB_SERIAL_CSI_MAX_RAW_LEN + 2) / 3) * 4 + 1)
 
 /*
@@ -490,13 +494,19 @@ void web_serial_monitor_publish_activity(const char *label, float score,
 
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info)
 {
+    /*
+     * Sample the monotonic clock before any other work so cb_ts_us is as close
+     * to the callback entry as possible; it must not drift with payload size.
+     */
+    const int64_t cb_ts_us = esp_timer_get_time();
+
     (void)ctx;
     if (!info || !s_ctx.initialized || !s_ctx.sensing_ready ||
             !info->raw_data || info->raw_len == 0) {
         return;
     }
 
-    s_ctx.csi_last_rx_us = esp_timer_get_time();
+    s_ctx.csi_last_rx_us = cb_ts_us;
     s_ctx.csi_frame_count++;
 
     activity_classifier_enqueue(info);
@@ -505,7 +515,7 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
         return;
     }
 
-    int64_t now_us = esp_timer_get_time();
+    int64_t now_us = cb_ts_us;
     if (s_ctx.csi_stream_period_ms > 0 &&
             s_ctx.csi_last_emit_us > 0 &&
             now_us - s_ctx.csi_last_emit_us < (int64_t)s_ctx.csi_stream_period_ms * 1000LL) {
@@ -549,6 +559,12 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
     }
 
     const esp_radar_rx_ctrl_info_t *rx = &info->rx_ctrl_info;
+    /*
+     * esp_radar keeps the driver's wifi_csi_info_t alive for the duration of
+     * the callback (esp_radar.c assigns filtered_info->info = info), so
+     * first_word_invalid and the 802.11 rx_seq can be forwarded verbatim.
+     */
+    const wifi_csi_info_t *drv = info->info;
     int prefix_len = snprintf(s_tx_line, WEB_SERIAL_TX_BUF_SIZE, "%s", WEB_SERIAL_PREFIX);
     int body_len = 0;
     if (prefix_len > 0 && prefix_len < WEB_SERIAL_TX_BUF_SIZE) {
@@ -559,13 +575,21 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
             "\"ts_us\":%" PRId64 ",\"rate\":%u,\"sig_mode\":%d,\"mcs\":%u,\"bandwidth\":%u,"
             "\"stbc\":%u,\"noise_floor\":%d,\"channel\":%u,\"secondary_channel\":%u,"
             "\"local_timestamp\":%" PRIu32 ",\"agc_gain\":%u,\"fft_gain\":%d,"
+            "\"dmac\":\"" MACSTR "\",\"first_word_invalid\":%s,\"rx_seq\":%u,"
+            "\"lltf_len\":%u,\"ht_ltf_len\":%u,\"stbc_ht_ltf_len\":%u,"
+            "\"rx_gain_compensation\":%.6f,"
             "\"data\":\"%s\",\"valid\":\"%s\"}\n",
             info->seq_id, MAC2STR(info->mac), rx->rssi, info->raw_len, valid_len,
             (int)info->data_type, s_ctx.csi_dropped_count, now_us,
             (unsigned)rx->rate, (int)rx->signal_mode, (unsigned)rx->mcs, (unsigned)rx->cwb,
             (unsigned)rx->stbc, (int)rx->noise_floor, (unsigned)rx->channel,
             (unsigned)rx->secondary_channel, rx->timestamp, (unsigned)rx->agc_gain,
-            (int)rx->fft_gain, s_csi_b64_raw, s_csi_b64_valid);
+            (int)rx->fft_gain, MAC2STR(info->dmac),
+            (drv && drv->first_word_invalid) ? "true" : "false",
+            drv ? (unsigned)drv->rx_seq : 0U,
+            (unsigned)info->valid_lltf_len, (unsigned)info->valid_ht_ltf_len,
+            (unsigned)info->valid_stbc_ht_ltf_len,
+            (double)info->rx_gain_compensation, s_csi_b64_raw, s_csi_b64_valid);
     }
     int total_len = prefix_len + body_len;
     if (prefix_len <= 0 || body_len < 0 || total_len >= WEB_SERIAL_TX_BUF_SIZE) {

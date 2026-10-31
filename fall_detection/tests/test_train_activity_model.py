@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import base64
 import unittest
 import tempfile
 from pathlib import Path
 
+from fall_detection.audit_dataset import FRAMES_HEADER
 from fall_detection.train_activity_model import (
     ALGORITHMS,
     CSI_SUBCARRIERS,
@@ -16,9 +18,29 @@ from fall_detection.train_activity_model import (
     extract_window_features,
     parse_class_spec,
     read_amplitude_frames,
+    read_amplitude_frames_from_frames_csv,
     render_c_header,
 )
 from fall_detection.classifier_models import fit_classifier, predict
+
+
+def _write_frames_csv(path: Path, rows: int, *, sig_mode=0, bandwidth=0, stbc=0) -> None:
+    idx = {name: i for i, name in enumerate(FRAMES_HEADER)}
+    payload = base64.b64encode(bytes([3, 4] * CSI_SUBCARRIERS)).decode("ascii")
+    lines = [",".join(FRAMES_HEADER)]
+    for i in range(rows):
+        row = ["na"] * len(FRAMES_HEADER)
+        row[idx["recording_id"]] = "r"
+        row[idx["frame_sequence"]] = str(i)
+        row[idx["sig_mode"]] = str(sig_mode)
+        row[idx["bandwidth"]] = str(bandwidth)
+        row[idx["stbc"]] = str(stbc)
+        row[idx["secondary_channel"]] = "0"
+        row[idx["data_type"]] = "0"
+        row[idx["valid_len"]] = str(CSI_SUBCARRIERS * 2)
+        row[idx["valid_b64"]] = payload
+        lines.append(",".join(row))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 class TrainingModelTests(unittest.TestCase):
@@ -44,6 +66,49 @@ class TrainingModelTests(unittest.TestCase):
         self.assertEqual(len(features), 2)
         self.assertEqual(len(features[0]), FEATURE_COUNT)
         self.assertTrue(all(value > 0 for value in features[0]))
+
+    def test_reads_lltf_amplitudes_from_v3_frames_csv(self) -> None:
+        # 104-byte valid payload = 52 int8 pairs of (3,4) -> amplitude 5.0 each.
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            frames_path = Path(temporary_directory) / "sample.frames.csv"
+            _write_frames_csv(frames_path, 3)
+
+            frames = read_amplitude_frames_from_frames_csv(frames_path)
+
+        self.assertEqual(len(frames), 3)
+        self.assertEqual(len(frames[0]), CSI_SUBCARRIERS)
+        self.assertAlmostEqual(frames[0][0], 5.0)
+
+    def test_frames_csv_reader_skips_unsupported_layouts(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            frames_path = Path(temporary_directory) / "sample.frames.csv"
+            _write_frames_csv(frames_path, 2, bandwidth=1)  # non-20MHz -> skipped
+
+            frames = read_amplitude_frames_from_frames_csv(frames_path)
+
+        self.assertEqual(frames, [])
+
+    def test_frames_csv_reader_matches_legacy_amplitude_math(self) -> None:
+        # Same (3,4) LLTF pairs fed through the legacy csi_data.csv path and the
+        # v3 frames.csv path must yield identical amplitudes.
+        lltf_values = [value for _ in range(CSI_SUBCARRIERS) for value in (3, 4)]
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            csi_path = Path(temporary_directory) / "sample.csi_data.csv"
+            csi_path.write_text(
+                "sig_mode,bandwidth,stbc,secondary_channel,len,data\n"
+                f'0,0,0,0,104,"{",".join(map(str, lltf_values))}"\n',
+                encoding="utf-8",
+            )
+            frames_path = Path(temporary_directory) / "sample.frames.csv"
+            _write_frames_csv(frames_path, 1)
+
+            legacy = read_amplitude_frames(csi_path)
+            v3 = read_amplitude_frames_from_frames_csv(frames_path)
+
+        self.assertEqual(len(legacy), 1)
+        self.assertEqual(len(v3), 1)
+        for a, b in zip(legacy[0], v3[0]):
+            self.assertAlmostEqual(a, b)
 
     def test_reads_consistent_lltf_from_supported_packet_layouts(self) -> None:
         lltf_values = [value for _ in range(CSI_SUBCARRIERS) for value in (3, 4)]

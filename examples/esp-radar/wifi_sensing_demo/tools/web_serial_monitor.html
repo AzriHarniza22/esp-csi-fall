@@ -603,26 +603,33 @@
 
       <section class="panel section">
         <h2 id="recPanelTitle">CSI Recorder</h2>
-        <div id="recPanelDesc" class="muted">Capture consecutive fixed-duration takes. Gap 0 keeps acquisition continuous; use a gap for one-shot actions so you can reset the starting pose.</div>
+        <div id="recPanelDesc" class="muted">Capture fixed 10-second takes with synchronized visual and spoken (Indonesian) instructions. Every take is saved as exactly two files: frames.csv + meta.json.</div>
         <div style="height: 12px;"></div>
         <div class="config-form">
-          <label><span id="recLabelPresetLabel">Label</span>
-            <select id="recLabelSelect">
-              <option value="kosong">kosong</option>
-              <option value="duduk">duduk</option>
-              <option value="berdiri">berdiri</option>
-              <option value="jongkok">jongkok</option>
-              <option value="jatuh">jatuh</option>
-              <option value="berjalan">berjalan</option>
-              <option value="__custom__">custom</option>
-            </select>
+          <label><span id="recActivityLabel">Activity</span>
+            <select id="recActivitySelect"></select>
           </label>
-          <label><span id="recLabelCustomLabel">Custom label</span><input id="recLabelCustom" type="text" maxlength="48" autocomplete="off" /></label>
-          <label><span id="recCountdownLabel">Countdown (s)</span><input id="recCountdownInput" type="number" min="0" step="1" value="5" autocomplete="off" /></label>
-          <label><span id="recDurationLabel">Duration (s)</span><input id="recDurationInput" type="number" min="1" step="1" value="10" autocomplete="off" /></label>
+          <label id="recPreActionWrap"><span id="recPreActionLabel">Pre-action</span>
+            <select id="recPreActionSelect"></select>
+          </label>
+          <label id="recPostActionWrap"><span id="recPostActionLabel">Post-action</span>
+            <select id="recPostActionSelect"></select>
+          </label>
           <label><span id="recTakesLabel">Takes (max 100)</span><input id="recTakesInput" type="number" min="1" max="100" step="1" value="1" autocomplete="off" /></label>
-          <label><span id="recGapLabel">Gap between takes (s)</span><input id="recGapInput" type="number" min="0" max="60" step="1" value="0" autocomplete="off" /></label>
+          <label><span id="recGapLabel">Gap between takes (s)</span><input id="recGapInput" type="number" min="0" max="60" step="1" value="5" autocomplete="off" /></label>
         </div>
+        <div id="recDurationInfo" class="muted">Duration: fixed 10 s per take.</div>
+        <div style="height: 10px;"></div>
+        <div class="config-form">
+          <label class="checkbox-label"><input id="recEnableAudio" type="checkbox" checked /><span id="recEnableAudioLabel">Audio cues (voice + tone)</span></label>
+          <label><span id="recVolumeLabel">Volume</span><input id="recVolumeInput" type="range" min="0" max="1" step="0.05" value="0.9" /></label>
+          <button id="recTestAudioBtn" class="secondary">Test audio</button>
+        </div>
+        <div id="recAudioStatus" class="csi-status"></div>
+        <div id="recAudioVoiceStatus" class="csi-status"></div>
+        <div id="recAudioWarn" class="record-warn" hidden></div>
+        <label id="recVisualOnlyWrap" class="checkbox-label" hidden><input id="recVisualOnlyConfirm" type="checkbox" /><span id="recVisualOnlyLabel">I understand: continue without audio (visual-only, recorded as a protocol deviation)</span></label>
+        <div id="recForegroundNote" class="muted">Keep this tab in the foreground during recording: background tabs are throttled by the browser and can delay timers and audio.</div>
         <div id="recStimulusWarn" class="record-warn" hidden></div>
         <div style="height: 10px;"></div>
         <div class="status-pill">
@@ -634,6 +641,36 @@
           <button id="recStartBtn">Record</button>
           <button id="recCancelBtn" class="secondary">Cancel</button>
           <button id="recStartStimulusBtn" class="secondary">Start stimulus</button>
+        </div>
+
+        <div id="recLive" hidden>
+          <div style="height: 14px;"></div>
+          <div id="recLiveHeader" style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
+            <strong id="recLiveRec" style="color:#ff6b81;letter-spacing:2px;">REC</strong>
+            <span id="recLivePhase" class="muted"></span>
+            <strong id="recLiveTime" style="font-variant-numeric:tabular-nums;">00:00 / 00:10</strong>
+          </div>
+          <div id="recLiveInstruction" style="font-size:2rem;font-weight:700;text-align:center;margin:14px 0;min-height:2.4em;"></div>
+          <div id="recLiveProgressWrap" style="height:14px;background:rgba(255,255,255,0.08);border-radius:7px;overflow:hidden;">
+            <div id="recLiveProgress" style="height:100%;width:0%;background:#7bffb6;transition:width 80ms linear;"></div>
+          </div>
+          <div style="height:10px;"></div>
+          <div class="toolbar">
+            <div class="status-pill"><span id="recLiveCsiLabel">CSI</span><strong id="recLiveCsi">-</strong></div>
+            <div class="status-pill"><span id="recLiveEspLabel">ESP32</span><strong id="recLiveEsp">-</strong></div>
+            <div class="status-pill"><span id="recLiveAudioLabel">Audio</span><strong id="recLiveAudio">-</strong></div>
+          </div>
+          <div class="button-row" id="recAnnotRow" hidden>
+            <button id="recMarkFallStartBtn" disabled style="font-size:1.1rem;padding:14px 18px;">TANDAI AWAL JATUH</button>
+            <button id="recMarkImpactBtn" disabled style="font-size:1.1rem;padding:14px 18px;">TANDAI BENTURAN</button>
+          </div>
+          <div id="recAnnotStatus" class="muted"></div>
+        </div>
+
+        <div id="recResult" hidden>
+          <div style="height: 14px;"></div>
+          <div id="recResultTitle" style="font-weight:700;"></div>
+          <pre id="recResultBody" class="muted" style="white-space:pre-wrap;margin:6px 0 0;"></pre>
         </div>
       </section>
 
@@ -818,6 +855,8 @@
     };
     let selectedPeer = null;
     let appInfo = { target: "-", stream_period_ms: 0, amplitude_log_enabled: false };
+    /* Last WIFI_INFO payload; the recorder copies channel/bssid into meta.json. */
+    let lastWifiMsg = null;
     let rafId = null;
     let chartsDirty = true;
     let domTimer = null;
@@ -944,11 +983,63 @@
         clearRawLogBtn: "Clear Window",
         footerNote: "Note: this page only parses JSON lines prefixed with <code>HMS:</code>, so ordinary device logs will not interfere with the charts. Serve this directory with <code>python3 csi_recorder_server.py</code> so recordings can be saved under <code>recordings/</code>, then open <code>http://127.0.0.1:8000/</code>.",
         recPanelTitle: "CSI Recorder",
-        recPanelDesc: "Choose a label and capture consecutive fixed-duration takes. Gap 0 keeps acquisition continuous; use a gap for one-shot actions so you can reset the starting pose. Each take is saved separately.",
-        recLabelPresetLabel: "Label",
-        recLabelCustomLabel: "Custom label",
-        recCountdownLabel: "Countdown (s)",
-        recDurationLabel: "Duration (s)",
+        recPanelDesc: "Capture fixed 10-second takes with synchronized visual and spoken (Indonesian) instructions. Every take is saved as exactly two files: frames.csv + meta.json.",
+        recActivityLabel: "Activity",
+        recPreActionLabel: "Pre-action",
+        recPostActionLabel: "Post-action",
+        recDurationInfo: "Duration: fixed 10 s per take.",
+        recOptStill: "Still (diam)",
+        recOptWalking: "Walking (berjalan)",
+        recOptCrawl: "Crawl (merangkak)",
+        recOptWalkSlow: "Move slowly (bergerak perlahan)",
+        recEnableAudioLabel: "Audio cues (voice + tone)",
+        recVolumeLabel: "Volume",
+        recTestAudioBtn: "Test audio (Uji Suara)",
+        recAudioStatusPrefix: "Audio cues:",
+        recAudioOn: "ACTIVE",
+        recAudioOff: "OFF",
+        recAudioVisualOnly: "VISUAL-ONLY",
+        recVoiceUnsupported: "Voice: this browser does not support speechSynthesis - use visual-only mode.",
+        recVoiceFound: "Voice (id-ID)",
+        recVoiceMissing: "Voice: no Indonesian (id-ID) voice found in this browser - speech cues will use the default voice or fail; use Test audio to verify.",
+        recAudioWarnText: "Audio is incomplete: Indonesian speech is unavailable. You can continue in visual-only mode with explicit confirmation; this is recorded as a protocol deviation in meta.json.",
+        recAudioNoContext: "Web Audio API unavailable",
+        recAudioInitFailed: "Audio initialization failed",
+        recAudioTestDone: "Audio test finished - check that you heard two tones and the spoken message.",
+        recAudioTestFailed: "Audio test failed: AudioContext unavailable.",
+        recNeedAudioTest: "Audio cues are enabled but not tested yet. Click 'Test audio (Uji Suara)' first and confirm you can hear it.",
+        recNeedVisualConfirm: "Indonesian speech is unavailable. Tick the visual-only confirmation to continue without audio (recorded as a protocol deviation).",
+        recVisualOnlyLabel: "I understand: continue without audio (visual-only, recorded as a protocol deviation)",
+        recForegroundNote: "Keep this tab in the foreground during recording: background tabs are throttled by the browser and can delay timers and audio.",
+        recInvalidOptions: "Invalid activity/phase selection.",
+        recPhasePre: "Pre-action",
+        recPhaseFall: "Fall action",
+        recPhaseWalk: "Walking",
+        recPhaseAction: "Action",
+        recPhasePost: "Post-action",
+        recLivePhasePrefix: "Phase:",
+        recLiveActive: "RECEIVING",
+        recLiveNoFrames: "NO FRAMES",
+        recLiveConnected: "CONNECTED",
+        recLiveDisconnected: "DISCONNECTED",
+        recAnnotFallStart: "Fall start",
+        recAnnotImpact: "Impact",
+        recAnnotMarked: "Marked",
+        recAnnotComplete: "complete",
+        recAnnotIncomplete: "INCOMPLETE - fall buttons were not pressed",
+        recAnnotNA: "not applicable (non-fall activity)",
+        recResultOk: "Recording complete",
+        recResultNotOk: "Recording NOT complete",
+        recResFiles: "Files",
+        recResDuration: "Actual duration",
+        recResFrames: "Frames received",
+        recResDropped: "Dropped",
+        recResPayload: "Payload integrity",
+        recResAnnot: "Annotations",
+        recResAudio: "Audio mode",
+        recResDeviation: "protocol deviation",
+        recResSaved: "Saved via",
+        recResRxSeqGaps: "rx_seq gaps",
         recTakesLabel: "Takes (max 100)",
         recGapLabel: "Gap between takes (s)",
         recTimerLabel: "Recorder",
@@ -961,7 +1052,7 @@
         recStartStimulusBtn: "Start stimulus",
         recNeedLabel: "Enter a label before recording.",
         recNeedSerial: "Connect serial before recording.",
-        recInvalidBatch: "Use 1–100 takes, 1–60 seconds per take, and a 0–60 second gap.",
+        recInvalidBatch: "Use 1-100 takes and a 0-60 second gap. Duration is fixed at 10 s.",
         recStimulusOff: "HT stimulus is stopped. CSI on this hardware usually needs it; start it before recording.",
         recSaved: "Saved recording",
         recSaveFailed: "Could not save to the recorder server; downloaded a backup instead.",
@@ -1258,11 +1349,63 @@
         csiFrames: "帧",
         csiDropped: "丢弃",
         recPanelTitle: "CSI 采集",
-        recPanelDesc: "选择标签后连续采集多个定长样本。间隔设为 0 时连续采集；单次转换动作应设置间隔，以便恢复起始姿势。每次样本分别保存为文件。",
-        recLabelPresetLabel: "标签",
-        recLabelCustomLabel: "自定义标签",
-        recCountdownLabel: "倒计时（秒）",
-        recDurationLabel: "时长（秒）",
+        recPanelDesc: "采集固定 10 秒的样本，界面与印尼语语音指令同步。每个样本只保存两个文件：frames.csv + meta.json。",
+        recActivityLabel: "活动",
+        recPreActionLabel: "前置动作",
+        recPostActionLabel: "后置动作",
+        recDurationInfo: "时长：每个样本固定 10 秒。",
+        recOptStill: "静止（diam）",
+        recOptWalking: "行走（berjalan）",
+        recOptCrawl: "爬行（merangkak）",
+        recOptWalkSlow: "缓慢移动（bergerak perlahan）",
+        recEnableAudioLabel: "声音提示（语音 + 提示音）",
+        recVolumeLabel: "音量",
+        recTestAudioBtn: "测试声音（Uji Suara）",
+        recAudioStatusPrefix: "声音提示：",
+        recAudioOn: "已启用",
+        recAudioOff: "已关闭",
+        recAudioVisualOnly: "仅视觉",
+        recVoiceUnsupported: "语音：此浏览器不支持 speechSynthesis，请使用仅视觉模式。",
+        recVoiceFound: "语音（id-ID）",
+        recVoiceMissing: "语音：此浏览器未找到印尼语（id-ID）语音，请先用测试声音验证。",
+        recAudioWarnText: "音频不完整：印尼语语音不可用。可显式确认后以仅视觉模式继续，该偏差会记录在 meta.json 中。",
+        recAudioNoContext: "Web Audio API 不可用",
+        recAudioInitFailed: "音频初始化失败",
+        recAudioTestDone: "声音测试完成——请确认听到两个提示音和语音。",
+        recAudioTestFailed: "声音测试失败：AudioContext 不可用。",
+        recNeedAudioTest: "已启用声音提示但尚未测试。请先点击“测试声音”并确认能听到。",
+        recNeedVisualConfirm: "印尼语语音不可用。勾选仅视觉确认后才能继续（将记录为协议偏差）。",
+        recVisualOnlyLabel: "我了解：无音频继续（仅视觉，记录为协议偏差）",
+        recForegroundNote: "采集期间请保持此标签页在前台：后台标签页会被浏览器节流，影响计时和声音。",
+        recInvalidOptions: "活动/阶段选择无效。",
+        recPhasePre: "前置阶段",
+        recPhaseFall: "跌倒阶段",
+        recPhaseWalk: "行走阶段",
+        recPhaseAction: "动作阶段",
+        recPhasePost: "后置阶段",
+        recLivePhasePrefix: "阶段：",
+        recLiveActive: "接收中",
+        recLiveNoFrames: "无帧",
+        recLiveConnected: "已连接",
+        recLiveDisconnected: "已断开",
+        recAnnotFallStart: "跌倒开始",
+        recAnnotImpact: "撞击",
+        recAnnotMarked: "已标记",
+        recAnnotComplete: "完整",
+        recAnnotIncomplete: "不完整——未按下跌倒标记按钮",
+        recAnnotNA: "不适用（非跌倒活动）",
+        recResultOk: "采集完成",
+        recResultNotOk: "采集未完成",
+        recResFiles: "文件",
+        recResDuration: "实际时长",
+        recResFrames: "接收帧数",
+        recResDropped: "丢弃",
+        recResPayload: "载荷完整性",
+        recResAnnot: "标注",
+        recResAudio: "音频模式",
+        recResDeviation: "协议偏差",
+        recResSaved: "保存方式",
+        recResRxSeqGaps: "rx_seq 缺口",
         recTakesLabel: "次数（最多 100）",
         recGapLabel: "样本间隔（秒）",
         recTimerLabel: "采集器",
@@ -1275,7 +1418,7 @@
         recStartStimulusBtn: "启动激励",
         recNeedLabel: "请先填写标签。",
         recNeedSerial: "请先连接串口再采集。",
-        recInvalidBatch: "次数须为 1–100，每条时长须为 1–60 秒，间隔须为 0–60 秒。",
+        recInvalidBatch: "次数须为 1–100，间隔须为 0–60 秒。时长固定为 10 秒。",
         recStimulusOff: "HT 激励已停止。此硬件上的 CSI 通常需要激励；请先启动再采集。",
         recSaved: "已保存",
         recSaveFailed: "无法写入采集服务器，已改为下载备份。",
@@ -1447,7 +1590,273 @@
       gapS: 0,
       batchId: "",
       library: [],
+      /* v3 per-take state (recording-pipeline-implementation.md §8-§11) */
+      plan: null,
+      annotator: null,
+      cueEvents: [],
+      currentPhaseId: "",
+      captureStartMono: 0,
+      captureStartDateMs: 0,
+      audioTested: false,
+      audioTest: null,
     };
+
+    const recActivitySelect = document.getElementById("recActivitySelect");
+    const recPreActionSelect = document.getElementById("recPreActionSelect");
+    const recPostActionSelect = document.getElementById("recPostActionSelect");
+    const recPreActionWrap = document.getElementById("recPreActionWrap");
+    const recPostActionWrap = document.getElementById("recPostActionWrap");
+    const recEnableAudio = document.getElementById("recEnableAudio");
+    const recVisualOnlyConfirm = document.getElementById("recVisualOnlyConfirm");
+    const recVisualOnlyWrap = document.getElementById("recVisualOnlyWrap");
+    const recVolumeInput = document.getElementById("recVolumeInput");
+    const recAudioStatus = document.getElementById("recAudioStatus");
+    const recAudioVoiceStatus = document.getElementById("recAudioVoiceStatus");
+    const recAudioWarn = document.getElementById("recAudioWarn");
+    const recLive = document.getElementById("recLive");
+    const recLivePhase = document.getElementById("recLivePhase");
+    const recLiveTime = document.getElementById("recLiveTime");
+    const recLiveInstruction = document.getElementById("recLiveInstruction");
+    const recLiveProgress = document.getElementById("recLiveProgress");
+    const recLiveCsi = document.getElementById("recLiveCsi");
+    const recLiveEsp = document.getElementById("recLiveEsp");
+    const recLiveAudio = document.getElementById("recLiveAudio");
+    const recAnnotRow = document.getElementById("recAnnotRow");
+    const recMarkFallStartBtn = document.getElementById("recMarkFallStartBtn");
+    const recMarkImpactBtn = document.getElementById("recMarkImpactBtn");
+    const recAnnotStatus = document.getElementById("recAnnotStatus");
+    const recResult = document.getElementById("recResult");
+    const recResultTitle = document.getElementById("recResultTitle");
+    const recResultBody = document.getElementById("recResultBody");
+
+    /*
+     * Audio cue engine (spec §10, addendum J). Tone cues are scheduled on the
+     * AudioContext clock for precision; speech cues go through
+     * speechSynthesis with an id-ID voice when one is verified to exist.
+     * Audio NEVER gates or shifts the recording: phases follow the monotonic
+     * deadline loop only, and every cue records its playback status.
+     */
+    const audioEngine = {
+      ctx: null,
+      gain: null,
+      voices: [],
+      idVoice: null,
+      speechSupported: typeof window !== "undefined" && "speechSynthesis" in window,
+      unlocked: false,
+      lastToneOk: null,
+      lastSpeechOk: null,
+      lastError: "",
+      currentUtterance: null,
+    };
+
+    function audioVolume() {
+      const v = Number(recVolumeInput ? recVolumeInput.value : 0.9);
+      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.9;
+    }
+
+    function refreshVoices() {
+      if (!audioEngine.speechSupported) {
+        return;
+      }
+      const voices = window.speechSynthesis.getVoices() || [];
+      audioEngine.voices = voices;
+      audioEngine.idVoice = voices.find((v) => /^id([-_]|$)/i.test(String(v.lang || ""))) || null;
+      renderAudioStatus();
+    }
+
+    function renderAudioStatus() {
+      if (!recAudioStatus) {
+        return;
+      }
+      const enabled = recEnableAudio && recEnableAudio.checked;
+      const toneState = audioEngine.ctx
+        ? (audioEngine.ctx.state === "running" ? "running" : audioEngine.ctx.state)
+        : "not-initialized";
+      recAudioStatus.textContent = `${t("recAudioStatusPrefix")} ${enabled ? t("recAudioOn") : t("recAudioOff")} · AudioContext: ${toneState}` +
+        (audioEngine.lastError ? ` · ${audioEngine.lastError}` : "");
+      if (recAudioVoiceStatus) {
+        if (!audioEngine.speechSupported) {
+          recAudioVoiceStatus.textContent = t("recVoiceUnsupported");
+        } else if (audioEngine.idVoice) {
+          recAudioVoiceStatus.textContent = `${t("recVoiceFound")}: ${audioEngine.idVoice.name} (${audioEngine.idVoice.lang})`;
+        } else {
+          recAudioVoiceStatus.textContent = t("recVoiceMissing");
+        }
+      }
+      const audioBroken = enabled && (!audioEngine.speechSupported || !audioEngine.idVoice);
+      if (recAudioWarn) {
+        recAudioWarn.hidden = !audioBroken;
+        recAudioWarn.textContent = audioBroken ? t("recAudioWarnText") : "";
+      }
+      if (recVisualOnlyWrap) {
+        recVisualOnlyWrap.hidden = !audioBroken;
+        if (!audioBroken && recVisualOnlyConfirm) {
+          recVisualOnlyConfirm.checked = false;
+        }
+      }
+    }
+
+    function ensureAudioContext() {
+      if (audioEngine.ctx) {
+        if (audioEngine.ctx.state === "suspended" && audioEngine.ctx.resume) {
+          audioEngine.ctx.resume().catch(() => {});
+        }
+        return audioEngine.ctx;
+      }
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) {
+        audioEngine.lastError = t("recAudioNoContext");
+        renderAudioStatus();
+        return null;
+      }
+      try {
+        audioEngine.ctx = new Ctor();
+        audioEngine.gain = audioEngine.ctx.createGain();
+        audioEngine.gain.gain.value = audioVolume();
+        audioEngine.gain.connect(audioEngine.ctx.destination);
+        audioEngine.lastError = "";
+      } catch (error) {
+        audioEngine.ctx = null;
+        audioEngine.lastError = `${t("recAudioInitFailed")}: ${error.message}`;
+      }
+      renderAudioStatus();
+      return audioEngine.ctx;
+    }
+
+    /* Called from a user gesture (Test audio / Record) so autoplay policy is satisfied. */
+    function unlockAudio() {
+      ensureAudioContext();
+      if (audioEngine.speechSupported && window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      refreshVoices();
+    }
+
+    /*
+     * Play one tone pattern from CsiRecorder.TONE_PATTERNS, scheduled on the
+     * AudioContext clock. Returns true when scheduling succeeded.
+     */
+    function playTonePattern(name, whenAudioTime) {
+      const ctx = audioEngine.ctx;
+      if (!ctx || ctx.state !== "running" || !audioEngine.gain) {
+        audioEngine.lastToneOk = false;
+        return false;
+      }
+      const pattern = CsiRecorder.TONE_PATTERNS[name] || CsiRecorder.TONE_PATTERNS.phase;
+      let start = Number.isFinite(whenAudioTime) ? whenAudioTime : ctx.currentTime;
+      try {
+        audioEngine.gain.gain.value = audioVolume();
+        for (const [freq, dur] of pattern) {
+          const osc = ctx.createOscillator();
+          const env = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          env.gain.setValueAtTime(0.0001, start);
+          env.gain.exponentialRampToValueAtTime(0.9, start + 0.01);
+          env.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+          osc.connect(env);
+          env.connect(audioEngine.gain);
+          osc.start(start);
+          osc.stop(start + dur + 0.02);
+          start += dur + 0.03;
+        }
+        audioEngine.lastToneOk = true;
+        return true;
+      } catch (error) {
+        audioEngine.lastToneOk = false;
+        audioEngine.lastError = `tone: ${error.message}`;
+        return false;
+      }
+    }
+
+    /*
+     * Speak one instruction. A stale utterance is always cancelled first so a
+     * late speech never overlaps the next phase (spec §10.3). The returned
+     * event object is mutated with the playback status.
+     */
+    function speakCue(text, event) {
+      if (!audioEngine.speechSupported) {
+        event.status = "failed";
+        event.error = "speechSynthesis unsupported";
+        audioEngine.lastSpeechOk = false;
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "id-ID";
+        if (audioEngine.idVoice) {
+          utterance.voice = audioEngine.idVoice;
+        }
+        utterance.volume = audioVolume();
+        utterance.rate = 1.0;
+        utterance.onstart = () => {
+          event.status = "started";
+          event.started_at_offset_s = recordingOffsetNowS();
+        };
+        utterance.onend = () => {
+          event.status = "completed";
+          event.ended_at_offset_s = recordingOffsetNowS();
+          audioEngine.lastSpeechOk = true;
+        };
+        utterance.onerror = (err) => {
+          /* cancel() fires an "interrupted"/"canceled" error: not a failure. */
+          const reason = String((err && err.error) || "unknown");
+          if (reason === "interrupted" || reason === "canceled") {
+            event.status = "interrupted";
+          } else {
+            event.status = "failed";
+            event.error = reason;
+            audioEngine.lastSpeechOk = false;
+          }
+        };
+        audioEngine.currentUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+        event.status = "scheduled";
+      } catch (error) {
+        event.status = "failed";
+        event.error = error.message;
+        audioEngine.lastSpeechOk = false;
+      }
+    }
+
+    async function testAudio() {
+      unlockAudio();
+      const ctx = audioEngine.ctx;
+      if (!ctx) {
+        logEvent(t("recAudioTestFailed"));
+        return;
+      }
+      playTonePattern("start", ctx.currentTime + 0.05);
+      playTonePattern("action", ctx.currentTime + 0.35);
+      let speechOk = false;
+      if (audioEngine.speechSupported) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance("Uji suara. Instruksi akan diberikan dalam bahasa Indonesia.");
+          utterance.lang = "id-ID";
+          if (audioEngine.idVoice) {
+            utterance.voice = audioEngine.idVoice;
+          }
+          utterance.volume = audioVolume();
+          window.speechSynthesis.speak(utterance);
+          speechOk = true;
+          audioEngine.lastSpeechOk = true;
+        } catch (error) {
+          audioEngine.lastSpeechOk = false;
+          audioEngine.lastError = `speech: ${error.message}`;
+        }
+      }
+      csiRecorder.audioTested = true;
+      csiRecorder.audioTest = {
+        at_utc: new Date().toISOString(),
+        tone_ok: audioEngine.lastToneOk === true,
+        speech_ok: speechOk && Boolean(audioEngine.idVoice),
+        voice: audioEngine.idVoice ? `${audioEngine.idVoice.name} (${audioEngine.idVoice.lang})` : null,
+      };
+      logEvent(t("recAudioTestDone"));
+      renderAudioStatus();
+    }
 
     const configInputs = {
       motion_sensitivity: document.getElementById("cfgSensitivity"),
@@ -1523,16 +1932,26 @@
       document.getElementById("stopCsiBtn").textContent = t("stopCsiBtn");
       document.getElementById("recPanelTitle").textContent = t("recPanelTitle");
       document.getElementById("recPanelDesc").textContent = t("recPanelDesc");
-      document.getElementById("recLabelPresetLabel").textContent = t("recLabelPresetLabel");
-      document.getElementById("recLabelCustomLabel").textContent = t("recLabelCustomLabel");
-      document.getElementById("recCountdownLabel").textContent = t("recCountdownLabel");
-      document.getElementById("recDurationLabel").textContent = t("recDurationLabel");
+      document.getElementById("recActivityLabel").textContent = t("recActivityLabel");
+      document.getElementById("recPreActionLabel").textContent = t("recPreActionLabel");
+      document.getElementById("recPostActionLabel").textContent = t("recPostActionLabel");
+      document.getElementById("recDurationInfo").textContent = t("recDurationInfo");
+      document.getElementById("recEnableAudioLabel").textContent = t("recEnableAudioLabel");
+      document.getElementById("recVolumeLabel").textContent = t("recVolumeLabel");
+      document.getElementById("recTestAudioBtn").textContent = t("recTestAudioBtn");
+      document.getElementById("recVisualOnlyLabel").textContent = t("recVisualOnlyLabel");
+      document.getElementById("recForegroundNote").textContent = t("recForegroundNote");
       document.getElementById("recTakesLabel").textContent = t("recTakesLabel");
       document.getElementById("recGapLabel").textContent = t("recGapLabel");
       document.getElementById("recTimerLabel").textContent = t("recTimerLabel");
       document.getElementById("recStartBtn").textContent = t("recStartBtn");
       document.getElementById("recCancelBtn").textContent = t("recCancelBtn");
       document.getElementById("recStartStimulusBtn").textContent = t("recStartStimulusBtn");
+      document.getElementById("recLiveCsiLabel").textContent = t("recLiveCsiLabel");
+      document.getElementById("recLiveEspLabel").textContent = t("recLiveEspLabel");
+      document.getElementById("recLiveAudioLabel").textContent = t("recLiveAudioLabel");
+      refreshRecorderOptions();
+      renderAudioStatus();
       document.getElementById("libPanelTitle").textContent = t("libPanelTitle");
       document.getElementById("libPanelDesc").textContent = t("libPanelDesc");
       document.getElementById("libFilterLabel").textContent = t("libFilterLabel");
@@ -1733,6 +2152,7 @@
     }
 
     function handleWifiMessage(msg) {
+      lastWifiMsg = msg;
       const state = msg.state || (msg.connected ? "GOT_IP" : "DISCONNECTED");
       document.getElementById("wifiStateText").textContent = translateWifiState(state);
       renderWifiState(state);
@@ -1856,14 +2276,16 @@
       if (!recTimerText) {
         return;
       }
-      const remainingSec = Math.max(0, Math.ceil((csiRecorder.phaseEndsAt - Date.now()) / 1000));
       const takePart = csiRecorder.takes > 1 ? ` · ${csiRecorder.take}/${csiRecorder.takes}` : "";
       if (csiRecorder.phase === "countdown") {
+        const remainingSec = Math.max(0, Math.ceil((csiRecorder.phaseEndsAt - Date.now()) / 1000));
         recTimerText.textContent = `${t("recTimerCountdown")} ${remainingSec}s${takePart}`;
         return;
       }
       if (csiRecorder.phase === "recording") {
-        recTimerText.textContent = `${t("recTimerRecording")} ${remainingSec}s · ${csiRecorder.frames.length} ${t("csiFrames")}${takePart}`;
+        const offset = recordingOffsetNowS();
+        const elapsed = Math.min(CsiRecorder.TARGET_DURATION_S, Math.max(0, Math.floor(offset)));
+        recTimerText.textContent = `${t("recTimerRecording")} ${elapsed}/${CsiRecorder.TARGET_DURATION_S}s · ${csiRecorder.frames.length} ${t("csiFrames")}${takePart}`;
         return;
       }
       if (csiRecorder.phase === "saving") {
@@ -1886,11 +2308,333 @@
       renderRecorderStatus();
     }
 
-    function currentRecorderLabel() {
-      return CsiRecorder.resolveLabel(
-        document.getElementById("recLabelSelect").value,
-        document.getElementById("recLabelCustom").value
-      );
+    const PHASE_NAME_KEYS = {
+      pre_action: "recPhasePre",
+      fall_action: "recPhaseFall",
+      walking: "recPhaseWalk",
+      action: "recPhaseAction",
+      post_action: "recPhasePost",
+    };
+
+    function recordingOffsetNowS() {
+      if (!csiRecorder.captureStartMono) {
+        return 0;
+      }
+      return (performance.now() - csiRecorder.captureStartMono) / 1000;
+    }
+
+    /*
+     * One cue deadline passed. Audio is fired-and-forgotten: the phase loop
+     * never waits for playback, and a cue that is already more than 1.5 s late
+     * is marked expired instead of being played into the wrong phase
+     * (spec §10.3).
+     */
+    function fireCue(cue, offsetS) {
+      const event = {
+        cue_id: cue.cue_id,
+        kind: cue.kind,
+        scheduled_offset_s: cue.scheduled_offset_s,
+        phase: cue.phase,
+        status: "pending",
+      };
+      if (cue.kind === "speech") {
+        event.text = cue.text;
+      } else {
+        event.tone = cue.tone;
+      }
+      csiRecorder.cueEvents.push(event);
+      const audioEnabled = recEnableAudio && recEnableAudio.checked;
+      if (!audioEnabled) {
+        event.status = "skipped_disabled";
+        return;
+      }
+      if (offsetS - cue.scheduled_offset_s > 1.5) {
+        event.status = "expired";
+        return;
+      }
+      event.fired_at_offset_s = Math.round(offsetS * 1000) / 1000;
+      if (cue.kind === "tone") {
+        event.status = playTonePattern(cue.tone) ? "scheduled" : "failed";
+      } else {
+        speakCue(cue.text, event);
+      }
+      renderRecorderLive();
+    }
+
+    function setRecorderPhase(phaseId, instruction) {
+      csiRecorder.currentPhaseId = phaseId;
+      if (recLivePhase) {
+        recLivePhase.textContent = `${t("recLivePhasePrefix")} ${t(PHASE_NAME_KEYS[phaseId] || "recPhasePre").toUpperCase()}`;
+      }
+      if (recLiveInstruction) {
+        recLiveInstruction.textContent = String(instruction || "").toUpperCase();
+      }
+    }
+
+    function renderRecorderLive() {
+      if (!recLive || recLive.hidden) {
+        return;
+      }
+      if (csiRecorder.phase !== "recording") {
+        return;
+      }
+      const offset = recordingOffsetNowS();
+      const total = CsiRecorder.TARGET_DURATION_S;
+      const clamped = Math.min(total, Math.max(0, offset));
+      if (recLiveTime) {
+        const fmt = (s) => `00:${String(Math.floor(s)).padStart(2, "0")}`;
+        recLiveTime.textContent = `${fmt(clamped)} / ${fmt(total)}`;
+      }
+      if (recLiveProgress) {
+        recLiveProgress.style.width = `${(clamped / total) * 100}%`;
+      }
+      if (recLiveCsi) {
+        const frames = csiRecorder.frames.length;
+        const recent = frames > 0 && csiRecorder.frames[frames - 1].hostMonoMs !== null &&
+          (performance.now() - csiRecorder.frames[frames - 1].hostMonoMs) < 2000;
+        recLiveCsi.textContent = recent ? `${t("recLiveActive")} · ${frames}` : t("recLiveNoFrames");
+      }
+      if (recLiveEsp) {
+        recLiveEsp.textContent = csiRecorder.disconnected ? t("recLiveDisconnected") : t("recLiveConnected");
+      }
+      if (recLiveAudio) {
+        const enabled = recEnableAudio && recEnableAudio.checked;
+        if (!enabled) {
+          recLiveAudio.textContent = t("recAudioOff");
+        } else if (recVisualOnlyConfirm && recVisualOnlyConfirm.checked) {
+          recLiveAudio.textContent = t("recAudioVisualOnly");
+        } else {
+          recLiveAudio.textContent = t("recAudioOn");
+        }
+      }
+      renderAnnotStatus();
+    }
+
+    function renderAnnotStatus() {
+      if (!recAnnotStatus || !csiRecorder.annotator) {
+        return;
+      }
+      const snap = csiRecorder.annotator.snapshot();
+      const parts = [
+        `${t("recAnnotFallStart")}: ${snap.fall_start ? `${snap.fall_start.offset_s.toFixed(2)}s` : "-"}`,
+        `${t("recAnnotImpact")}: ${snap.fall_impact ? `${snap.fall_impact.offset_s.toFixed(2)}s` : "-"}`,
+      ];
+      recAnnotStatus.textContent = parts.join("  ·  ");
+      if (recMarkFallStartBtn) recMarkFallStartBtn.disabled = Boolean(snap.fall_start);
+      if (recMarkImpactBtn) recMarkImpactBtn.disabled = Boolean(snap.fall_impact);
+    }
+
+    function markAnnotation(kind) {
+      if (csiRecorder.phase !== "recording" || !csiRecorder.annotator) {
+        return;
+      }
+      const ok = csiRecorder.annotator.mark(kind, performance.now(), csiRecorder.captureStartMono);
+      renderAnnotStatus();
+      if (ok) {
+        logEvent(`${t("recAnnotMarked")} ${kind} @ ${recordingOffsetNowS().toFixed(2)}s`);
+      }
+    }
+
+    function renderTakeResult(result, meta) {
+      if (!recResult) {
+        return;
+      }
+      recResult.hidden = false;
+      const ok = meta.status === "complete";
+      recResultTitle.textContent = ok ? `✓ ${t("recResultOk")}` : `⚠ ${t("recResultNotOk")} — ${meta.status}`;
+      recResultTitle.style.color = ok ? "#7bffb6" : "#ffb454";
+      const lines = [
+        `${t("recResFiles")}: ${meta.files.frames_csv}, ${meta.files.meta_json}`,
+        `${t("recResDuration")}: ${meta.actual_duration_s}s / ${meta.target_duration_s}s`,
+        `${t("recResFrames")}: ${meta.recording.frames}`,
+        `${t("recResDropped")}: delta ${meta.recording.dropped_delta}, device ${meta.recording.dropped_on_device ?? "na"}`,
+        `${t("recResPayload")}: ok ${meta.quality.payload_ok_frames}, bad ${meta.quality.payload_bad_frames}`,
+        `${t("recResAnnot")}: ${meta.annotations.annotation_complete ? t("recAnnotComplete") : (CsiRecorder.isFallLabel(meta.activity_label) ? t("recAnnotIncomplete") : t("recAnnotNA"))}`,
+        `${t("recResAudio")}: ${meta.audio_cues.mode}` +
+          (meta.audio_cues.protocol_deviation ? ` (${t("recResDeviation")})` : ""),
+        `${t("recResSaved")}: ${result.saved}`,
+      ];
+      if (meta.quality.rx_seq_gaps) {
+        lines.push(`${t("recResRxSeqGaps")}: ${meta.quality.rx_seq_gaps}`);
+      }
+      recResultBody.textContent = lines.join("\n");
+    }
+
+    /*
+     * The 10-second take loop (spec §8). A single monotonic clock
+     * (performance.now) drives capture window, phase changes, cues, progress
+     * bar and annotations through absolute deadlines; the 25 ms poll only
+     * checks them, so event-loop latency can never accumulate into a shift.
+     */
+    async function runTake(plan) {
+      csiRecorder.plan = plan;
+      csiRecorder.frames = [];
+      csiRecorder.motionSamples = [];
+      csiRecorder.motionPeer = selectedPeer || "";
+      csiRecorder.cueEvents = [];
+      csiRecorder.droppedStart = csiDroppedCount;
+      const isFall = CsiRecorder.isFallLabel(plan.label);
+      /*
+       * Capture start anchor: wall clock and monotonic clock sampled back to
+       * back (addendum G). The frame gate in handleMessage opens only after
+       * captureStartMono is non-zero, and phase is set before it.
+       */
+      csiRecorder.captureStartMono = 0;
+      csiRecorder.captureStartDateMs = 0;
+      csiRecorder.phase = "recording";
+      csiRecorder.currentPhaseId = "";
+      csiRecorder.annotator = CsiRecorder.makeAnnotator(isFall, Date.now());
+      const captureStartMs = Date.now();
+      const captureStartMono = performance.now();
+      csiRecorder.captureStartDateMs = captureStartMs;
+      csiRecorder.captureStartMono = captureStartMono;
+      if (recLive) {
+        recLive.hidden = false;
+      }
+      if (recAnnotRow) {
+        recAnnotRow.hidden = !isFall;
+      }
+      if (recMarkFallStartBtn) recMarkFallStartBtn.disabled = false;
+      if (recMarkImpactBtn) recMarkImpactBtn.disabled = false;
+      renderAnnotStatus();
+      startRecorderTicker();
+
+      const totalMs = CsiRecorder.TARGET_DURATION_S * 1000;
+      const endMono = captureStartMono + totalMs;
+      let cueIndex = 0;
+      let phaseIndex = 0;
+      let earlyStop = false;
+      let statusOverride = null;
+
+      while (true) {
+        const now = performance.now();
+        const offsetS = (now - captureStartMono) / 1000;
+        while (cueIndex < plan.cues.length && now >= captureStartMono + plan.cues[cueIndex].scheduled_offset_s * 1000) {
+          fireCue(plan.cues[cueIndex], offsetS);
+          cueIndex++;
+        }
+        const phase = plan.timeline[phaseIndex];
+        if (phase && now >= captureStartMono + phase.start_offset_s * 1000) {
+          if (csiRecorder.currentPhaseId !== phase.phase) {
+            setRecorderPhase(phase.phase, phase.instruction);
+          }
+          phaseIndex++;
+        }
+        renderRecorderLive();
+        if (now >= endMono) {
+          break;
+        }
+        if (csiRecorder.cancelled || csiRecorder.disconnected) {
+          earlyStop = true;
+          statusOverride = csiRecorder.disconnected ? "device_disconnected" : "stopped_early";
+          break;
+        }
+        await waitMs(25);
+      }
+
+      /* Stop the frame gate BEFORE snapshotting so no frame can land halfway
+       * through the copy (spec §8: controlled stop, then flush). */
+      csiRecorder.captureStartMono = 0;
+      const captureEndMono = performance.now();
+      const captureEndMs = Date.now();
+      const frames = csiRecorder.frames;
+      csiRecorder.frames = [];
+      const motionSamples = csiRecorder.motionSamples;
+      csiRecorder.motionSamples = [];
+      if (audioEngine.speechSupported) {
+        window.speechSynthesis.cancel();
+      }
+      for (const event of csiRecorder.cueEvents) {
+        if (event.status === "scheduled" || event.status === "started" || event.status === "pending") {
+          event.status = "interrupted";
+        }
+      }
+      const annotations = csiRecorder.annotator
+        ? csiRecorder.annotator.snapshot()
+        : { fall_start: null, fall_impact: null, annotation_complete: false };
+      if (recMarkFallStartBtn) recMarkFallStartBtn.disabled = true;
+      if (recMarkImpactBtn) recMarkImpactBtn.disabled = true;
+      if (recLive) {
+        recLive.hidden = true;
+      }
+      return {
+        plan,
+        frames,
+        motionSamples,
+        motionPeer: csiRecorder.motionPeer,
+        droppedStart: csiRecorder.droppedStart,
+        captureStartMono,
+        captureStartMs,
+        captureEndMono,
+        captureEndMs,
+        cueEvents: csiRecorder.cueEvents,
+        annotations,
+        earlyStop,
+        statusOverride,
+      };
+    }
+
+    /* ---------------- activity setup UI (spec §9, §12) ---------------- */
+
+    function fillSelect(select, entries) {
+      if (!select) {
+        return;
+      }
+      const previous = select.value;
+      select.replaceChildren();
+      for (const [value, labelKey] of entries) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = t(labelKey);
+        select.appendChild(option);
+      }
+      if (entries.some(([value]) => value === previous)) {
+        select.value = previous;
+      }
+    }
+
+    const PRE_ACTION_KEYS = {
+      still: "recOptStill",
+      walking: "recOptWalking",
+    };
+    const POST_ACTION_KEYS = {
+      still: "recOptStill",
+      walking: "recOptWalking",
+      crawl: "recOptCrawl",
+      walk_slow: "recOptWalkSlow",
+    };
+
+    function refreshRecorderOptions() {
+      const label = recActivitySelect ? recActivitySelect.value : "";
+      const kind = (CsiRecorder.TIMELINE_DEFS[label] || {}).kind || "";
+      const preValues = kind === "walking" ? ["still"] : CsiRecorder.PRE_ACTIONS;
+      let postValues = ["still"];
+      if (kind === "fall") {
+        postValues = CsiRecorder.POST_ACTIONS;
+      } else if (kind === "bending" || kind === "object_drop") {
+        postValues = CsiRecorder.PRE_ACTIONS;
+      }
+      fillSelect(recPreActionSelect, preValues.map((v) => [v, PRE_ACTION_KEYS[v]]));
+      fillSelect(recPostActionSelect, postValues.map((v) => [v, POST_ACTION_KEYS[v]]));
+      if (recPreActionWrap) {
+        recPreActionWrap.hidden = kind === "walking";
+      }
+      if (recPostActionWrap) {
+        recPostActionWrap.hidden = kind === "walking" || kind === "fast_sitting";
+      }
+    }
+
+    function populateRecorderControls() {
+      if (recActivitySelect) {
+        recActivitySelect.replaceChildren();
+        for (const label of CsiRecorder.ACTIVITY_LABELS) {
+          const option = document.createElement("option");
+          option.value = label;
+          option.textContent = label;
+          recActivitySelect.appendChild(option);
+        }
+      }
+      refreshRecorderOptions();
     }
 
     function downloadTextFile(filename, text) {
@@ -2170,7 +2914,7 @@
       const recording = recordingVisualization.recording;
       libVisualSelection.textContent = recording
         ? t("libSelectedRecording")
-          .replace("{label}", recording.label || recording.id)
+          .replace("{label}", recording.activity_label || recording.label || recording.id)
           .replace("{started}", recording.started_at_utc || "")
           .replace("{frames}", String(recording.frames ?? recordingVisualization.frames.length))
         : "";
@@ -2185,12 +2929,37 @@
           if (request !== recordingVisualization.request) {
             return;
           }
-          const parsed = CsiRecorder.parseIqCsv(rec.iq_csv || "");
+          /* v3 takes ship frames.csv only; decode the stored payloads back to
+           * I/Q pairs. Legacy takes (iq_csv) keep working through the old
+           * parser. Both feed the same heatmap/CSI chart structures. */
+          let parsedFrames = [];
+          let subcarriers = 0;
+          if (rec.frames_csv) {
+            const parsed = CsiRecorder.parseFramesCsv(rec.frames_csv);
+            parsedFrames = parsed.frames.map((frame) => {
+              const payload = CsiRecorder.framePayloadBytes(frame);
+              return {
+                ts_us: frame.ts_us,
+                seq: frame.seq,
+                mac: frame.mac,
+                rssi: frame.rssi,
+                iq: CsiRecorder.decodePairs(payload.bytes, frame.data_type),
+              };
+            });
+            subcarriers = parsedFrames.reduce((max, frame) => Math.max(max, frame.iq.length), 0);
+          } else {
+            const parsed = CsiRecorder.parseIqCsv(rec.iq_csv || "");
+            parsedFrames = parsed.frames;
+            subcarriers = parsed.subcarriers;
+          }
           recordingVisualization.id = id;
-          recordingVisualization.frames = parsed.frames;
-          recordingVisualization.subcarriers = parsed.subcarriers;
-          recordingVisualization.motionSamples = Array.isArray(rec.motion_samples)
-            ? rec.motion_samples.map((sample) => CsiRecorder.makeMotionSample({
+          recordingVisualization.frames = parsedFrames;
+          recordingVisualization.subcarriers = subcarriers;
+          const motionSource = rec.events && Array.isArray(rec.events.motion_samples)
+            ? rec.events.motion_samples
+            : rec.motion_samples;
+          recordingVisualization.motionSamples = Array.isArray(motionSource)
+            ? motionSource.map((sample) => CsiRecorder.makeMotionSample({
               type: "sample",
               ...sample,
             })).filter(Boolean)
@@ -2219,18 +2988,12 @@
       }
     }
 
-    async function saveTake(
-      label,
-      takeIndex,
-      countdownS,
-      durationS,
-      frames,
-      droppedStart,
-      started,
-      ended,
-      motionSamples,
-      motionPeer,
-    ) {
+    async function saveTakeV3(takeCtx) {
+      const {
+        plan, frames, motionSamples, motionPeer, droppedStart,
+        captureStartMono, captureStartMs, captureEndMono, captureEndMs,
+        cueEvents, annotations, earlyStop, statusOverride,
+      } = takeCtx;
       const completeness = CsiRecorder.recordingCompleteness({
         frames,
         droppedStart,
@@ -2238,57 +3001,178 @@
         disconnected: csiRecorder.disconnected,
         stimulusOn: !(stimulusState && stimulusState.running === false),
       });
-      const recId = CsiRecorder.makeRecordingId(label, started, takeIndex);
-      const meta = CsiRecorder.buildMeta({
-        id: recId,
-        label,
-        countdown_s: countdownS,
-        duration_s: durationS,
-        take: takeIndex,
-        take_count: csiRecorder.takes,
-        gap_s: csiRecorder.gapS,
-        batch_id: csiRecorder.batchId,
-        started_at_utc: started.toISOString(),
-        ended_at_utc: ended.toISOString(),
-        frames: completeness.frames,
-        dropped_on_device: csiDroppedCount,
-        dropped_delta: completeness.dropped_delta,
-        complete: completeness.complete,
-        csi_period_ms: 0,
-        data_source: frames.some((frame) => frame.validBytes && frame.validBytes.length)
-          ? "valid_data"
-          : "raw_data",
-        subcarriers: frames[0]?.iq?.length || 0,
-        motion_peer: motionPeer,
-        motion_samples: motionSamples,
+      const recId = CsiRecorder.makeRecordingId(plan.label, new Date(captureStartMs), plan.takeIndex);
+      const actualDurationS = (captureEndMono - captureStartMono) / 1000;
+      let status;
+      if (statusOverride) {
+        status = statusOverride;
+      } else if (earlyStop) {
+        status = "stopped_early";
+      } else if (completeness.complete) {
+        status = "complete";
+      } else {
+        status = "incomplete";
+      }
+      const payloadOk = frames.filter((frame) => frame.payloadOk === true).length;
+      const deviceTs = frames.map((frame) => frame.ts_us).filter((v) => Number.isFinite(Number(v)) && Number(v) > 0);
+      const csiPeriodMs = (appInfo && Number.isFinite(Number(appInfo.csi_stream_period_ms)))
+        ? Number(appInfo.csi_stream_period_ms)
+        : null;
+      const rxSeqs = frames.map((frame) => Number(frame.rx_seq)).filter((v) => Number.isFinite(v));
+      let rxSeqGaps = null;
+      if (rxSeqs.length > 1) {
+        rxSeqGaps = 0;
+        for (let i = 1; i < rxSeqs.length; i++) {
+          const diff = (rxSeqs[i] - rxSeqs[i - 1] + 65536) % 65536;
+          if (diff !== 1) {
+            rxSeqGaps += 1;
+          }
+        }
+      }
+      /* Host monotonic <-> wall clock anchor pair (addendum G): taken as close
+       * as possible to capture start so annotation UTC timestamps and frame
+       * host_receive_monotonic_ns values can be correlated. performance.now()
+       * is in milliseconds; frames.csv stores it multiplied by 1e6. */
+      const clockAnchor = {
+        performance_now_ms: Math.round(captureStartMono * 1000) / 1000,
+        date_now_ms: captureStartMs,
+        note: "same-instant pair; host_receive_monotonic_ns in frames.csv equals performance.now() * 1e6",
+      };
+      const audioEnabled = Boolean(recEnableAudio && recEnableAudio.checked);
+      const visualOnly = audioEnabled && Boolean(recVisualOnlyConfirm && recVisualOnlyConfirm.checked);
+      const speechCues = cueEvents.filter((e) => e.kind === "speech");
+      const toneCues = cueEvents.filter((e) => e.kind === "tone");
+      const speechWorked = speechCues.some((e) => e.status === "completed" || e.status === "started");
+      const toneWorked = toneCues.some((e) => e.status === "scheduled");
+      let audioMode = "disabled";
+      if (visualOnly) {
+        audioMode = "visual_only";
+      } else if (audioEnabled && speechWorked && toneWorked) {
+        audioMode = "voice_and_tone";
+      } else if (audioEnabled && toneWorked) {
+        audioMode = "tone_only";
+      } else if (audioEnabled && speechWorked) {
+        audioMode = "voice_only";
+      }
+      const meta = CsiRecorder.buildMetaV3({
+        recording_id: recId,
+        activity_label: plan.label,
+        created_at_utc: new Date().toISOString(),
+        started_at_utc: new Date(captureStartMs).toISOString(),
+        ended_at_utc: new Date(captureStartMs + (captureEndMono - captureStartMono)).toISOString(),
+        actual_duration_s: actualDurationS,
+        status,
+        clock_anchor: clockAnchor,
+        wifi: {
+          channel: lastWifiMsg && Number.isFinite(Number(lastWifiMsg.channel)) ? Number(lastWifiMsg.channel) : null,
+          secondary_channel: null,
+          ap_mac: lastWifiMsg && lastWifiMsg.bssid ? lastWifiMsg.bssid : null,
+          ap_information: lastWifiMsg ? {
+            ssid: lastWifiMsg.ssid || null,
+            rssi: Number.isFinite(Number(lastWifiMsg.rssi)) ? Number(lastWifiMsg.rssi) : null,
+            ip: lastWifiMsg.ip || null,
+          } : null,
+        },
+        acquisition: {
+          csi_period_ms: csiPeriodMs,
+          csi_config: appInfo && appInfo.csi_config ? appInfo.csi_config : null,
+        },
+        recording: {
+          frames: completeness.frames,
+          dropped_on_device: csiDroppedCount,
+          dropped_delta: completeness.dropped_delta,
+          complete: completeness.complete && !earlyStop && !statusOverride,
+        },
+        activity: { pre_action: plan.options.pre_action, post_action: plan.options.post_action },
+        timeline: plan.timeline,
+        annotations,
+        audio_cues: {
+          enabled: audioEnabled,
+          mode: audioMode,
+          language: "id-ID",
+          voice: audioEngine.idVoice ? `${audioEngine.idVoice.name} (${audioEngine.idVoice.lang})` : null,
+          volume: audioVolume(),
+          preflight: csiRecorder.audioTest || null,
+          protocol_deviation: visualOnly
+            ? "visual_only_confirmed: Indonesian speech unavailable or audio preparation failed; operator explicitly confirmed continuing without audio cues"
+            : null,
+          events: cueEvents,
+        },
+        quality: {
+          payload_ok_frames: payloadOk,
+          payload_bad_frames: frames.length - payloadOk,
+          rx_seq_gaps: rxSeqGaps,
+          first_word_invalid_frames: frames.filter((frame) => frame.first_word_invalid === true).length,
+          sampling_intervals_ms: CsiRecorder.computeIntervalStats(deviceTs, csiPeriodMs && csiPeriodMs > 0 ? csiPeriodMs : null),
+        },
+        events: {
+          segments: [CsiRecorder.buildActivitySegment({
+            label: plan.label,
+            started: captureStartMs,
+            ended: captureStartMs + (captureEndMono - captureStartMono),
+            startedOffsetS: 0,
+            endedOffsetS: actualDurationS,
+          })],
+          motion_peer: motionPeer || "",
+          motion_samples: motionSamples || [],
+        },
+        batch: csiRecorder.takes > 1 ? {
+          batch_id: csiRecorder.batchId,
+          take: plan.takeIndex,
+          take_count: csiRecorder.takes,
+          gap_s: csiRecorder.gapS,
+        } : null,
       });
-      const csiCsv = CsiRecorder.buildCsiDataCsv(frames, { label, takeSeq: takeIndex });
-      const iqCsv = CsiRecorder.buildIqCsv(frames);
-      if (!completeness.complete) {
-        logEvent(`${t("recIncomplete")}: ${recId}`);
+      const framesCsv = CsiRecorder.buildFramesCsv(recId, frames);
+      if (status !== "complete") {
+        logEvent(`${t("recIncomplete")}: ${recId} (${status})`);
       }
       try {
         const response = await fetch("/api/recordings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: recId,
-            label,
-            csi_data_csv: csiCsv,
-            iq_csv: iqCsv,
-            meta,
-          }),
+          body: JSON.stringify({ id: recId, frames_csv: framesCsv, meta }),
         });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
         logEvent(`${t("recSaved")}: ${recId}`);
+        return { saved: "server", recId, meta };
       } catch (error) {
-        downloadTextFile(`${recId}.csi_data.csv`, csiCsv);
-        downloadTextFile(`${recId}.iq.csv`, iqCsv);
+        /* Save failed: fall back to browser download of the SAME two files so
+         * no take is ever silently lost, and report the failure explicitly. */
+        downloadTextFile(`${recId}.frames.csv`, framesCsv);
         downloadTextFile(`${recId}.meta.json`, JSON.stringify(meta, null, 2));
         logEvent(`${t("recSaveFailed")}: ${error.message}`);
+        return { saved: "download", recId, meta };
       }
+    }
+
+    function readRecorderOptions() {
+      return {
+        pre_action: recPreActionSelect.value || "still",
+        post_action: recPostActionSelect.value || "still",
+      };
+    }
+
+    /*
+     * Audio gate (spec §10.5): never start a take assuming audio works. With
+     * audio enabled the operator must have run Uji Suara; when speech is
+     * unavailable the explicit visual-only confirmation is required and gets
+     * recorded as a protocol deviation in meta.audio_cues.
+     */
+    function audioGateFailure() {
+      if (!recEnableAudio || !recEnableAudio.checked) {
+        return null;
+      }
+      const broken = !audioEngine.speechSupported || !audioEngine.idVoice;
+      if (broken && !(recVisualOnlyConfirm && recVisualOnlyConfirm.checked)) {
+        return t("recNeedVisualConfirm");
+      }
+      if (!broken && !csiRecorder.audioTested) {
+        return t("recNeedAudioTest");
+      }
+      return null;
     }
 
     async function startRecorderSession() {
@@ -2299,14 +3183,19 @@
         logEvent(t("recNeedSerial"));
         return;
       }
-      const label = currentRecorderLabel();
-      if (!label || !CsiRecorder.slugLabel(label)) {
-        logEvent(t("recNeedLabel"));
+      const label = recActivitySelect.value;
+      const options = CsiRecorder.buildActivityOptions(label, readRecorderOptions());
+      if (!options) {
+        logEvent(t("recInvalidOptions"));
         return;
       }
-      const countdownS = Math.max(0, Math.floor(Number(document.getElementById("recCountdownInput").value) || 0));
+      const timeline = CsiRecorder.buildActivityTimeline(label, options);
+      const cues = CsiRecorder.buildActivityCues(label, options);
+      if (!timeline || !cues) {
+        logEvent(t("recInvalidOptions"));
+        return;
+      }
       const batchSettings = CsiRecorder.parseBatchSettings({
-        durationS: document.getElementById("recDurationInput").value,
         takes: document.getElementById("recTakesInput").value,
         gapS: document.getElementById("recGapInput").value,
       });
@@ -2314,7 +3203,7 @@
         logEvent(t("recInvalidBatch"));
         return;
       }
-      const { durationS, takes, gapS } = batchSettings;
+      const { takes, gapS } = batchSettings;
       if (takes > 1) {
         try {
           const response = await fetch("/api/recordings");
@@ -2326,6 +3215,12 @@
           return;
         }
       }
+      unlockAudio();
+      const audioFailure = audioGateFailure();
+      if (audioFailure) {
+        logEvent(audioFailure);
+        return;
+      }
       renderStimulusWarn();
       csiRecorder.cancelled = false;
       csiRecorder.disconnected = false;
@@ -2335,18 +3230,17 @@
       csiRecorder.restorePeriod = Number(csiPeriodInput.value) || 100;
       csiRecorder.restoreStream = csiStreamActive;
       document.getElementById("recStartBtn").disabled = true;
+      recResult.hidden = true;
       const pendingSaves = [];
       try {
         await sendCommand("SET_CSI_PERIOD 0");
         await sendCommand("START_CSI_STREAM");
+        /* Refresh appInfo from the device itself. The connect-time HELLO is
+         * gated on sensing_ready, so it can be missed entirely; without this,
+         * meta.json would store csi_period_ms/csi_config as null. */
+        await sendCommand("HELLO");
         csiStreamActive = true;
         renderCsiStatus();
-
-        if (countdownS > 0) {
-          csiRecorder.take = 1;
-          csiRecorder.phase = "countdown";
-          await waitRecorderPhase(countdownS * 1000);
-        }
 
         for (let take = 1; take <= takes && !csiRecorder.cancelled; take++) {
           csiRecorder.take = take;
@@ -2357,38 +3251,20 @@
               break;
             }
           }
-          const started = new Date();
-          csiRecorder.droppedStart = csiDroppedCount;
-          csiRecorder.frames = [];
-          csiRecorder.motionSamples = [];
-          csiRecorder.motionPeer = selectedPeer || "";
-          csiRecorder.phase = "recording";
-          const phaseStart = Date.now();
-          await waitRecorderPhase(durationS * 1000);
-          if (csiRecorder.cancelled) {
-            break;
-          }
-          const frames = csiRecorder.frames;
-          const motionSamples = csiRecorder.motionSamples;
-          const motionPeer = csiRecorder.motionPeer;
-          const ended = new Date(phaseStart + durationS * 1000);
-          const droppedStart = csiRecorder.droppedStart;
-          csiRecorder.frames = [];
+          const plan = { label, options, timeline, cues, takeIndex: take };
+          /* Every take re-runs the full 10 s deadline loop; nothing carries
+           * over between takes except the batch identity. */
+          const takeCtx = await runTake(plan);
           pendingSaves.push(
-            saveTake(
-              label,
-              take,
-              take === 1 ? countdownS : 0,
-              durationS,
-              frames,
-              droppedStart,
-              started,
-              ended,
-              motionSamples,
-              motionPeer,
-            ).catch((error) => {
-              logEvent(`${t("logError")}: ${error.message}`);
-            }),
+            saveTakeV3(takeCtx)
+              .then((result) => {
+                if (result) {
+                  renderTakeResult(result, result.meta);
+                }
+              })
+              .catch((error) => {
+                logEvent(`${t("logError")}: ${error.message}`);
+              }),
           );
         }
         if (pendingSaves.length) {
@@ -2405,6 +3281,11 @@
         csiRecorder.frames = [];
         csiRecorder.motionSamples = [];
         csiRecorder.motionPeer = "";
+        csiRecorder.plan = null;
+        csiRecorder.currentPhaseId = "";
+        recLive.hidden = true;
+        if (recMarkFallStartBtn) recMarkFallStartBtn.disabled = true;
+        if (recMarkImpactBtn) recMarkImpactBtn.disabled = true;
         document.getElementById("recStartBtn").disabled = false;
         renderRecorderStatus();
         if (writer && !csiRecorder.disconnected) {
@@ -2451,7 +3332,7 @@
     function renderRecordingsTable() {
       const filter = (libFilterInput.value || "").trim().toLowerCase();
       const rows = csiRecorder.library
-        .filter((row) => !filter || String(row.label || "").toLowerCase().includes(filter))
+        .filter((row) => !filter || String(row.activity_label || row.label || "").toLowerCase().includes(filter))
         .sort((a, b) => String(b.started_at_utc || "").localeCompare(String(a.started_at_utc || "")));
       libTableBody.replaceChildren();
       libCountText.textContent = t("libCount")
@@ -2460,9 +3341,9 @@
       for (const row of rows) {
         const tr = document.createElement("tr");
         const cells = [
-          row.label || "",
+          row.activity_label || row.label || "",
           row.started_at_utc || "",
-          String(row.duration_s ?? ""),
+          String(row.actual_duration_s ?? row.duration_s ?? ""),
           String(row.frames ?? ""),
           String(row.complete ?? ""),
         ];
@@ -3181,15 +4062,23 @@
             csiHistory.shift();
           }
         }
-        if (csiRecorder.phase === "recording") {
+        if (csiRecorder.phase === "recording" && csiRecorder.captureStartMono > 0) {
+          /* Payload integrity is decided at capture time from the byte counts
+           * actually decoded, so a truncated serial line can never masquerade
+           * as an intact frame later (spec §16.B). */
+          const rawOk = rawBytes.length === Number(msg.raw_len);
+          const validOk = !validBytes.length || validBytes.length === Number(msg.valid_len);
           csiRecorder.frames.push({
             seq: Number(msg.seq || 0),
+            rx_seq: Number.isFinite(Number(msg.rx_seq)) ? Number(msg.rx_seq) : null,
             mac: msg.mac || "",
+            dmac: msg.dmac || "",
             rssi: Number(msg.rssi || 0),
             raw_len: Number(msg.raw_len || rawBytes.length),
             valid_len: Number(msg.valid_len || validBytes.length),
             data_type: Number(msg.data_type || 0),
             dropped: Number(msg.dropped || 0),
+            drop_reasons: msg.drop_reasons || null,
             ts_us: Number(msg.ts_us || 0),
             rate: Number(msg.rate || 0),
             sig_mode: Number(msg.sig_mode || 0),
@@ -3202,6 +4091,16 @@
             local_timestamp: Number(msg.local_timestamp || 0),
             agc_gain: Number(msg.agc_gain || 0),
             fft_gain: Number(msg.fft_gain || 0),
+            lltf_len: Number.isFinite(Number(msg.lltf_len)) ? Number(msg.lltf_len) : null,
+            ht_ltf_len: Number.isFinite(Number(msg.ht_ltf_len)) ? Number(msg.ht_ltf_len) : null,
+            stbc_ht_ltf_len: Number.isFinite(Number(msg.stbc_ht_ltf_len)) ? Number(msg.stbc_ht_ltf_len) : null,
+            first_word_invalid: typeof msg.first_word_invalid === "boolean" ? msg.first_word_invalid : null,
+            rx_gain_compensation: Number.isFinite(Number(msg.rx_gain_compensation)) ? Number(msg.rx_gain_compensation) : null,
+            host_receive_monotonic_ns: Number.isFinite(Number(msg.host_receive_monotonic_ns)) ? Number(msg.host_receive_monotonic_ns) : null,
+            /* performance.now() at parse time (ms), for the live CSI-received
+             * indicator only; the stored column stays host_receive_monotonic_ns. */
+            hostMonoMs: performance.now(),
+            payloadOk: rawOk && validOk,
             rawBytes,
             validBytes,
             iq: frame,
@@ -3443,6 +4342,14 @@
             if (done) {
               break;
             }
+            /*
+             * Stamp the moment the bytes reached the PC using a monotonic clock
+             * (performance.now is monotonic and sub-millisecond). This is kept
+             * separate from the firmware callback and rx_ctrl timestamps so the
+             * three clocks are never mixed. Every line decoded from this chunk
+             * inherits the same host receive time.
+             */
+            const hostReceiveNs = Math.round(performance.now() * 1e6);
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop();
@@ -3457,7 +4364,11 @@
                 continue;
               }
               try {
-                handleMessage(JSON.parse(trimmedLine.slice(HMS_PREFIX.length)));
+                const msg = JSON.parse(trimmedLine.slice(HMS_PREFIX.length));
+                if (msg && typeof msg === "object") {
+                  msg.host_receive_monotonic_ns = hostReceiveNs;
+                }
+                handleMessage(msg);
               } catch (error) {
                 logEvent(`${t("logJsonParseFailed")}: ${error.message}`);
               }
@@ -3640,6 +4551,25 @@
       document.getElementById("recStartBtn").addEventListener("click", startRecorderSession);
       document.getElementById("recCancelBtn").addEventListener("click", cancelRecorderSession);
       document.getElementById("recStartStimulusBtn").addEventListener("click", startRecorderStimulus);
+      document.getElementById("recTestAudioBtn").addEventListener("click", testAudio);
+      recActivitySelect.addEventListener("change", refreshRecorderOptions);
+      recEnableAudio.addEventListener("change", renderAudioStatus);
+      recVolumeInput.addEventListener("input", () => {
+        if (audioEngine.gain) {
+          audioEngine.gain.gain.value = audioVolume();
+        }
+      });
+      recMarkFallStartBtn.addEventListener("click", () => markAnnotation("fall_start"));
+      recMarkImpactBtn.addEventListener("click", () => markAnnotation("fall_impact"));
+      /* Spacebar marks fall start during capture so the participant does not
+       * have to aim at the button mid-action. */
+      window.addEventListener("keydown", (event) => {
+        if (event.code === "Space" && csiRecorder.phase === "recording" &&
+            recAnnotRow && !recAnnotRow.hidden && !recMarkFallStartBtn.disabled) {
+          event.preventDefault();
+          markAnnotation("fall_start");
+        }
+      });
       document.getElementById("libRefreshBtn").addEventListener("click", refreshRecordingsLibrary);
       libFilterInput.addEventListener("input", renderRecordingsTable);
       csiViewSelect.addEventListener("change", () => {
@@ -3657,7 +4587,13 @@
         event.preventDefault();
         applyConfig();
       });
-      window.addEventListener("beforeunload", () => {
+      window.addEventListener("beforeunload", (event) => {
+        /* Warn when the tab is closed or reloaded mid-take: the frames only
+         * exist in page memory until saveTakeV3 finishes (spec §13). */
+        if (recorderBusy()) {
+          event.preventDefault();
+          event.returnValue = "";
+        }
         if (port) {
           disconnectSerial();
         }
@@ -3682,6 +4618,13 @@
     }
 
     bindEvents();
+    populateRecorderControls();
+    if (audioEngine.speechSupported) {
+      window.speechSynthesis.onvoiceschanged = refreshVoices;
+      refreshVoices();
+    } else {
+      renderAudioStatus();
+    }
     applyLanguage();
     clearConfigForm();
     startRenderLoop();

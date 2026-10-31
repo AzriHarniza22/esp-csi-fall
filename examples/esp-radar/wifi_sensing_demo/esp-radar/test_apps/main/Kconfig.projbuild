@@ -1,0 +1,11 @@
+menu "ESP Radar test app"
+
+    config ESP_RADAR_TEST_MULTI_PEER
+        bool "Enable multi-peer mode (use esp_radar_new_peer + wifi_radar_cb_ex)"
+        default n
+        help
+            If enabled, the test app will create additional peers by MAC address and use
+            wifi_radar_cb_ex to report radar info per peer.
+            If disabled, the app runs in legacy single-peer mode using wifi_radar_cb.
+
+endmenu
