@@ -140,7 +140,6 @@ static void on_motion_event(esp_wifi_sensing_fsm_handle_t handle,
  * them without synchronisation races on the 6-byte BSSID copy.
  */
 static bool s_sensing_started = false;
-static bool s_ping_running = false;
 
 /*
  * The event-loop task runs on a small stack (CONFIG_ESP_SYSTEM_EVENT_TASK_SIZE,
@@ -157,38 +156,6 @@ static void sensing_request(EventBits_t bits)
         return;
     }
     xEventGroupSetBits(s_sensing_events, bits);
-}
-
-static void sensing_start_ping(void)
-{
-    if (!s_hms || s_ping_running) {
-        return;
-    }
-
-    esp_err_t err = esp_wifi_sensing_fsm_ping_router_start(s_hms);
-    if (err == ESP_OK) {
-        s_ping_running = true;
-        ESP_LOGI(TAG, "router ping started");
-    } else if (err == ESP_ERR_INVALID_STATE) {
-        ESP_LOGW(TAG, "router ping start failed: Wi-Fi STA not connected or no gateway");
-    } else {
-        ESP_LOGE(TAG, "router ping start failed: %s", esp_err_to_name(err));
-    }
-}
-
-static void sensing_stop_ping(void)
-{
-    if (!s_hms || !s_ping_running) {
-        return;
-    }
-
-    (void)esp_wifi_sensing_fsm_ping_router_stop(s_hms);
-    s_ping_running = false;
-    ESP_LOGI(TAG, "router ping stopped");
-
-#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
-    ht_stimulus_stop();
-#endif
 }
 
 static void sensing_start(const uint8_t *ap_bssid)
@@ -277,20 +244,12 @@ static void sensing_start(const uint8_t *ap_bssid)
              CONFIG_ESP_WIFI_SENSING_CONFIRM_COUNT,
              cfg.ping_frequency_hz);
 
-    sensing_start_ping();
-
-#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
     /*
-     * The router ping alone is not enough to keep the graph moving. Measured on
-     * an 11n AP at -60 dBm with the stimulus off, the graph froze for up to 6 s
-     * at a time (35-53% of samples held one value) and only 5.3 detection
-     * windows were produced per 45 s. With the default 200 KB / 100 ms burst the
-     * link carries 6x more HT frames and produces 18.4 windows per 45 s.
-     *
-     * `SET_STIMULUS off` on the web UI turns it off at runtime.
+     * The traffic stimulus (HTTP burst vs ICMP router ping) is now selected at
+     * runtime and applied once here so HTTP and the ping never co-run: the
+     * default mode is `off`, and a `SET_STIMULUS_MODE` command picks the source
+     * for the comparison experiment. See web_serial_monitor_link_up_apply_stimulus().
      */
-    ESP_ERROR_CHECK(ht_stimulus_start());
-#endif
 
 #if CONFIG_ESP_WIFI_SENSING_WEB_SERIAL_ENABLE
     /* Web UI also maps esp-radar train (TRAIN_START/STOP/REMOVE) and streams wander / train thresholds. */
@@ -311,11 +270,14 @@ static void sensing_start(const uint8_t *ap_bssid)
     };
     web_serial_monitor_attach_sensing(&serial_cfg);
 #endif
+
+    /* FSM handle and peers are bound now, so a selected stimulus can start. */
+    web_serial_monitor_link_up_apply_stimulus();
 }
 
 /*
  * The browser switched APs. Rebind the AP channel to the new BSSID,
- * relearn the baseline, then bring the router ping back on the new link.
+ * relearn the baseline, then re-apply the selected stimulus on the new link.
  */
 static void sensing_rebind_ap(const uint8_t *bssid)
 {
@@ -324,14 +286,8 @@ static void sensing_rebind_ap(const uint8_t *bssid)
     }
 
     if (memcmp(s_mac_ap, bssid, sizeof(s_mac_ap)) == 0) {
-        /* Same AP: the channel binding is still valid, only the ping needs reviving. */
-        sensing_start_ping();
-#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
-        /* sensing_stop_ping() stops the stimulus too, and a reconnect tears the
-         * association down, so without this the graph never recovers on its own
-         * after a link drop. */
-        ht_stimulus_start();
-#endif
+        /* Same AP: the channel binding is still valid, only the stimulus needs reviving. */
+        web_serial_monitor_link_up_apply_stimulus();
         return;
     }
 
@@ -346,10 +302,7 @@ static void sensing_rebind_ap(const uint8_t *bssid)
     (void)web_serial_monitor_update_peer_mac("AP", s_mac_ap);
 #endif
 
-    sensing_start_ping();
-#if CONFIG_ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
-    ht_stimulus_start();
-#endif
+    web_serial_monitor_link_up_apply_stimulus();
     ESP_LOGI(TAG, "rebound AP channel to " MACSTR, MAC2STR(s_mac_ap));
 }
 
@@ -397,11 +350,11 @@ static void sensing_task(void *arg)
         case WIFI_RUNTIME_STATE_DISCONNECTED:
         case WIFI_RUNTIME_STATE_FAILED:
             /*
-             * The AP channel is about to move, or is already gone, so the ping
+             * The AP channel is about to move, or is already gone, so the stimulus
              * schedule is stale. Stopping it here also keeps this (blocking) call
              * off the event-loop stack and out of the manager mutex.
              */
-            sensing_stop_ping();
+            web_serial_monitor_link_down_stop_stimulus();
             break;
 
         default:

@@ -1375,7 +1375,7 @@ Pastikan instruksi fase, label, dan metadata selalu konsisten.
 Periksa setiap batas fase:
 
 - Fall: 0, 4, 6, 10 detik.
-- Walking: 0, 2, 8, 10 detik.
+- Walking: 0, 3, 7, 10 detik.
 - Fast sitting: 0, 4, 6, 10 detik.
 - Bending: 0, 3, 7, 10 detik.
 - Object drop: 0, 4, 6, 10 detik.

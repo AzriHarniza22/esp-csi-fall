@@ -94,3 +94,7 @@ docs/docusaurus/website/node_modules
 # CSI dataset takes (keep recordings/README.md)
 examples/esp-radar/wifi_sensing_demo/recordings/**/*.csv
 examples/esp-radar/wifi_sensing_demo/recordings/**/*.meta.json
+
+# flash backup & IDE cache (lokal saja, jangan di-commit)
+p1_flash_backup/
+.qoder/

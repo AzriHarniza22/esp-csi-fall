@@ -527,26 +527,78 @@
       </section>
 
       <section class="panel section">
-        <h2 id="stimulusPanelTitle">HT Stimulus</h2>
-        <div id="stimulusPanelDesc" class="muted">Downloads through the AP so it keeps emitting HT frames. Tuning this changes how much CSI arrives and how long the channel stays quiet between bursts.</div>
+        <h2 id="webStimPanelTitle">Wi-Fi Stimulus Control</h2>
+        <div id="webStimPanelDesc" class="muted">Pick one of four presets and apply it. The device runs only one stimulus at a time; the status below reflects what the firmware confirms, not what you selected.</div>
         <div style="height: 12px;"></div>
         <div class="status-pill">
-          <span class="badge" id="stimulusBadge">-</span>
-          <strong id="stimulusStateText">-</strong>
-          <button id="refreshStimulusBtn" class="secondary small" type="button">Refresh</button>
+          <span class="badge" id="webStimStatusBadge">-</span>
+          <strong id="webStimStatusText">-</strong>
         </div>
-        <div style="height: 6px;"></div>
-        <div class="muted" id="stimulusDetailText">-</div>
-        <div style="height: 12px;"></div>
-        <form id="stimulusForm" class="wifi-form" autocomplete="off">
-          <label><span id="stimulusBurstLabel">Burst (KB)</span><input id="stimulusBurstInput" type="number" min="100" max="20000" step="100" value="200" autocomplete="off" /></label>
-          <label><span id="stimulusPauseLabel">Pause (ms)</span><input id="stimulusPauseInput" type="number" min="50" max="5000" step="50" value="100" autocomplete="off" /></label>
+        <div style="height: 10px;"></div>
+        <form id="webStimForm" class="wifi-form" autocomplete="off">
+          <label><span id="webStimPresetLabel">Preset</span>
+            <select id="webStimPresetSelect">
+              <option value="off">OFF</option>
+              <option value="http200">HTTP 200 KB</option>
+              <option value="http64">HTTP 64 KB</option>
+              <option value="tcp">TCP</option>
+            </select>
+          </label>
         </form>
+        <div style="height: 6px;"></div>
+        <div class="muted" id="webStimConfigText">-</div>
         <div style="height: 10px;"></div>
         <div class="button-row">
-          <button id="toggleStimulusBtn">-</button>
-          <button id="applyStimulusBtn" class="secondary">-</button>
+          <button id="webStimApplyBtn">Apply / Start</button>
+          <button id="webStimStopBtn" class="secondary">STOP / OFF</button>
+          <button id="webStimRetryBtn" class="secondary small" type="button" hidden>Retry</button>
         </div>
+        <div style="height: 10px;"></div>
+        <div class="muted" id="webStimSelectedText">-</div>
+        <div class="muted" id="webStimActiveText">-</div>
+        <div class="muted" id="webStimLastCmdText">-</div>
+        <div class="muted" id="webStimLastRespText">-</div>
+        <div style="height: 10px;"></div>
+        <div class="button-row">
+          <button id="webStimAdvancedToggle" class="secondary small" type="button">Advanced</button>
+        </div>
+        <div id="webStimAdvancedWrap" style="display:none;">
+          <div style="height: 6px;"></div>
+          <div class="status-pill">
+            <span class="badge" id="stimulusBadge">-</span>
+            <strong id="stimulusStateText">-</strong>
+            <button id="refreshStimulusBtn" class="secondary small" type="button">Refresh</button>
+          </div>
+          <div style="height: 6px;"></div>
+          <div class="muted" id="stimulusDetailText">-</div>
+          <div style="height: 10px;"></div>
+          <form id="stimulusForm" class="wifi-form" autocomplete="off">
+            <label><span id="stimulusModeLabel">Stimulus mode</span>
+              <select id="stimulusModeSelect">
+                <option value="off">Off (natural traffic only)</option>
+                <option value="http_cloudflare">HTTP Cloudflare</option>
+                <option value="icmp_ping">ICMP ping router</option>
+                <option value="tcp_gateway">TCP gateway (A3)</option>
+              </select>
+            </label>
+            <label id="stimulusPingHzWrap"><span id="stimulusPingHzLabel">Ping (Hz)</span><input id="stimulusPingHzInput" type="number" min="1" max="1000" step="1" value="100" autocomplete="off" /></label>
+            <label><span id="stimulusBurstLabel">Burst (KB)</span><input id="stimulusBurstInput" type="number" min="100" max="20000" step="100" value="200" autocomplete="off" /></label>
+            <label><span id="stimulusPauseLabel">Pause (ms)</span><input id="stimulusPauseInput" type="number" min="50" max="5000" step="50" value="100" autocomplete="off" /></label>
+            <label id="stimulusTcpConcWrap"><span id="stimulusTcpConcLabel">TCP connections</span><input id="stimulusTcpConcInput" type="number" min="1" max="8" step="1" value="4" autocomplete="off" /></label>
+            <label id="stimulusTcpIntWrap"><span id="stimulusTcpIntLabel">TCP interval (ms)</span><input id="stimulusTcpIntInput" type="number" min="1" max="5000" step="10" value="10" autocomplete="off" /></label>
+            <label id="stimulusTcpToWrap"><span id="stimulusTcpToLabel">TCP timeout (ms)</span><input id="stimulusTcpToInput" type="number" min="0" max="5000" step="10" value="50" autocomplete="off" /></label>
+          </form>
+          <div id="stimulusTcpHint" class="muted" style="display:none;"></div>
+          <div style="height: 10px;"></div>
+          <div class="button-row">
+            <button id="applyStimulusModeBtn" class="secondary">-</button>
+            <button id="toggleStimulusBtn">-</button>
+            <button id="applyStimulusBtn" class="secondary">-</button>
+          </div>
+        </div>
+        <div style="height: 10px;"></div>
+        <div id="webStimCsiTitle" class="muted">CSI acquisition</div>
+        <div class="muted" id="webStimCsiText">-</div>
       </section>
 
       <section class="panel section">
@@ -1136,8 +1188,8 @@
         activityRunnerUp: "Runner-up: {label} (score {value})",
         activityConfidenceUnavailable: "Confidence: unavailable (not calibrated)",
         activityConfidence: "Confidence: {value}%",
-        stimulusPanelTitle: "HT Stimulus",
-        stimulusPanelDesc: "Downloads through the AP so it keeps emitting HT frames. Tuning this changes how much CSI arrives and how long the channel stays quiet between bursts.",
+        stimulusPanelTitle: "Traffic Stimulus (HTTP vs Ping)",
+        stimulusPanelDesc: "Pick one stimulus source. HTTP downloads through the AP so it emits HT frames; ICMP pings the router for its replies. Only one runs at a time. Tuning changes how much CSI arrives and how regular it is.",
         stimulusBurstLabel: "Burst (KB)",
         stimulusPauseLabel: "Pause (ms)",
         stimulusRefreshBtn: "Refresh",
@@ -1149,6 +1201,56 @@
         stimulusPauseRange: "pause must be 50..5000 ms",
         stimulusOn: "RUNNING",
         stimulusOff: "STOPPED",
+        stimulusModeLabel: "Stimulus mode",
+        stimulusPingHzLabel: "Ping (Hz)",
+        stimulusApplyModeBtn: "Apply mode",
+        stimulusModeHttp: "HTTP",
+        stimulusModePing: "ICMP ping",
+        stimulusModeTcp: "TCP gateway",
+        stimulusModeOff: "Off (no stimulus)",
+        stimulusPingRange: "ping hz must be 1..1000",
+        stimulusTcpConcLabel: "TCP connections",
+        stimulusTcpIntLabel: "TCP interval (ms)",
+        stimulusTcpToLabel: "TCP timeout (ms)",
+        stimulusTcpRange: "TCP connections 1..8, interval 1..5000 ms, timeout 0..5000 ms",
+        stimulusTcpHint: "Rounded to the 10 ms FreeRTOS tick: timeout 10/5/1 all wait ~20 ms, and an interval below 10 ms does not delay.",
+        webStimPanelTitle: "Wi-Fi Stimulus Control",
+        webStimPanelDesc: "Pick one of four presets and apply it. The device runs only one stimulus at a time; the status below reflects what the firmware confirms, not what you selected.",
+        webStimPresetLabel: "Preset",
+        webStimPresetOff: "OFF",
+        webStimPresetHttp200: "HTTP 200 KB",
+        webStimPresetHttp64: "HTTP 64 KB",
+        webStimPresetTcp: "TCP",
+        webStimApplyBtn: "Apply / Start",
+        webStimStopBtn: "STOP / OFF",
+        webStimRetryBtn: "Retry",
+        webStimAdvancedBtn: "Advanced (manual tuning)",
+        webStimSelectedLabel: "Selected Mode",
+        webStimActiveLabel: "Active Mode",
+        webStimLastCmdLabel: "Last Command",
+        webStimLastRespLabel: "Last Response",
+        webStimStatusOff: "OFF",
+        webStimStatusStarting: "STARTING",
+        webStimStatusActive: "ACTIVE",
+        webStimStatusStopping: "STOPPING",
+        webStimStatusError: "ERROR",
+        webStimStatusUnknown: "UNKNOWN",
+        webStimStatusTimeout: "no ACK received (timeout)",
+        webStimActiveNone: "waiting for firmware...",
+        webStimCsiTitle: "CSI acquisition",
+        webStimCsiDeviceFps: "Device CSI {hz} fps",
+        webStimCsiHostFps: "Host received {hz} fps",
+        webStimCsiFrames: "{n} frames",
+        webStimCsiDropped: "{n} dropped",
+        webStimCsiRssi: "RSSI {db} dBm",
+        webStimCsiHeap: "Heap {kb} kB",
+        webStimCsiSerial: "Serial {state}",
+        webStimSerialOn: "connected",
+        webStimSerialOff: "disconnected",
+        webStimConfigOff: "Stimulus: disabled (natural AP traffic only).",
+        webStimConfigHttp200: "Protocol: HTTP GET \u00b7 Endpoint: Cloudflare \u00b7 Burst: 200000 bytes \u00b7 Pause: 100 ms \u00b7 Keep-alive: disabled \u00b7 Connection: connect-close",
+        webStimConfigHttp64: "Protocol: HTTP GET \u00b7 Endpoint: Cloudflare \u00b7 Burst: 65536 bytes \u00b7 Pause: 0 ms \u00b7 Keep-alive: disabled \u00b7 Connection: connect-close",
+        webStimConfigTcp: "Protocol: TCP connect\u2192close to gateway \u00b7 Concurrency: 4 \u00b7 Interval: 10 ms \u00b7 Timeout: 50 ms \u00b7 Ports 80\u219253 (failover)",
         logWifiUpdated: "Wi-Fi configuration sent",
         wifiStateLabel: "Status",
         wifiStateBooting: "Booting",
@@ -1304,8 +1406,8 @@
         activityRunnerUp: "次高类别：{label}（分数 {value}）",
         activityConfidenceUnavailable: "置信度：不可用（未校准）",
         activityConfidence: "置信度：{value}%",
-        stimulusPanelTitle: "HT 刺激流量",
-        stimulusPanelDesc: "通过 AP 持续下载，使其不断发送 HT 帧。调整此项会改变 CSI 的到达量以及两次突发之间的静默时长。",
+        stimulusPanelTitle: "流量激励（HTTP 对比 Ping）",
+        stimulusPanelDesc: "选择单一激励源。HTTP 通过 AP 持续下载使其发送 HT 帧；ICMP 则向路由器发送 Ping 取其回包。一次只运行一种。调整此项会改变 CSI 的到达量与规律性。",
         stimulusBurstLabel: "单次流量（KB）",
         stimulusPauseLabel: "间隔（毫秒）",
         stimulusRefreshBtn: "刷新",
@@ -1317,6 +1419,56 @@
         stimulusPauseRange: "间隔必须为 50..5000 毫秒",
         stimulusOn: "运行中",
         stimulusOff: "已停止",
+        stimulusModeLabel: "激励模式",
+        stimulusPingHzLabel: "Ping（Hz）",
+        stimulusApplyModeBtn: "应用模式",
+        stimulusModeHttp: "HTTP",
+        stimulusModePing: "ICMP Ping",
+        stimulusModeTcp: "TCP 网关",
+        stimulusModeOff: "关闭（无激励）",
+        stimulusPingRange: "ping hz 必须为 1..1000",
+        stimulusTcpConcLabel: "TCP 连接数",
+        stimulusTcpIntLabel: "TCP 间隔（毫秒）",
+        stimulusTcpToLabel: "TCP 超时（毫秒）",
+        stimulusTcpRange: "TCP 连接数必须为 1..8，间隔 1..5000 毫秒，超时 0..5000 毫秒",
+        stimulusTcpHint: "受 10 毫秒 FreeRTOS tick 限制：超时 10/5/1 均等待约 20 毫秒，间隔小于 10 毫秒不会产生延时。",
+        webStimPanelTitle: "Wi-Fi 激励控制",
+        webStimPanelDesc: "选择四种预设之一并应用。设备一次只运行一种激励；下方状态反映固件确认的实际情况，而非你所选项。",
+        webStimPresetLabel: "预设",
+        webStimPresetOff: "关闭",
+        webStimPresetHttp200: "HTTP 200 KB",
+        webStimPresetHttp64: "HTTP 64 KB",
+        webStimPresetTcp: "TCP",
+        webStimApplyBtn: "应用 / 启动",
+        webStimStopBtn: "停止 / 关闭",
+        webStimRetryBtn: "重试",
+        webStimAdvancedBtn: "高级（手动调节）",
+        webStimSelectedLabel: "已选模式",
+        webStimActiveLabel: "当前模式",
+        webStimLastCmdLabel: "最后命令",
+        webStimLastRespLabel: "最后响应",
+        webStimStatusOff: "关闭",
+        webStimStatusStarting: "启动中",
+        webStimStatusActive: "运行中",
+        webStimStatusStopping: "停止中",
+        webStimStatusError: "错误",
+        webStimStatusUnknown: "未知",
+        webStimStatusTimeout: "未收到 ACK（超时）",
+        webStimActiveNone: "等待固件…",
+        webStimCsiTitle: "CSI 采集",
+        webStimCsiDeviceFps: "设备 CSI {hz} fps",
+        webStimCsiHostFps: "主机接收 {hz} fps",
+        webStimCsiFrames: "{n} 帧",
+        webStimCsiDropped: "{n} 丢弃",
+        webStimCsiRssi: "RSSI {db} dBm",
+        webStimCsiHeap: "堆 {kb} kB",
+        webStimCsiSerial: "串口 {state}",
+        webStimSerialOn: "已连接",
+        webStimSerialOff: "已断开",
+        webStimConfigOff: "激励：已禁用（仅 AP 自然流量）。",
+        webStimConfigHttp200: "协议：HTTP GET \u00b7 端点：Cloudflare \u00b7 单次：200000 字节 \u00b7 间隔：100 ms \u00b7 Keep-alive：禁用 \u00b7 连接：connect-close",
+        webStimConfigHttp64: "协议：HTTP GET \u00b7 端点：Cloudflare \u00b7 单次：65536 字节 \u00b7 间隔：0 ms \u00b7 Keep-alive：禁用 \u00b7 连接：connect-close",
+        webStimConfigTcp: "协议：TCP connect\u2192close 至网关 \u00b7 并发：4 \u00b7 间隔：10 ms \u00b7 超时：50 ms \u00b7 端口 80\u219253（故障切换）",
         logWifiUpdated: "Wi-Fi 配置已发送",
         wifiStateLabel: "状态",
         wifiStateBooting: "启动中",
@@ -1527,7 +1679,41 @@
     const refreshStimulusBtn = document.getElementById("refreshStimulusBtn");
     const toggleStimulusBtn = document.getElementById("toggleStimulusBtn");
     const applyStimulusBtn = document.getElementById("applyStimulusBtn");
+    const stimulusModeSelect = document.getElementById("stimulusModeSelect");
+    const stimulusPingHzInput = document.getElementById("stimulusPingHzInput");
+    const stimulusPingHzWrap = document.getElementById("stimulusPingHzWrap");
+    const stimulusTcpConcInput = document.getElementById("stimulusTcpConcInput");
+    const stimulusTcpIntInput = document.getElementById("stimulusTcpIntInput");
+    const stimulusTcpToInput = document.getElementById("stimulusTcpToInput");
+    const stimulusTcpWraps = ["stimulusTcpConcWrap", "stimulusTcpIntWrap", "stimulusTcpToWrap"]
+      .map((id) => document.getElementById(id));
+    const stimulusTcpHintText = document.getElementById("stimulusTcpHint");
+    const applyStimulusModeBtn = document.getElementById("applyStimulusModeBtn");
     let stimulusState = null;
+    const webStimPresetSelect = document.getElementById("webStimPresetSelect");
+    const webStimApplyBtn = document.getElementById("webStimApplyBtn");
+    const webStimStopBtn = document.getElementById("webStimStopBtn");
+    const webStimRetryBtn = document.getElementById("webStimRetryBtn");
+    const webStimConfigText = document.getElementById("webStimConfigText");
+    const webStimStatusBadge = document.getElementById("webStimStatusBadge");
+    const webStimStatusText = document.getElementById("webStimStatusText");
+    const webStimSelectedText = document.getElementById("webStimSelectedText");
+    const webStimActiveText = document.getElementById("webStimActiveText");
+    const webStimLastCmdText = document.getElementById("webStimLastCmdText");
+    const webStimLastRespText = document.getElementById("webStimLastRespText");
+    const webStimCsiText = document.getElementById("webStimCsiText");
+    const webStimAdvancedToggle = document.getElementById("webStimAdvancedToggle");
+    const webStimAdvancedWrap = document.getElementById("webStimAdvancedWrap");
+    let webStimUi = {
+      connected: false,
+      status: "UNKNOWN",
+      lastCmd: "",
+      lastResp: "",
+      lastAttempt: null,
+      pendingAck: null,
+      ackTimer: null,
+      hostTs: [],
+    };
     const mainChart = document.getElementById("mainChart");
     const wanderChart = document.getElementById("wanderChart");
     const csiChart = document.getElementById("csiChart");
@@ -1599,7 +1785,41 @@
       captureStartDateMs: 0,
       audioTested: false,
       audioTest: null,
+      /* Prioritas 1 diagnostic instrumentation (plan §18): device-side epoch per
+       * take + the host session model that accumulates ping/csi_diag events and
+       * finalises only after a generation-matched STOP ACK. */
+      epoch: 0,
+      diagSession: null,
     };
+
+    /* Pending command ACK waiters, keyed by `${cmd}:${epoch}`. sendCommand is
+     * fire-and-forget over Web Serial, so START/STOP ACKs are correlated here. */
+    const pendingAcks = new Map();
+
+    /* Waits for an ACK with the given cmd+epoch, resolving null on timeout so the
+     * caller can mark the take boundary_unconfirmed instead of assuming success. */
+    function waitForAck(cmd, epoch, timeoutMs) {
+      return new Promise((resolve) => {
+        const key = `${cmd}:${epoch}`;
+        const timer = setTimeout(() => {
+          pendingAcks.delete(key);
+          resolve(null);
+        }, timeoutMs || 2000);
+        pendingAcks.set(key, { resolve, timer });
+      });
+    }
+
+    function resolveAck(msg) {
+      const key = `${msg.cmd}:${msg.epoch}`;
+      const waiter = pendingAcks.get(key);
+      if (waiter) {
+        clearTimeout(waiter.timer);
+        pendingAcks.delete(key);
+        waiter.resolve(msg);
+        return true;
+      }
+      return false;
+    }
 
     const recActivitySelect = document.getElementById("recActivitySelect");
     const recPreActionSelect = document.getElementById("recPreActionSelect");
@@ -1911,15 +2131,84 @@
       document.getElementById("activityPanelDesc").textContent = t("activityPanelDesc");
       document.getElementById("activityClassLabel").textContent = t("activityClassLabel");
       renderActivityClassification();
-      document.getElementById("stimulusPanelTitle").textContent = t("stimulusPanelTitle");
-      document.getElementById("stimulusPanelDesc").textContent = t("stimulusPanelDesc");
       document.getElementById("stimulusBurstLabel").textContent = t("stimulusBurstLabel");
       document.getElementById("stimulusPauseLabel").textContent = t("stimulusPauseLabel");
+      if (stimulusModeSelect) {
+        const modeLabel = document.getElementById("stimulusModeLabel");
+        if (modeLabel) {
+          modeLabel.textContent = t("stimulusModeLabel");
+        }
+        const opts = {
+          off: t("stimulusModeOff"),
+          http_cloudflare: t("stimulusModeHttp"),
+          icmp_ping: t("stimulusModePing"),
+          tcp_gateway: t("stimulusModeTcp"),
+        };
+        for (const option of stimulusModeSelect.options) {
+          if (opts[option.value]) {
+            option.textContent = opts[option.value];
+          }
+        }
+      }
+      if (stimulusPingHzInput) {
+        const hzLabel = document.getElementById("stimulusPingHzLabel");
+        if (hzLabel) {
+          hzLabel.textContent = t("stimulusPingHzLabel");
+        }
+      }
+      const tcpLabelIds = {
+        stimulusTcpConcLabel: "stimulusTcpConcLabel",
+        stimulusTcpIntLabel: "stimulusTcpIntLabel",
+        stimulusTcpToLabel: "stimulusTcpToLabel",
+      };
+      for (const [id, key] of Object.entries(tcpLabelIds)) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.textContent = t(key);
+        }
+      }
+      if (stimulusTcpHintText) {
+        stimulusTcpHintText.textContent = t("stimulusTcpHint");
+      }
+      if (applyStimulusModeBtn) {
+        applyStimulusModeBtn.textContent = t("stimulusApplyModeBtn");
+      }
       if (refreshStimulusBtn) {
         refreshStimulusBtn.textContent = t("stimulusRefreshBtn");
       }
+      const webStimLabelIds = {
+        webStimPanelTitle: "webStimPanelTitle",
+        webStimPanelDesc: "webStimPanelDesc",
+        webStimPresetLabel: "webStimPresetLabel",
+        webStimCsiTitle: "webStimCsiTitle",
+        webStimApplyBtn: "webStimApplyBtn",
+        webStimStopBtn: "webStimStopBtn",
+        webStimRetryBtn: "webStimRetryBtn",
+        webStimAdvancedToggle: "webStimAdvancedBtn",
+      };
+      for (const [id, key] of Object.entries(webStimLabelIds)) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.textContent = t(key);
+        }
+      }
+      if (webStimPresetSelect) {
+        const pOpts = {
+          off: t("webStimPresetOff"),
+          http200: t("webStimPresetHttp200"),
+          http64: t("webStimPresetHttp64"),
+          tcp: t("webStimPresetTcp"),
+        };
+        for (const option of webStimPresetSelect.options) {
+          if (pOpts[option.value]) {
+            option.textContent = pOpts[option.value];
+          }
+        }
+      }
       document.getElementById("applyStimulusBtn").textContent = "-";
+      syncStimulusInputVisibility();
       renderStimulusStatus();
+      renderWebStim();
       document.getElementById("csiPanelTitle").textContent = t("csiPanelTitle");
       document.getElementById("csiPanelDesc").textContent = t("csiPanelDesc");
       document.getElementById("csiPeriodLabel").textContent = t("csiPeriodLabel");
@@ -2473,6 +2762,47 @@
       csiRecorder.motionPeer = selectedPeer || "";
       csiRecorder.cueEvents = [];
       csiRecorder.droppedStart = csiDroppedCount;
+      /*
+       * Prioritas 1: open a device-side recording epoch before the capture
+       * anchor so the drain admission (TAKE_BEGIN) is already active when the
+       * first frames/events arrive. The host session accumulates ping/csi_diag
+       * events keyed to this epoch and finalises only after a matching STOP ACK.
+       */
+      csiRecorder.epoch = ((csiRecorder.epoch >>> 0) + 1) || 1;
+      const diagEpoch = csiRecorder.epoch;
+      csiRecorder.diagSession = CsiRecorder.createDiagSession({ epoch: diagEpoch, runId: null });
+      await sendCommand(`TAKE_BEGIN ${diagEpoch}`);
+      const startAck = await waitForAck("TAKE_BEGIN", diagEpoch, 2000);
+      if (!CsiRecorder.diagNoteStartAck(csiRecorder.diagSession, startAck)) {
+        /* Device refused the take (previous session not quiescent yet — see the
+         * TAKE_BEGIN lifecycle gate) or never answered. Starting capture now
+         * would record a session the device is not attributing events to, so
+         * skip this take and surface the device's reason verbatim. */
+        const reason = startAck
+          ? (startAck.reason || startAck.detail || "rejected")
+          : "start_ack_timeout";
+        logEvent(`${t("logError")}: TAKE_BEGIN refused (${reason}); take ${csiRecorder.take} skipped`);
+        return null;
+      }
+      /* Final-audit §2: a degraded device (diagnostics plumbing failed at init)
+       * still records CSI normally — keep the take, but surface why the
+       * ping/csi_diag streams will be unavailable (null in meta, never 0). */
+      if (csiRecorder.diagSession.diagEnabled === false) {
+        logEvent(`WARN: diagnostics unavailable (${csiRecorder.diagSession.diagReason || "unknown"}); CSI recording continues`);
+      }
+      /*
+       * Re-apply the selected stimulus so this take runs exactly one source and
+       * its per-take counters reset (SET_STIMULUS_MODE resets the HTTP counters
+       * on the device). The start snapshot records the mode/target that opened
+       * the take; the end snapshot in saveTakeV3 carries the accumulated
+       * counters, so meta.stimulus reflects what actually ran, not what was set.
+       */
+      const stimCommand = buildStimulusModeCommand();
+      if (stimCommand) {
+        await sendCommand(stimCommand);
+        await waitMs(400);
+      }
+      csiRecorder.stimulusStart = stimulusState ? JSON.parse(JSON.stringify(stimulusState)) : null;
       const isFall = CsiRecorder.isFallLabel(plan.label);
       /*
        * Capture start anchor: wall clock and monotonic clock sampled back to
@@ -2557,6 +2887,23 @@
       if (recLive) {
         recLive.hidden = true;
       }
+      /*
+       * Close the device epoch and wait for the generation-matched STOP ACK so
+       * the two-path barrier flushes trailing events before we finalise. A
+       * timeout leaves the boundary unconfirmed (device never claimed browser
+       * receipt either); finalize still reports what actually arrived.
+       */
+      CsiRecorder.diagNoteStopping(csiRecorder.diagSession);
+      await sendCommand(`TAKE_END ${diagEpoch}`);
+      const stopAck = await waitForAck("TAKE_END", diagEpoch, 2000);
+      const stopRes = CsiRecorder.diagNoteStopAck(csiRecorder.diagSession, stopAck);
+      const diag = CsiRecorder.diagFinalize(csiRecorder.diagSession);
+      /* Final-audit §3: surface WHY the boundary is not confirmed (device-side
+       * drain/barrier evidence, or the ACK never arriving), so an unconfirmed
+       * take is never silently treated as a clean one. */
+      if (!diag.boundary.confirmed) {
+        logEvent(`WARN: boundary_unconfirmed (${diag.boundary.unconfirmed_reason}; ack=${stopRes.reason})`);
+      }
       return {
         plan,
         frames,
@@ -2569,6 +2916,7 @@
         captureEndMs,
         cueEvents: csiRecorder.cueEvents,
         annotations,
+        diag,
         earlyStop,
         statusOverride,
       };
@@ -2992,8 +3340,12 @@
       const {
         plan, frames, motionSamples, motionPeer, droppedStart,
         captureStartMono, captureStartMs, captureEndMono, captureEndMs,
-        cueEvents, annotations, earlyStop, statusOverride,
+        cueEvents, annotations, diag, earlyStop, statusOverride,
       } = takeCtx;
+      /* Fetch the end-of-take stimulus counters from the device before writing
+       * meta, so meta.stimulus carries what actually ran during this take. */
+      await sendCommand("GET_STIMULUS");
+      await waitMs(400);
       const completeness = CsiRecorder.recordingCompleteness({
         frames,
         droppedStart,
@@ -3077,6 +3429,7 @@
           csi_period_ms: csiPeriodMs,
           csi_config: appInfo && appInfo.csi_config ? appInfo.csi_config : null,
         },
+        stimulus: buildStimulusMeta(csiRecorder.stimulusStart, captureStartMs, captureEndMs),
         recording: {
           frames: completeness.frames,
           dropped_on_device: csiDroppedCount,
@@ -3105,7 +3458,7 @@
           first_word_invalid_frames: frames.filter((frame) => frame.first_word_invalid === true).length,
           sampling_intervals_ms: CsiRecorder.computeIntervalStats(deviceTs, csiPeriodMs && csiPeriodMs > 0 ? csiPeriodMs : null),
         },
-        events: {
+        events: Object.assign({
           segments: [CsiRecorder.buildActivitySegment({
             label: plan.label,
             started: captureStartMs,
@@ -3115,7 +3468,15 @@
           })],
           motion_peer: motionPeer || "",
           motion_samples: motionSamples || [],
-        },
+        }, diag ? {
+          /* Prioritas 1 per-event streams (columns+delta+enum). Disjoint from
+           * frames.csv: ping has no frame twin, csi_diag only holds the
+           * throttle-dropped callbacks (§18.3/§18.4). */
+          ping: diag.ping,
+          csi_diag: diag.csi_diag,
+        } : {}),
+        session_stats: diag ? diag.session_stats : null,
+        boundary: diag ? diag.boundary : null,
         batch: csiRecorder.takes > 1 ? {
           batch_id: csiRecorder.batchId,
           take: plan.takeIndex,
@@ -3255,6 +3616,11 @@
           /* Every take re-runs the full 10 s deadline loop; nothing carries
            * over between takes except the batch identity. */
           const takeCtx = await runTake(plan);
+          if (!takeCtx) {
+            /* runTake skipped this take (device refused TAKE_BEGIN); the reason
+             * was already logged. Continue with the next take of the batch. */
+            continue;
+          }
           pendingSaves.push(
             saveTakeV3(takeCtx)
               .then((result) => {
@@ -3407,6 +3773,20 @@
       statusDot.classList.toggle("connected", connected);
       statusText.textContent = connected ? t("statusConnected") : t("statusDisconnected");
       document.getElementById("disconnectBtn").disabled = !connected;
+      webStimUi.connected = connected;
+      if (!connected && webStimUi.pendingAck) {
+        /* The browser lost the port, not necessarily the device: cancel the
+         * pending ACK wait and drop to UNKNOWN rather than assuming the
+         * stimulus stopped. Firmware state is re-read on reconnect. */
+        if (webStimUi.ackTimer) {
+          clearTimeout(webStimUi.ackTimer);
+          webStimUi.ackTimer = null;
+        }
+        const p = webStimUi.pendingAck;
+        webStimUi.pendingAck = null;
+        p.resolve(null);
+      }
+      renderWebStim();
     }
 
     function clearTrainAutomationTimers() {
@@ -3880,27 +4260,92 @@
       }
 
       const running = !!stimulusState.running;
-      const burstKb = Math.round(Number(stimulusState.burst_bytes) / 1000);
+      const mode = stimulusState.mode || (stimulusState.enabled ? "http_cloudflare" : "off");
       const hz = Number(stimulusState.csi_hz_x10 || 0) / 10;
+      const http = stimulusState.http || stimulusState;
+      const ping = stimulusState.ping || {};
 
       if (stimulusBadge) {
         stimulusBadge.textContent = running ? t("stimulusOn") : t("stimulusOff");
         stimulusBadge.className = running ? "badge active" : "badge";
       }
-      stimulusStateText.textContent = `${burstKb} KB · every ${stimulusState.pause_ms} ms`;
+
+      if (mode === "icmp_ping_gateway" || mode === "icmp_ping") {
+        const phz = Number(ping.configured_frequency_hz || 0);
+        stimulusStateText.textContent = `${t("stimulusModePing")} · ${phz} Hz`;
+      } else if (mode === "tcp_gateway") {
+        const tcp = stimulusState.tcp || {};
+        const conc = Number(tcp.configured_concurrency || 0);
+        const itv = Number(tcp.configured_interval_ms || 0);
+        /* Older firmware does not echo configured_timeout_ms; show "?" rather
+         * than a 0 that would read as a real setting. */
+        const to = tcp.configured_timeout_ms === undefined
+          ? "?"
+          : `${Number(tcp.configured_timeout_ms)}ms`;
+        const okN = Number(tcp.connect_ok || 0);
+        const roundsN = Number(tcp.rounds || 0);
+        stimulusStateText.textContent =
+          `${t("stimulusModeTcp")} · ${conc}×/${itv}ms/to ${to} · ok ${okN}/${roundsN} r`;
+      } else if (mode === "off") {
+        stimulusStateText.textContent = t("stimulusModeOff");
+      } else {
+        const burstKb = Math.round(Number(http.burst_bytes) / 1000);
+        stimulusStateText.textContent = `${t("stimulusModeHttp")} · ${burstKb} KB · every ${http.pause_ms} ms`;
+      }
 
       if (stimulusDetailText) {
         stimulusDetailText.textContent = t("stimulusRate").replace("{hz}", hz.toFixed(1));
       }
 
+      /* Reflect the device's actual mode in the selector and gate the inputs so
+       * only the fields that apply to the selected source stay editable. */
+      if (stimulusModeSelect && document.activeElement !== stimulusModeSelect) {
+        stimulusModeSelect.value = mode === "icmp_ping_gateway" || mode === "icmp_ping"
+          ? "icmp_ping"
+          : mode === "tcp_gateway"
+          ? "tcp_gateway"
+          : (mode === "off" ? "off" : "http_cloudflare");
+      }
+      syncStimulusInputVisibility();
+
       renderStimulusWarn();
       if (toggleStimulusBtn) {
         /* Label follows `enabled` (the requested state), not `running`, so the
-         * label always describes what clicking will do. During the brief window
-         * where a stop is still winding down, `running` lags `enabled`. */
+         * label always describes what clicking will do. */
         toggleStimulusBtn.textContent = stimulusState.enabled ? t("stimulusStopBtn") : t("stimulusStartBtn");
       }
       updateStimulusApplyState();
+    }
+
+    /* Show the ping-Hz field only for ping mode; gate burst/pause to HTTP mode. */
+    function syncStimulusInputVisibility() {
+      const sel = stimulusModeSelect ? stimulusModeSelect.value : "http_cloudflare";
+      if (stimulusPingHzWrap) {
+        stimulusPingHzWrap.style.display = sel === "icmp_ping" ? "" : "none";
+      }
+      const isHttp = sel === "http_cloudflare";
+      if (stimulusBurstInput) {
+        stimulusBurstInput.disabled = !isHttp;
+      }
+      if (stimulusPauseInput) {
+        stimulusPauseInput.disabled = !isHttp;
+      }
+      /* The TCP fields appear only in TCP mode, mirroring the ping field, and are
+       * disabled outside it so a keystroke cannot land on a hidden input. */
+      const isTcp = sel === "tcp_gateway";
+      for (const wrap of stimulusTcpWraps) {
+        if (wrap) {
+          wrap.style.display = isTcp ? "" : "none";
+        }
+      }
+      for (const input of [stimulusTcpConcInput, stimulusTcpIntInput, stimulusTcpToInput]) {
+        if (input) {
+          input.disabled = !isTcp;
+        }
+      }
+      if (stimulusTcpHintText) {
+        stimulusTcpHintText.style.display = isTcp ? "" : "none";
+      }
     }
 
     /*
@@ -3908,17 +4353,33 @@
      * so the button is a truthful answer to "is there anything to apply yet?".
      */
     function updateStimulusApplyState() {
-      if (!applyStimulusBtn || !stimulusState) {
-        if (applyStimulusBtn) {
-          applyStimulusBtn.disabled = true;
-        }
+      if (!applyStimulusBtn) {
         return;
       }
-      const burstKb = parseFloat(stimulusBurstInput.value);
-      const pauseMs = parseInt(stimulusPauseInput.value, 10);
-      const unchanged = Math.round(burstKb * 1000) === Number(stimulusState.burst_bytes) &&
-                        pauseMs === Number(stimulusState.pause_ms);
-      applyStimulusBtn.disabled = !Number.isFinite(burstKb) || !Number.isFinite(pauseMs) || unchanged;
+      if (!stimulusState) {
+        applyStimulusBtn.disabled = true;
+        return;
+      }
+      const sel = stimulusModeSelect ? stimulusModeSelect.value : "http_cloudflare";
+      let unchanged = false;
+      if (sel === "icmp_ping") {
+        unchanged = Number((stimulusState.ping || {}).configured_frequency_hz) === parseInt(stimulusPingHzInput.value, 10);
+      } else if (sel === "tcp_gateway") {
+        const tcp = stimulusState.tcp || {};
+        const vals = readStimulusTcpValues({ quiet: true });
+        unchanged = stimulusState.mode === "tcp_gateway" && vals !== null &&
+          vals.concurrency === Number(tcp.configured_concurrency) &&
+          vals.interval_ms === Number(tcp.configured_interval_ms) &&
+          vals.timeout_ms === Number(tcp.configured_timeout_ms);
+      } else if (sel === "off") {
+        unchanged = !stimulusState.enabled;
+      } else {
+        const burstKb = parseFloat(stimulusBurstInput.value);
+        const pauseMs = parseInt(stimulusPauseInput.value, 10);
+        const http = stimulusState.http || stimulusState;
+        unchanged = Math.round(burstKb * 1000) === Number(http.burst_bytes) && pauseMs === Number(http.pause_ms);
+      }
+      applyStimulusBtn.disabled = unchanged;
       applyStimulusBtn.textContent = t("stimulusApplyBtn");
     }
 
@@ -3930,16 +4391,32 @@
      */
     function handleStimulusMessage(msg) {
       stimulusState = msg;
-      if (document.activeElement !== stimulusBurstInput) {
-        stimulusBurstInput.value = String(Math.round(Number(msg.burst_bytes) / 1000));
+      const http = msg.http || msg;
+      const ping = msg.ping || {};
+      if (document.activeElement !== stimulusBurstInput && http.burst_bytes !== undefined) {
+        stimulusBurstInput.value = String(Math.round(Number(http.burst_bytes) / 1000));
       }
-      if (document.activeElement !== stimulusPauseInput) {
-        stimulusPauseInput.value = String(msg.pause_ms);
+      if (document.activeElement !== stimulusPauseInput && http.pause_ms !== undefined) {
+        stimulusPauseInput.value = String(http.pause_ms);
+      }
+      if (document.activeElement !== stimulusPingHzInput && ping.configured_frequency_hz !== undefined) {
+        stimulusPingHzInput.value = String(ping.configured_frequency_hz);
+      }
+      const tcp = msg.tcp || {};
+      if (document.activeElement !== stimulusTcpConcInput && tcp.configured_concurrency !== undefined) {
+        stimulusTcpConcInput.value = String(tcp.configured_concurrency);
+      }
+      if (document.activeElement !== stimulusTcpIntInput && tcp.configured_interval_ms !== undefined) {
+        stimulusTcpIntInput.value = String(tcp.configured_interval_ms);
+      }
+      if (document.activeElement !== stimulusTcpToInput && tcp.configured_timeout_ms !== undefined) {
+        stimulusTcpToInput.value = String(tcp.configured_timeout_ms);
       }
       renderStimulusStatus();
+      renderWebStim();
     }
 
-    /* Reads and range-checks the two numeric inputs. Returns null when invalid. */
+    /* Reads and range-checks the two numeric HTTP inputs. Returns null when invalid. */
     function readStimulusInputs() {
       const burstKb = parseFloat(stimulusBurstInput.value);
       const pauseMs = parseInt(stimulusPauseInput.value, 10);
@@ -3954,28 +4431,445 @@
       return { burstBytes: Math.round(burstKb * 1000), pauseMs };
     }
 
-    /* State control only: flips run/stop and leaves the burst and pause alone. */
-    function toggleStimulusState() {
-      const values = readStimulusInputs();
-      if (!values || !stimulusState) {
-        return;
+    function readStimulusPingHz() {
+      const hz = parseInt(stimulusPingHzInput.value, 10);
+      if (!Number.isFinite(hz) || hz < 1 || hz > 1000) {
+        logEvent(`${t("logError")}: ${t("stimulusPingRange")}`);
+        return null;
       }
-      const next = stimulusState.enabled ? "off" : "on";
-      sendCommand(`SET_STIMULUS ${next} ${values.burstBytes} ${values.pauseMs}`);
+      return hz;
+    }
+
+    /* Reads and range-checks the three TCP inputs. Returns null when invalid;
+     * quiet skips the event-log line so it can be used from the apply-state
+     * watcher on every keystroke. */
+    function readStimulusTcpValues(options) {
+      const quiet = !!(options && options.quiet);
+      const conc = parseInt(stimulusTcpConcInput.value, 10);
+      const intervalMs = parseInt(stimulusTcpIntInput.value, 10);
+      const timeoutMs = parseInt(stimulusTcpToInput.value, 10);
+      const okConc = Number.isInteger(conc) && conc >= 1 && conc <= 8;
+      const okInterval = Number.isInteger(intervalMs) && intervalMs >= 1 && intervalMs <= 5000;
+      const okTimeout = Number.isInteger(timeoutMs) && timeoutMs >= 0 && timeoutMs <= 5000;
+      if (!okConc || !okInterval || !okTimeout) {
+        if (!quiet) {
+          logEvent(`${t("logError")}: ${t("stimulusTcpRange")}`);
+        }
+        return null;
+      }
+      return { concurrency: conc, interval_ms: intervalMs, timeout_ms: timeoutMs };
     }
 
     /*
-     * Value control only: the device keeps running, the burst and pause are
-     * picked up by the stimulus task on its next cycle. ht_stimulus_start()
-     * returns early when already running, so this cannot spawn a second task.
+     * The device applies these live: the running task reads the new settings at
+     * the start of its next round, so re-tuning does not stop the stimulus and
+     * does not reset the per-take counters.
      */
-    function applyStimulusValues() {
-      const values = readStimulusInputs();
-      if (!values || !stimulusState) {
+    function buildTcpStimulusCommand() {
+      const v = readStimulusTcpValues();
+      if (!v) {
+        return null;
+      }
+      return `SET_TCP_STIMULUS ${v.concurrency} ${v.interval_ms} ${v.timeout_ms}`;
+    }
+
+    /*
+     * Apply the selected stimulus source. The device enforces mutual exclusion:
+     * only one of HTTP / ping runs, and its per-take counters reset here. This
+     * is the single control the HTTP-vs-Ping experiment drives.
+     */
+    function buildStimulusModeCommand() {
+      const mode = stimulusModeSelect ? stimulusModeSelect.value : "http_cloudflare";
+      if (mode === "icmp_ping") {
+        const hz = readStimulusPingHz();
+        if (hz === null) {
+          return null;
+        }
+        return `SET_STIMULUS_MODE icmp_ping ${hz}`;
+      }
+      if (mode === "http_cloudflare") {
+        const values = readStimulusInputs();
+        if (!values) {
+          return null;
+        }
+        return `SET_STIMULUS_MODE http_cloudflare ${values.burstBytes} ${values.pauseMs}`;
+      }
+      if (mode === "tcp_gateway") {
+        return "SET_STIMULUS_MODE tcp_gateway";
+      }
+      return "SET_STIMULUS_MODE off";
+    }
+
+    function applyStimulusMode() {
+      const command = buildStimulusModeCommand();
+      if (command) {
+        sendCommand(command);
+      }
+      /* Entering TCP mode also pushes the panel's parameters, so the run starts
+       * on what the user sees rather than on the compile-time baseline. */
+      if (command && stimulusModeSelect && stimulusModeSelect.value === "tcp_gateway") {
+        const tcpCommand = buildTcpStimulusCommand();
+        if (tcpCommand) {
+          sendCommand(tcpCommand);
+        }
+      }
+    }
+
+    /*
+     * Assemble meta.stimulus (§7) from the device's latest stimulus echo. Every
+     * value is measured or explicitly null; nothing is backfilled from the
+     * configuration. startMs/endMs date-stamp the stimulus window for this take.
+     */
+    function buildStimulusMeta(startSnap, startMs, endMs) {
+      const s = stimulusState || startSnap || {};
+      const http = s.http || {};
+      const ping = s.ping || {};
+      const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+      return {
+        mode: s.mode || null,
+        target_type: ping.target_type || null,
+        target_ip: ping.target_ip || null,
+        configured_frequency_hz: num(ping.configured_frequency_hz),
+        configured_interval_ms: num(ping.configured_interval_ms),
+        actual_frequency_hz: null,
+        csi_hz_x10: num(s.csi_hz_x10),
+        http: {
+          burst_bytes: num(http.burst_bytes),
+          pause_ms: num(http.pause_ms),
+          requests: num(http.requests),
+          burst_success: num(http.burst_success),
+          burst_failed: num(http.burst_failed),
+          bytes_requested: num(http.bytes_requested),
+          bytes_received: num(http.bytes_received),
+          active_ms: num(http.active_ms),
+          idle_ms: num(http.idle_ms),
+          errors: num(http.errors),
+        },
+        ping: {
+          ping_request_count: ping.ping_request_count === undefined ? null : ping.ping_request_count,
+          ping_reply_count: ping.ping_reply_count === undefined ? null : ping.ping_reply_count,
+          ping_timeout_count: ping.ping_timeout_count === undefined ? null : ping.ping_timeout_count,
+          rtt_ms: ping.rtt_ms === undefined ? null : ping.rtt_ms,
+          metrics_reason: ping.metrics_reason || null,
+        },
+        started_at_utc: startMs ? new Date(startMs).toISOString() : null,
+        stopped_at_utc: endMs ? new Date(endMs).toISOString() : null,
+      };
+    }
+
+    /* Run/stop the selected source, or clear it when already running. */
+    function toggleStimulusState() {
+      if (!stimulusState) {
         return;
       }
-      const keep = stimulusState.enabled ? "on" : "off";
-      sendCommand(`SET_STIMULUS ${keep} ${values.burstBytes} ${values.pauseMs}`);
+      if (stimulusState.enabled) {
+        sendCommand("SET_STIMULUS_MODE off");
+      } else {
+        applyStimulusMode();
+      }
+    }
+
+    /* Re-apply the current mode with any edited values (HTTP burst/pause, ping Hz
+     * or TCP timing). TCP is handled differently on purpose: its parameters are
+     * applied live by the running task, so re-tuning does not re-apply the mode
+     * and does not reset the device's per-take counters. */
+    function applyStimulusValues() {
+      const sel = stimulusModeSelect ? stimulusModeSelect.value : "http_cloudflare";
+      if (sel === "tcp_gateway") {
+        const tcpCommand = buildTcpStimulusCommand();
+        if (tcpCommand) {
+          sendCommand(tcpCommand);
+        }
+        return;
+      }
+      applyStimulusMode();
+    }
+
+    /* ====================================================================
+     * Wi-Fi Stimulus Control panel (curated presets).
+     *
+     * This panel is a thin, safety-focused front-end over commands the
+     * firmware already validates; it does NOT add any new stimulus logic.
+     * Every preset maps to a SET_STIMULUS_MODE call confirmed present in
+     * web_serial_monitor.c (handle_set_stimulus_mode). The device enforces
+     * mutual exclusion (apply_stimulus_mode stops HTTP+TCP+DNS+ping first),
+     * so selecting a preset can never leave two stimuli running.
+     * ==================================================================== */
+    const WEB_STIM_PRESETS = {
+      off: { key: "webStimPresetOff", cmd: "SET_STIMULUS_MODE off" },
+      http200: { key: "webStimPresetHttp200", cmd: "SET_STIMULUS_MODE http_cloudflare 200000 100 off" },
+      http64: { key: "webStimPresetHttp64", cmd: "SET_STIMULUS_MODE http_cloudflare 65536 0 off" },
+      tcp: { key: "webStimPresetTcp", cmd: "SET_STIMULUS_MODE tcp_gateway" },
+    };
+    const WEB_STIM_CONFIG_KEYS = {
+      off: "webStimConfigOff",
+      http200: "webStimConfigHttp200",
+      http64: "webStimConfigHttp64",
+      tcp: "webStimConfigTcp",
+    };
+
+    function webStimSelectedPreset() {
+      return webStimPresetSelect ? webStimPresetSelect.value : "off";
+    }
+
+    /* Maps the device's reported mode + burst size back to a preset id so the
+     * Active Mode can be compared against the selection. HTTP presets share one
+     * firmware mode, so the echoed burst byte count tells them apart. */
+    function webStimPresetFromDevice(s) {
+      if (!s) {
+        return null;
+      }
+      const mode = s.mode;
+      if (mode === "off") {
+        return "off";
+      }
+      if (mode === "tcp_gateway") {
+        return "tcp";
+      }
+      if (mode === "http_cloudflare" || mode === "http") {
+        const burst = Number(((s.http && s.http.burst_bytes) || s.burst_bytes) || 0);
+        if (burst === 65536) {
+          return "http64";
+        }
+        if (burst === 200000) {
+          return "http200";
+        }
+        return "http-custom";
+      }
+      if (mode === "icmp_ping" || mode === "icmp_ping_gateway") {
+        return "icmp_ping";
+      }
+      return mode || null;
+    }
+
+    function webStimActiveLabel(presetId, s) {
+      if (presetId === "off") {
+        return t("webStimPresetOff");
+      }
+      if (presetId === "http64") {
+        return `${t("webStimPresetHttp64")} \u00b7 65536 B / pause 0 ms / ka off`;
+      }
+      if (presetId === "http200") {
+        return `${t("webStimPresetHttp200")} \u00b7 200000 B / pause 100 ms / ka off`;
+      }
+      if (presetId === "tcp") {
+        const tcp = (s && s.tcp) || {};
+        return `${t("webStimPresetTcp")} \u00b7 ${tcp.configured_concurrency}/${tcp.configured_interval_ms}/${tcp.configured_timeout_ms} (concurrency/interval-ms/timeout-ms)`;
+      }
+      if (presetId === "icmp_ping") {
+        return t("stimulusModePing");
+      }
+      if (presetId === "http-custom") {
+        const burst = Number(((s && s.http && s.http.burst_bytes) || (s && s.burst_bytes)) || 0);
+        return `${t("stimulusModeHttp")} \u00b7 ${burst} B`;
+      }
+      return String(presetId || "-");
+    }
+
+    function setWebStimStatus(status) {
+      webStimUi.status = status;
+    }
+
+    function webStimStatusBadgeClass(status) {
+      if (status === "ACTIVE") {
+        return "badge active";
+      }
+      if (status === "ERROR") {
+        return "badge";
+      }
+      return "badge";
+    }
+
+    function webStimStatusTextKey(status) {
+      return `webStimStatus${status.charAt(0)}${status.slice(1).toLowerCase()}`;
+    }
+
+    function renderWebStim() {
+      if (!webStimStatusText) {
+        return;
+      }
+      const s = stimulusState;
+      const presetId = webStimSelectedPreset();
+      if (webStimConfigText) {
+        webStimConfigText.textContent = t(WEB_STIM_CONFIG_KEYS[presetId] || "webStimConfigOff");
+      }
+      if (webStimSelectedText) {
+        webStimSelectedText.textContent = `${t("webStimSelectedLabel")}: ${t(WEB_STIM_PRESETS[presetId].key)}`;
+      }
+
+      let status = webStimUi.status;
+      let activeText;
+      if (!webStimUi.connected) {
+        status = "UNKNOWN";
+        activeText = t("webStimStatusUnknown");
+      } else if (!s) {
+        activeText = t("webStimActiveNone");
+      } else {
+        const running = !!s.running;
+        const devPreset = webStimPresetFromDevice(s);
+        activeText = webStimActiveLabel(devPreset, s);
+        /* Confirm a transition only once firmware telemetry agrees; never mark
+         * ACTIVE just because Apply was pressed. */
+        if (status === "STARTING") {
+          if (devPreset === presetId && (presetId === "off" ? !running : running)) {
+            status = presetId === "off" ? "OFF" : "ACTIVE";
+          }
+        } else if (status === "STOPPING") {
+          if (devPreset === "off" && !running) {
+            status = "OFF";
+          }
+        } else if (status === "UNKNOWN") {
+          status = running ? "ACTIVE" : "OFF";
+        } else if (status === "ACTIVE") {
+          if (!running && presetId !== "off") {
+            status = "ERROR";
+          }
+        } else if (status === "OFF") {
+          if (running) {
+            status = "ACTIVE";
+          }
+        }
+      }
+      webStimUi.status = status;
+      if (webStimActiveText) {
+        webStimActiveText.textContent = `${t("webStimActiveLabel")}: ${activeText}`;
+      }
+      if (webStimStatusText) {
+        webStimStatusText.textContent = t(webStimStatusTextKey(status));
+      }
+      if (webStimStatusBadge) {
+        webStimStatusBadge.textContent = status;
+        webStimStatusBadge.className = webStimStatusBadgeClass(status);
+      }
+      if (webStimLastCmdText) {
+        webStimLastCmdText.textContent = `${t("webStimLastCmdLabel")}: ${webStimUi.lastCmd || "-"}`;
+      }
+      if (webStimLastRespText) {
+        webStimLastRespText.textContent = `${t("webStimLastRespLabel")}: ${webStimUi.lastResp || "-"}`;
+      }
+      renderWebStimCsi(s);
+      lockWebStimControls(status === "STARTING" || status === "STOPPING");
+      if (webStimRetryBtn) {
+        webStimRetryBtn.hidden = status !== "ERROR";
+      }
+    }
+
+    function renderWebStimCsi(s) {
+      if (!webStimCsiText) {
+        return;
+      }
+      const devHz = s ? Number(s.csi_hz_x10 || 0) / 10 : 0;
+      /* Host-received fps is a genuine host-side measurement: a rolling 1.5 s
+       * window over performance.now() stamps pushed on each parsed csi frame. */
+      const now = performance.now();
+      const win = webStimUi.hostTs.filter((ts) => now - ts <= 1500);
+      const hostHz = win.length >= 2 ? (win.length - 1) / ((now - win[0]) / 1000) : 0;
+      webStimUi.hostTs = win;
+      const parts = [
+        t("webStimCsiDeviceFps").replace("{hz}", devHz.toFixed(1)),
+        t("webStimCsiHostFps").replace("{hz}", hostHz.toFixed(1)),
+        t("webStimCsiFrames").replace("{n}", csiFrameCount),
+        t("webStimCsiDropped").replace("{n}", csiDroppedCount),
+      ];
+      if (lastWifiMsg && Number.isFinite(Number(lastWifiMsg.rssi))) {
+        parts.push(t("webStimCsiRssi").replace("{db}", Number(lastWifiMsg.rssi)));
+      }
+      if (s && Number.isFinite(Number(s.free_heap))) {
+        parts.push(t("webStimCsiHeap").replace("{kb}", Math.round(Number(s.free_heap) / 1024)));
+      }
+      parts.push(t("webStimCsiSerial").replace("{state}", webStimUi.connected ? t("webStimSerialOn") : t("webStimSerialOff")));
+      webStimCsiText.textContent = parts.join(" \u00b7 ");
+    }
+
+    function lockWebStimControls(locked) {
+      for (const el of [webStimPresetSelect, webStimApplyBtn, webStimStopBtn]) {
+        if (el) {
+          el.disabled = locked;
+        }
+      }
+    }
+
+    /* Local ACK correlation for SET_STIMULUS_MODE. The firmware ack carries no
+     * epoch (send_ack), so it cannot reuse the take waitForAck(cmd, epoch) key;
+     * we resolve the single pending waiter here instead. */
+    function webStimAwaitAck(timeoutMs) {
+      return new Promise((resolve) => {
+        if (webStimUi.ackTimer) {
+          clearTimeout(webStimUi.ackTimer);
+        }
+        webStimUi.pendingAck = { resolve };
+        webStimUi.ackTimer = setTimeout(() => {
+          webStimUi.pendingAck = null;
+          webStimUi.ackTimer = null;
+          resolve(null);
+        }, timeoutMs || 3000);
+      });
+    }
+
+    function webStimDeliverAck(msg) {
+      if (!webStimUi.pendingAck) {
+        return false;
+      }
+      const p = webStimUi.pendingAck;
+      webStimUi.pendingAck = null;
+      if (webStimUi.ackTimer) {
+        clearTimeout(webStimUi.ackTimer);
+        webStimUi.ackTimer = null;
+      }
+      p.resolve(msg);
+      return true;
+    }
+
+    async function webStimSend(cmdString, phaseStatus) {
+      if (!writer) {
+        setWebStimStatus("UNKNOWN");
+        renderWebStim();
+        return;
+      }
+      webStimUi.lastCmd = cmdString;
+      webStimUi.lastResp = "";
+      webStimUi.lastAttempt = { cmd: cmdString, status: phaseStatus };
+      setWebStimStatus(phaseStatus);
+      lockWebStimControls(true);
+      renderWebStim();
+      /* Keep the CSI stream off the 100 ms default throttle when a live stimulus
+       * preset is applied for manual acquisition. Skipped for OFF and while a
+       * recorder session owns the period, so this never clobbers an active take. */
+      if (cmdString !== "SET_STIMULUS_MODE off" && (typeof csiRecorder === "undefined" || csiRecorder.phase !== "recording")) {
+        await sendCommand("SET_CSI_PERIOD 0");
+      }
+      const ackPromise = webStimAwaitAck(3000);
+      await sendCommand(cmdString);
+      const ack = await ackPromise;
+      if (ack && ack.ok) {
+        webStimUi.lastResp = `${t("logOk")}${ack.detail ? ` ${ack.detail}` : ""}`;
+      } else if (ack) {
+        webStimUi.lastResp = `${t("logFail")}${ack.detail ? ` ${ack.detail}` : ""}`;
+        setWebStimStatus("ERROR");
+      } else {
+        webStimUi.lastResp = t("webStimStatusTimeout");
+        setWebStimStatus("ERROR");
+      }
+      renderWebStim();
+      /* Re-read firmware state; the stimulus telemetry confirms the settle. */
+      sendCommand("GET_STIMULUS");
+    }
+
+    function webStimApply() {
+      const presetId = webStimSelectedPreset();
+      webStimSend(WEB_STIM_PRESETS[presetId].cmd, "STARTING");
+    }
+
+    function webStimStop() {
+      webStimSend("SET_STIMULUS_MODE off", "STOPPING");
+    }
+
+    function webStimRetry() {
+      if (webStimUi.lastAttempt) {
+        webStimSend(webStimUi.lastAttempt.cmd, webStimUi.lastAttempt.status === "STOPPING" ? "STOPPING" : "STARTING");
+      } else {
+        webStimApply();
+      }
     }
 
     function renderActivityClassification() {
@@ -4062,7 +4956,8 @@
             csiHistory.shift();
           }
         }
-        if (csiRecorder.phase === "recording" && csiRecorder.captureStartMono > 0) {
+        if (csiRecorder.phase === "recording" && csiRecorder.captureStartMono > 0
+            && (msg.eq === undefined || Number(msg.eq) === csiRecorder.epoch)) {
           /* Payload integrity is decided at capture time from the byte counts
            * actually decoded, so a truncated serial line can never masquerade
            * as an intact frame later (spec §16.B). */
@@ -4107,12 +5002,24 @@
           });
         }
         csiFrameCount++;
+        webStimUi.hostTs.push(performance.now());
+        if (webStimUi.hostTs.length > 800) {
+          webStimUi.hostTs.splice(0, webStimUi.hostTs.length - 800);
+        }
         csiDroppedCount = Number(msg.dropped || 0);
         renderCsiStatus();
         if (csiRecorder.phase === "recording") {
           /* Skip chart dirty during capture so the serial parser stays ahead. */
           return;
         }
+      } else if (msg.type === "diag") {
+        /* Prioritas 1: ping success/timeout + throttle-dropped csi_diag events.
+         * Gated by the active device epoch inside the session model; the frame
+         * gate below stays unchanged so csi_diag never duplicates into frames.csv. */
+        if (csiRecorder.diagSession) {
+          CsiRecorder.diagAcceptEvent(csiRecorder.diagSession, msg);
+        }
+        return;
       } else if (msg.type === "config") {
         const peer = ensurePeer(msg.peer, msg.mac);
         peer.cfg = msg;
@@ -4138,6 +5045,12 @@
       } else if (msg.type === "stimulus") {
         handleStimulusMessage(msg);
       } else if (msg.type === "ack") {
+        if (msg.cmd === "TAKE_BEGIN" || msg.cmd === "TAKE_END") {
+          resolveAck(msg);
+        }
+        if (msg.cmd === "SET_STIMULUS_MODE") {
+          webStimDeliverAck(msg);
+        }
         logEvent(`${t("logAck")} ${msg.cmd}: ${msg.ok ? t("logOk") : t("logFail")} ${msg.detail || ""}`);
       } else if (msg.type === "error") {
         logEvent(`${t("logError")}: ${msg.message}`);
@@ -4526,8 +5439,46 @@
       document.getElementById("applyRadarBtn").addEventListener("click", () => applyRadarConfig());
       document.getElementById("applyStimulusBtn").addEventListener("click", () => applyStimulusValues());
     document.getElementById("toggleStimulusBtn").addEventListener("click", () => toggleStimulusState());
+    if (applyStimulusModeBtn) {
+      applyStimulusModeBtn.addEventListener("click", () => applyStimulusMode());
+    }
+    if (stimulusModeSelect) {
+      stimulusModeSelect.addEventListener("change", () => {
+        syncStimulusInputVisibility();
+        updateStimulusApplyState();
+      });
+    }
+    if (stimulusPingHzInput) {
+      stimulusPingHzInput.addEventListener("input", updateStimulusApplyState);
+    }
+    for (const tcpInput of [stimulusTcpConcInput, stimulusTcpIntInput, stimulusTcpToInput]) {
+      if (tcpInput) {
+        tcpInput.addEventListener("input", updateStimulusApplyState);
+      }
+    }
     if (refreshStimulusBtn) {
       refreshStimulusBtn.addEventListener("click", () => sendCommand("GET_STIMULUS"));
+    }
+    if (webStimPresetSelect) {
+      webStimPresetSelect.addEventListener("change", () => renderWebStim());
+    }
+    if (webStimApplyBtn) {
+      webStimApplyBtn.addEventListener("click", () => webStimApply());
+    }
+    if (webStimStopBtn) {
+      webStimStopBtn.addEventListener("click", () => webStimStop());
+    }
+    if (webStimRetryBtn) {
+      webStimRetryBtn.addEventListener("click", () => webStimRetry());
+    }
+    if (webStimAdvancedToggle) {
+      webStimAdvancedToggle.addEventListener("click", () => {
+        if (!webStimAdvancedWrap) {
+          return;
+        }
+        const show = webStimAdvancedWrap.style.display === "none";
+        webStimAdvancedWrap.style.display = show ? "" : "none";
+      });
     }
     /* Pressing Enter in either field applies the edit, same as Apply edit. */
     document.getElementById("stimulusForm").addEventListener("submit", (event) => {

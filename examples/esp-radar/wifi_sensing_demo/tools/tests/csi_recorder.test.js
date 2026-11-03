@@ -74,7 +74,7 @@ function main() {
     fall_backward: [0, 4, 6, 10],
     fall_left: [0, 4, 6, 10],
     fall_right: [0, 4, 6, 10],
-    walking: [0, 2, 8, 10],
+    walking: [0, 3, 7, 10],
     fast_sitting: [0, 4, 6, 10],
     bending: [0, 3, 7, 10],
     object_drop: [0, 4, 6, 10],
@@ -115,8 +115,8 @@ function main() {
   const walkCues = CsiRecorder.buildActivityCues("walking", {});
   report("walking start cue keeps the pre-action phrase",
     walkCues.find((c) => c.cue_id === "start").text === "Mulai. Tetap diam.");
-  report("walking action cue at 2s",
-    walkCues.find((c) => c.cue_id === "walk_begin").scheduled_offset_s === 2 &&
+  report("walking action cue at 3s",
+    walkCues.find((c) => c.cue_id === "walk_begin").scheduled_offset_s === 3 &&
       walkCues.find((c) => c.cue_id === "walk_begin").text === "Mulai berjalan sekarang!");
 
   /* ---------------- annotations (§11) ---------------- */
@@ -171,6 +171,41 @@ function main() {
   report("meta v3 has annotation + audio_cues + quality nodes",
     meta.annotations && meta.audio_cues && meta.quality);
   report("meta v3 does not store redundant binary_label", meta.binary_label === undefined);
+
+  /* ---------------- meta v3 stimulus block (comparison spec §7) ---------------- */
+  report("meta v3 stimulus defaults to null mode with null measured counters",
+    meta.stimulus && meta.stimulus.mode === null &&
+      meta.stimulus.http.bytes_received === null &&
+      meta.stimulus.http.endpoint === "http://speed.cloudflare.com/__down" &&
+      meta.stimulus.ping.rtt_ms === null &&
+      typeof meta.stimulus.ping.metrics_reason === "string" &&
+      /meta\.events\.ping/.test(meta.stimulus.ping.metrics_reason));
+
+  const metaStim = CsiRecorder.buildMetaV3({
+    recording_id: "rec_002",
+    activity_label: "fall_forward",
+    started_at_utc: "2026-10-30T00:00:00.000Z",
+    ended_at_utc: "2026-10-30T00:00:10.000Z",
+    recording: { frames: 3, complete: true },
+    timeline: fallTl,
+    stimulus: {
+      mode: "icmp_ping",
+      configured_frequency_hz: 100,
+      configured_interval_ms: 10,
+      target_type: "default_gateway",
+      target_ip: "192.168.1.1",
+      http: { burst_bytes: 500000, bytes_received: 0 },
+    },
+  });
+  report("meta v3 stimulus keeps measured values supplied by the recorder",
+    metaStim.stimulus.mode === "icmp_ping" &&
+      metaStim.stimulus.configured_frequency_hz === 100 &&
+      metaStim.stimulus.target_ip === "192.168.1.1" &&
+      metaStim.stimulus.http.burst_bytes === 500000);
+  report("meta v3 ping counters stay null with reason, never backfilled from config",
+    metaStim.stimulus.ping.ping_reply_count === null &&
+      typeof metaStim.stimulus.ping.metrics_reason === "string" &&
+      metaStim.stimulus.actual_frequency_hz === null);
 
   const segment = CsiRecorder.buildActivitySegment({
     label: "fall_forward",

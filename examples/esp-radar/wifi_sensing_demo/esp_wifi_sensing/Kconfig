@@ -1,0 +1,52 @@
+menu "ESP Wi-Fi sensing"
+
+config ESP_WIFI_SENSING_PING_FREQUENCY_HZ
+    int "Router ping frequency used to trigger CSI (Hz)"
+    range 1 1000
+    default 100
+    help
+        Frequency (Hz) of ICMP ping packets to the router gateway used as CSI trigger.
+        Higher values generate more traffic and CPU load. Typical values: 10~200.
+
+config ESP_WIFI_SENSING_CONFIRM_COUNT
+    int "Consecutive samples to confirm level"
+    range 1 15
+    default 2
+    help
+        Continuous N times HIGH is considered ACTIVE; continuous N times LOW is considered INACTIVE.
+
+config ESP_WIFI_SENSING_ACTIVE_FILTER_MS
+    int "ACTIVE hold/filter window (ms)"
+    range 0 10000
+    default 300
+    help
+        When already ACTIVE, LOW samples received before this window expires will be ignored.
+        This helps reduce rapid STOP/START flapping. Set 0 to disable.
+
+config ESP_WIFI_SENSING_DEFAULT_SENSITIVITY
+    int "Default motion detection sensitivity (x1000)"
+    range 1 1000
+    default 500
+    help
+        Default motion detection sensitivity for newly created channels, scaled by 1000.
+        The actual float value is CONFIG_ESP_WIFI_SENSING_DEFAULT_SENSITIVITY / 1000.0.
+        Larger values make the detector more sensitive.
+
+config ESP_WIFI_SENSING_DEFAULT_ACTIVE_JITTER_MIN
+    int "Default active jitter minimum (x1000)"
+    range 0 1000
+    default 10
+    help
+        Default minimum jitter required before entering ACTIVE, scaled by 1000.
+        The actual float value is CONFIG_ESP_WIFI_SENSING_DEFAULT_ACTIVE_JITTER_MIN / 1000.0.
+        Set 0 to disable this guard.
+
+config ESP_WIFI_SENSING_DEFAULT_PRESENCE_SENSITIVITY
+    int "Default presence detection sensitivity (x1000)"
+    range 0 1000
+    default 250
+    help
+        Per-channel default for presence detection sensitivity, scaled by 1000 (0.0 .. 1.0).
+        Larger values mean more sensitive presence detection. Default is 0.25.
+
+endmenu

@@ -89,7 +89,7 @@ config ESP_WIFI_SENSING_HT_STIMULUS_URL
 config ESP_WIFI_SENSING_HT_STIMULUS_BURST
     int "Bytes fetched per burst"
     default 200000
-    range 100000 20000000
+    range 4000 20000000
     depends on ESP_WIFI_SENSING_HT_STIMULUS_ENABLE
     help
         Number of bytes to read per burst before pausing. Larger values keep the

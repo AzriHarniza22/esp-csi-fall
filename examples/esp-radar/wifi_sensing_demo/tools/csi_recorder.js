@@ -72,7 +72,7 @@
     fall_backward: { kind: "fall", boundaries: [0, 4, 6, 10] },
     fall_left: { kind: "fall", boundaries: [0, 4, 6, 10] },
     fall_right: { kind: "fall", boundaries: [0, 4, 6, 10] },
-    walking: { kind: "walking", boundaries: [0, 2, 8, 10] },
+    walking: { kind: "walking", boundaries: [0, 3, 7, 10] },
     fast_sitting: { kind: "fast_sitting", boundaries: [0, 4, 6, 10] },
     bending: { kind: "bending", boundaries: [0, 3, 7, 10] },
     object_drop: { kind: "object_drop", boundaries: [0, 4, 6, 10] },
@@ -446,6 +446,51 @@
         csi_config: fields.csi_config || null,
       }, fields.acquisition || {}),
 
+      /*
+       * Traffic stimulus for the HTTP-vs-Ping comparison experiment (spec §7).
+       * Counters are measured values captured from the firmware `stimulus`
+       * message at recording start and stop; anything the firmware does not
+       * surface stays null with an explanatory reason, never backfilled with
+       * the configured value.
+       */
+      stimulus: (function (st) {
+        st = st || {};
+        return {
+          mode: st.mode === undefined ? null : st.mode,
+          target_type: st.target_type === undefined ? null : st.target_type,
+          target_ip: st.target_ip === undefined ? null : st.target_ip,
+          configured_frequency_hz: st.configured_frequency_hz === undefined ? null : st.configured_frequency_hz,
+          configured_interval_ms: st.configured_interval_ms === undefined ? null : st.configured_interval_ms,
+          actual_frequency_hz: st.actual_frequency_hz === undefined ? null : st.actual_frequency_hz,
+          csi_hz_x10: st.csi_hz_x10 === undefined ? null : st.csi_hz_x10,
+          http: Object.assign({
+            endpoint: "http://speed.cloudflare.com/__down",
+            burst_bytes: null,
+            read_chunk_bytes: 4096,
+            pause_ms: null,
+            timeout_ms: 15000,
+            requests: null,
+            burst_success: null,
+            burst_failed: null,
+            bytes_requested: null,
+            bytes_received: null,
+            active_ms: null,
+            idle_ms: null,
+            errors: null,
+          }, st.http || {}),
+          ping: Object.assign({
+            ping_request_count: null,
+            ping_reply_count: null,
+            ping_timeout_count: null,
+            rtt_ms: null,
+            metrics_reason: "aggregate FSM ping counters come from the firmware stimulus message; per-reply seqno/rtt/timeout detail is captured separately in meta.events.ping when the diagnostic take ran (Prioritas 1, vendored esp_wifi_sensing per-reply callback)",
+          }, st.ping || {}),
+          started_at_utc: st.started_at_utc === undefined ? null : st.started_at_utc,
+          stopped_at_utc: st.stopped_at_utc === undefined ? null : st.stopped_at_utc,
+          counters_scope: "cumulative since the mode was applied at recording start (firmware resets HTTP counters on SET_STIMULUS_MODE)",
+        };
+      })(fields.stimulus),
+
       recording: Object.assign({
         frames: 0,
         dropped_on_device: null,
@@ -491,6 +536,13 @@
         segments: [],
         motion_samples: [],
       }, fields.events || {}),
+
+      /* Prioritas 1 diagnostics: per-event ping/csi_diag live inside events
+       * (see fields.events.ping / fields.events.csi_diag); session_stats and
+       * boundary are scalar summaries. Absent (null) for recordings that never
+       * ran the diagnostic path, so old datasets and HTTP recordings stay valid. */
+      session_stats: fields.session_stats || null,
+      boundary: fields.boundary || null,
 
       batch: fields.batch || null,
 
@@ -1112,6 +1164,609 @@
     });
   }
 
+  /* ------------------------------------------------------------------ *
+   * Ping/CSI diagnostic session (Prioritas 1, plan §18).
+   *
+   * Host-side model of the device diagnostic stream. All state is driven by
+   * serial messages (device is single-source-of-truth), so this is testable in
+   * Node without hardware. It implements:
+   *   - epoch + boot_id gating and the device timestamp window (§18.10),
+   *   - wrap-safe diag_seq gap / out-of-order accounting (§18.13),
+   *   - consumer-ack finalisation bound to (epoch, flush_generation) so a
+   *     stale STOP ACK from a previous cycle can never close the barrier (§2),
+   *   - the per-take soft-cap that stops appending rows once MAX_EVENTS_PER_TAKE
+   *     is reached, recording the drop instead of silently losing it (§18.5),
+   *   - the columns+delta+enum encoding written to meta.events (§18.1).
+   * ------------------------------------------------------------------ */
+
+  /* Ping event type enum (numeric on the wire, per §18.1). */
+  const PING_TYPE_ENUM = { success: 1, timeout: 2 };
+  /* csi_diag drop_reason enum (post-implementation review §2). 0 keeps the
+   * original §18.3 meaning (throttle-dropped callback); 1..4 mark minimal
+   * metadata fallbacks for direct-write frame failures. Matches the
+   * DIAG_CSI_DROP_* defines in main/web_serial_monitor.c. */
+  const CSI_DROP_ENUM = {
+    throttle: 0,
+    tx_lock_timeout: 1,
+    oversized: 2,
+    base64_fail: 3,
+    uart_write_fail: 4,
+  };
+  /* Per-take row soft cap (§18.5): ~10 MB columns+delta worst case. */
+  const MAX_EVENTS_PER_TAKE = 200000;
+
+  /* Wrap-safe "a is strictly newer than b" for uint32 counters. */
+  function seqNewer(a, b) {
+    const au = a >>> 0;
+    const bu = b >>> 0;
+    return au !== bu && ((au - bu) >>> 0) < 0x80000000;
+  }
+
+  function asUint32(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n >>> 0 : null;
+  }
+
+  function asInt(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  /*
+   * createDiagSession({ epoch, runId, bootId, maxEvents }) -> session.
+   * epoch: uint32 chosen by the browser for this take.
+   */
+  function createDiagSession(opts) {
+    opts = opts || {};
+    const epoch = asUint32(opts.epoch);
+    const maxEvents = Number.isFinite(Number(opts.maxEvents)) && Number(opts.maxEvents) > 0
+      ? Number(opts.maxEvents)
+      : MAX_EVENTS_PER_TAKE;
+    return {
+      epoch,
+      runId: opts.runId || null,
+      bootId: opts.bootId === undefined || opts.bootId === null ? null : asUint32(opts.bootId),
+      maxEvents,
+      phase: "starting",
+      /* device-provided anchors (filled from ACKs). */
+      gen: null,
+      startTsUs: null,
+      endTsUs: null,
+      /* raw accepted events in arrival order; ts kept absolute until finalize. */
+      ping: [],
+      csi: [],
+      /* device STOP-ACK snapshot for finalize (null until confirmed/failed ack). */
+      device: null,
+      boundaryConfirmed: false,
+      /* Final-audit §2: device-reported diagnostics state (undefined = older
+       * firmware, treated as enabled). */
+      diagEnabled: true,
+      diagReason: null,
+      dsMax: null,
+      counters: {
+        browser_parse_error: 0,
+        boundary_ts_rejected: 0,
+        epoch_rejected: 0,
+        boot_id_mismatch: 0,
+        duplicate_ds: 0,
+        out_of_order: 0,
+        seq_gaps: 0,
+        event_overflow: 0,
+        stale_ack: 0,
+      },
+      truncated: false,
+    };
+  }
+
+  /* Applies a TAKE_BEGIN START ACK. Returns true when accepted. */
+  function diagNoteStartAck(session, ack) {
+    if (!session || !ack || ack.cmd !== "TAKE_BEGIN" || !ack.ok) {
+      return false;
+    }
+    if (asUint32(ack.epoch) !== session.epoch) {
+      session.counters.epoch_rejected += 1;
+      return false;
+    }
+    session.gen = asUint32(ack.gen);
+    if (ack.boot_id !== undefined && ack.boot_id !== null) {
+      session.bootId = asUint32(ack.boot_id);
+    }
+    /* Final-audit §2: explicit degraded-diagnostics reporting. The take still
+     * proceeds (CSI recording works); only the diagnostic streams go null. */
+    if (ack.diagnostics_enabled !== undefined) {
+      session.diagEnabled = ack.diagnostics_enabled === true;
+    }
+    if (ack.reason) {
+      session.diagReason = String(ack.reason);
+    }
+    const ts = asInt(ack.start_ts_us);
+    if (ts !== null) {
+      session.startTsUs = ts;
+    }
+    if (session.phase === "starting") {
+      session.phase = "recording";
+    }
+    return true;
+  }
+
+  /* Marks STOP requested; events keep flowing until the STOP ACK arrives. */
+  function diagNoteStopping(session) {
+    if (session && session.phase === "recording") {
+      session.phase = "stopping";
+    }
+  }
+
+  /*
+   * Applies a TAKE_END STOP ACK. The consumer-ack is accepted ONLY when it
+   * matches BOTH the active epoch AND the flush_generation captured at start
+   * (§2). A stale ACK (previous cycle's epoch, or a mismatched generation, or a
+   * re-delivery after finalisation) is counted as stale_ack and never closes the
+   * barrier.
+   */
+  function diagNoteStopAck(session, ack) {
+    if (!session) {
+      return { accepted: false, reason: "no_session" };
+    }
+    if (session.phase === "finalized") {
+      session.counters.stale_ack += 1;
+      return { accepted: false, reason: "already_finalized" };
+    }
+    if (!ack || ack.cmd !== "TAKE_END") {
+      session.counters.browser_parse_error += 1;
+      return { accepted: false, reason: "bad_ack" };
+    }
+    if (asUint32(ack.epoch) !== session.epoch || asUint32(ack.gen) !== session.gen) {
+      session.counters.stale_ack += 1;
+      return { accepted: false, reason: "stale" };
+    }
+    session.endTsUs = asInt(ack.end_ts_us);
+    session.device = ack;
+    if (ack.diagnostics_enabled !== undefined) {
+      session.diagEnabled = ack.diagnostics_enabled === true;
+    }
+    /* Final-audit §3: confirmation requires each device-side stage to be
+     * TRUE (an absent/undefined flag never confirms), plus a parsed-complete
+     * ACK — the browser only ever receives this object when the whole JSON
+     * line arrived intact, so a short-written ACK cannot reach here as
+     * confirmed. The device never claims browser receipt; this is only the
+     * device-side boundary. */
+    session.boundaryConfirmed = ack.ok === true
+      && ack.barrier_ok === true
+      && ack.tx_drained === true;
+    session.phase = "finalized";
+    return { accepted: true, reason: session.boundaryConfirmed ? "confirmed" : "unconfirmed" };
+  }
+
+  function diagUpdateDs(session, ds) {
+    if (session.dsMax === null) {
+      session.dsMax = ds;
+      return;
+    }
+    if (ds === session.dsMax) {
+      session.counters.duplicate_ds += 1;
+      return;
+    }
+    if (seqNewer(ds, session.dsMax)) {
+      const missing = ((ds - session.dsMax) >>> 0) - 1;
+      if (missing > 0 && missing < 0x80000000) {
+        session.counters.seq_gaps += missing;
+      }
+      session.dsMax = ds;
+    } else {
+      session.counters.out_of_order += 1;
+    }
+  }
+
+  /*
+   * Classifies and stores one incoming `type==="diag"` serial message.
+   * Returns a reason string for tests. Never throws.
+   */
+  function diagAcceptEvent(session, msg) {
+    if (!session || session.phase === "finalized") {
+      return "closed";
+    }
+    if (!msg || msg.type !== "diag" || !msg.et) {
+      session.counters.browser_parse_error += 1;
+      return "parse_error";
+    }
+    if (asUint32(msg.e) !== session.epoch) {
+      session.counters.epoch_rejected += 1;
+      return "epoch_rejected";
+    }
+    if (session.bootId !== null && msg.bid !== undefined && msg.bid !== null
+        && asUint32(msg.bid) !== session.bootId) {
+      session.counters.boot_id_mismatch += 1;
+      return "boot_mismatch";
+    }
+    const ts = asInt(msg.ts);
+    const ds = asUint32(msg.ds);
+    if (ts === null || ds === null) {
+      session.counters.browser_parse_error += 1;
+      return "parse_error";
+    }
+    if (session.ping.length + session.csi.length >= session.maxEvents) {
+      session.truncated = true;
+      session.counters.event_overflow += 1;
+      return "capped";
+    }
+    if (msg.et === "ping") {
+      session.ping.push({
+        ds,
+        ts,
+        success: msg.st === true,
+        seqno: asInt(msg.sn),
+        seqno_valid: msg.sv === true,
+        timegap_ms: asInt(msg.tg),
+        ttl: asInt(msg.ttl),
+        recv_size: asInt(msg.sz),
+        transmitted: asInt(msg.tx),
+        received: asInt(msg.rx),
+      });
+    } else if (msg.et === "csi") {
+      session.csi.push({
+        ds,
+        ts,
+        cb: asInt(msg.cb),
+        mac: msg.mac || "",
+        dmac: msg.dm || "",
+        rx_seq: asInt(msg.rq),
+        sig_mode: asInt(msg.sm),
+        mcs: asInt(msg.mc),
+        rssi: asInt(msg.rs),
+        bandwidth: asInt(msg.bw),
+        stbc: asInt(msg.sb),
+        payload_len: asInt(msg.pl),
+        /* Post-implementation review §2: firmware seq_id of the failed direct
+         * write (fallback rows only) and the drop reason. Missing `dr` on
+         * older firmware means the throttle case (0). */
+        seq_id: asInt(msg.sid),
+        drop_reason: asInt(msg.dr) === null ? CSI_DROP_ENUM.throttle : asInt(msg.dr),
+      });
+    } else {
+      session.counters.browser_parse_error += 1;
+      return "parse_error";
+    }
+    diagUpdateDs(session, ds);
+    return "accepted";
+  }
+
+  /* Applies the device ts window; returns {rows, rejected}. */
+  function windowFilter(session, rows) {
+    const lo = session.startTsUs;
+    const hi = session.boundaryConfirmed ? session.endTsUs : null;
+    let rejected = 0;
+    const kept = rows.filter((r) => {
+      if (lo !== null && r.ts < lo) {
+        rejected += 1;
+        return false;
+      }
+      if (hi !== null && r.ts > hi) {
+        rejected += 1;
+        return false;
+      }
+      return true;
+    });
+    return { rows: kept, rejected };
+  }
+
+  /* Encodes a row list into the columns+delta+enum shape (§18.1). Rows are
+   * sorted by absolute device ts; ts_base_us is the FIRST event's own esp_timer
+   * value so base + Σ ts_delta_us reconstructs every event exactly. */
+  function encodeStream(rows, columns, mapper) {
+    if (rows.length === 0) {
+      return { columns, rows: [], ts_base_us: null, ts_unit: "us", ts_monotonic: "esp_timer" };
+    }
+    const ordered = rows.slice().sort((a, b) => a.ts - b.ts);
+    const tsBase = ordered[0].ts;
+    const out = [];
+    let prev = ordered[0].ts;
+    for (const r of ordered) {
+      const delta = r.ts - prev;
+      out.push(mapper(r, delta));
+      prev = r.ts;
+    }
+    return {
+      columns,
+      rows: out,
+      ts_base_us: tsBase,
+      ts_unit: "us",
+      ts_monotonic: "esp_timer",
+    };
+  }
+
+  /* Specific reason a boundary is NOT confirmed (final audit §3). Derived only
+   * from device-reported flags — never inferred from "the UART looked idle",
+   * and never claiming the browser received everything. */
+  function boundaryFailureReason(session) {
+    if (session.boundaryConfirmed) {
+      return null;
+    }
+    const ack = session.device;
+    if (!ack) {
+      return session.phase === "stopping" ? "stop_ack_timeout" : "stop_ack_not_received";
+    }
+    if (ack.tx_drained === undefined) {
+      /* ACK predates the per-stage drain flags: confirmation cannot be graded,
+       * so the unconfirmed case stays attributed to the missing evidence. */
+      return "stop_ack_missing_drain_flags";
+    }
+    if (ack.tx_drained === false) {
+      return "serial_tx_not_drained(fflush_ok=" + String(ack.fflush_ok)
+        + ",fsync_ok=" + String(ack.fsync_ok) + ")";
+    }
+    if (ack.barrier_ok === false) {
+      return "mpsc_barrier_incomplete(queue_pending=" + (Number(ack.queue_pending) || 0)
+        + ",drain_inflight=" + (Number(ack.drain_inflight) || 0)
+        + ",inflight_at_close=" + (Number(ack.inflight_at_close) || 0) + ")";
+    }
+    return "device_reported_failure";
+  }
+
+  /* Produces {ping, csi_diag, session_stats, boundary} for meta. */
+  function diagFinalize(session) {
+    /* Final-audit §2: degraded device (diagnostics plumbing failed at init).
+     * Event streams and device-derived metrics are UNAVAILABLE (null), never
+     * zero — zero would silently claim "no ping events happened". Host-side
+     * counters still describe what the browser observed (nothing). */
+    if (session.diagEnabled === false) {
+      const reason = session.diagReason || "unknown";
+      return {
+        ping: null,
+        csi_diag: null,
+        session_stats: {
+          diagnostics_unavailable: true,
+          diagnostics_unavailable_reason: reason,
+          configured_interval_ms: null,
+          request_accepted_by_stack: null,
+          echo_reply_received: null,
+          success_callback_count: null,
+          timeout_callback_count: null,
+          event_overflow_count: session.counters.event_overflow,
+          diag_queue_overflow_count: null,
+          csi_callback_count: null,
+          csi_event_persisted_count: null,
+          ping_event_persisted_count: null,
+          diag_tx_failure_count: null,
+          diagnostic_event_loss_count: null,
+          loss_accounting: null,
+          truncated: session.truncated,
+          host_counters: {
+            browser_parse_error: session.counters.browser_parse_error,
+            boundary_ts_rejected: session.counters.boundary_ts_rejected,
+            epoch_rejected: session.counters.epoch_rejected,
+            boot_id_mismatch: session.counters.boot_id_mismatch,
+            duplicate_ds: session.counters.duplicate_ds,
+            out_of_order: session.counters.out_of_order,
+            seq_gaps: session.counters.seq_gaps,
+            stale_ack: session.counters.stale_ack,
+          },
+        },
+        boundary: {
+          epoch: session.epoch,
+          boot_id: session.bootId,
+          flush_generation: session.gen,
+          confirmed: session.boundaryConfirmed,
+          status: session.boundaryConfirmed ? "confirmed" : "boundary_unconfirmed",
+          unconfirmed_reason: boundaryFailureReason(session),
+          diagnostics_enabled: false,
+          diagnostics_unavailable_reason: reason,
+          start_ts_us: session.startTsUs,
+          end_ts_us: session.endTsUs,
+          diag_seq_max: null,
+          device_high_waters: null,
+          queue_pending: null,
+          inflight_at_close: null,
+          barrier_ok: false,
+          tx_drained: false,
+        },
+      };
+    }
+
+    const pingWin = windowFilter(session, session.ping);
+    const csiWin = windowFilter(session, session.csi);
+    session.counters.boundary_ts_rejected += pingWin.rejected + csiWin.rejected;
+
+    const pingColumns = [
+      "type", "ds", "ts_delta_us", "seqno", "seqno_valid",
+      "timegap_ms", "ttl", "recv_size", "transmitted", "received",
+    ];
+    const csiColumns = [
+      "cb", "ds", "ts_delta_us", "mac", "dmac", "rx_seq", "sig_mode",
+      "mcs", "rssi", "bandwidth", "stbc", "payload_len", "firmware_seq",
+      "drop_reason",
+    ];
+
+    const pingEnc = encodeStream(pingWin.rows, pingColumns, (r, delta) => [
+      r.success ? PING_TYPE_ENUM.success : PING_TYPE_ENUM.timeout,
+      r.ds,
+      delta,
+      r.seqno,
+      r.seqno_valid ? 1 : 0,
+      /* A timeout has no reply, so reply-derived fields are null, not 0. */
+      r.success ? r.timegap_ms : null,
+      r.success ? r.ttl : null,
+      r.success ? r.recv_size : null,
+      r.transmitted,
+      r.received,
+    ]);
+    pingEnc.type_enum = { success: PING_TYPE_ENUM.success, timeout: PING_TYPE_ENUM.timeout };
+
+    const csiEnc = encodeStream(csiWin.rows, csiColumns, (r, delta) => [
+      r.cb, r.ds, delta, r.mac, r.dmac, r.rx_seq, r.sig_mode, r.mcs,
+      r.rssi, r.bandwidth, r.stbc, r.payload_len,
+      /* fallback-only fields; null on throttle rows (no direct write ever ran
+       * for a callback that was throttled before formatting). */
+      r.seq_id, r.drop_reason,
+    ]);
+    csiEnc.mac_format = "12-hex lowercase, no colons";
+    csiEnc.drop_reason_enum = {
+      throttle: CSI_DROP_ENUM.throttle,
+      tx_lock_timeout: CSI_DROP_ENUM.tx_lock_timeout,
+      oversized: CSI_DROP_ENUM.oversized,
+      base64_fail: CSI_DROP_ENUM.base64_fail,
+      uart_write_fail: CSI_DROP_ENUM.uart_write_fail,
+    };
+
+    const successCallbackCount = pingWin.rows.filter((r) => r.success).length;
+    const timeoutCallbackCount = pingWin.rows.filter((r) => !r.success).length;
+
+    const dev = session.device || {};
+    const devCounters = dev.counters || {};
+    /* Final-audit §1: STAGED reconciliation, one identity per stage, each event
+     * landing in exactly ONE term:
+     *   stage 1  assigned            = enqueued + queue_overflow (+residual)
+     *   stage 2  enqueued            = tx_success + tx_failure + pending_at_close
+     *   stage 3  tx_success          = browser_received_unique + unaccounted transport
+     *   stage 4  browser_received    = persisted + window_rejected + truncated
+     * Device per-take counters: enqueued = ping_event_persisted +
+     * csi_event_persisted (incremented ONLY on xQueueSend success, so an
+     * overflowed event is never also "enqueued"); tx_failure =
+     * diag_emit_failed; pending_at_close = queue_pending.
+     * Nothing is summed twice: the browser-side window/truncation terms live
+     * on stage 4 only, and the total loss adds stage-1/2/3 losses once. */
+    const assignedHw = Number(dev.diag_seq_assigned_max) || 0;
+    const enqueuedTotal = (Number(devCounters.ping_event_persisted) || 0)
+      + (Number(devCounters.csi_event_persisted) || 0);
+    const queueOverflow = Number(devCounters.diag_queue_overflow) || 0;
+    const txFailed = Number(devCounters.diag_emit_failed) || 0;
+    const pendingAtClose = session.device ? (Number(dev.queue_pending) || 0) : null;
+    const txSuccess = session.device
+      ? Math.max(0, enqueuedTotal - txFailed - pendingAtClose)
+      : null;
+    const receivedDs = new Set();
+    for (const r of session.ping) receivedDs.add(r.ds);
+    for (const r of session.csi) receivedDs.add(r.ds);
+    /* Stage 4's identity is exact against STORED arrivals: every stored event
+     * is either persisted (in window), window-rejected, or capped before
+     * storage. The unique-ds view sits next to it as the dedup signal — a
+     * unique count below the received count means the same diag_seq arrived
+     * more than once, which is a delivery anomaly, not a loss. */
+    const browserReceivedCount = session.ping.length + session.csi.length;
+    const browserReceivedUnique = receivedDs.size;
+    const browserPersisted = pingWin.rows.length + csiWin.rows.length;
+    const browserWindowRejected = session.counters.boundary_ts_rejected;
+    const browserTruncated = session.counters.event_overflow;
+
+    let lossAccounting = null;
+    let diagnosticEventLoss = null;
+    if (session.device) {
+      /* Raw residuals: positive = an identified stage did not explain them
+       * (reported as `unaccounted_*`); negative = the counters disagree (the
+       * identity is over-determined, e.g. items drained after the snapshot),
+       * which is flagged instead of silently inflating a loss term. */
+      const stage1Residual = assignedHw - enqueuedTotal - queueOverflow;
+      const stage2Residual = enqueuedTotal - txFailed - pendingAtClose - txSuccess;
+      const unaccountedTransportRaw = txSuccess - browserReceivedCount;
+      const unaccountedTransport = Math.max(0, unaccountedTransportRaw);
+      lossAccounting = {
+        counter_inconsistent: stage1Residual < 0 || stage2Residual < 0
+          || unaccountedTransportRaw < 0,
+        stages: {
+          /* device side, stages 1-3 */
+          diag_assigned_count: assignedHw,
+          diag_queue_enqueued_count: enqueuedTotal,
+          diag_queue_overflow_count: queueOverflow,
+          diag_tx_success_count: txSuccess,
+          diag_tx_failure_count: txFailed,
+          diag_pending_at_close_count: pendingAtClose,
+          diag_unaccounted_stage1_count: Math.max(0, stage1Residual),
+          /* stage 3: written to the wire but never arrived intact (framing
+           * loss, host stall); the device cannot see its own cause. */
+          transport_unaccounted_count: unaccountedTransport,
+          /* browser side, stage 4 */
+          browser_received_count: browserReceivedCount,
+          browser_received_unique_count: browserReceivedUnique,
+          browser_parse_error_count: session.counters.browser_parse_error,
+          browser_admission_rejected_count: session.counters.epoch_rejected
+            + session.counters.boot_id_mismatch,
+          browser_window_rejected_count: browserWindowRejected,
+          browser_event_truncated_count: browserTruncated,
+          browser_persisted_count: browserPersisted,
+        },
+      };
+      /* Total over DISJOINT stages: stage-1 overflow + stage-2 TX failures +
+       * stage-2 items still queued at close + stage-3 unaccounted transport +
+       * stage-4 browser truncation. Window-rejected events are NOT a loss:
+       * they arrived and are reported on their own counter. */
+      diagnosticEventLoss = queueOverflow + txFailed + pendingAtClose
+        + unaccountedTransport + browserTruncated;
+    }
+
+    const sessionStats = {
+      diagnostics_unavailable: false,
+      diagnostics_unavailable_reason: null,
+      configured_interval_ms: null,
+      request_accepted_by_stack: null,
+      echo_reply_received: null,
+      success_callback_count: successCallbackCount,
+      timeout_callback_count: timeoutCallbackCount,
+      event_overflow_count: session.counters.event_overflow,
+      diag_queue_overflow_count: Number(devCounters.diag_queue_overflow) || 0,
+      csi_callback_count: Number(devCounters.csi_callback) || 0,
+      csi_event_persisted_count: Number(devCounters.csi_event_persisted) || 0,
+      ping_event_persisted_count: Number(devCounters.ping_event_persisted) || 0,
+      diag_tx_failure_count: txFailed,
+      diagnostic_event_loss_count: diagnosticEventLoss,
+      loss_accounting: lossAccounting,
+      truncated: session.truncated,
+      host_counters: {
+        browser_parse_error: session.counters.browser_parse_error,
+        boundary_ts_rejected: session.counters.boundary_ts_rejected,
+        epoch_rejected: session.counters.epoch_rejected,
+        boot_id_mismatch: session.counters.boot_id_mismatch,
+        duplicate_ds: session.counters.duplicate_ds,
+        out_of_order: session.counters.out_of_order,
+        seq_gaps: session.counters.seq_gaps,
+        stale_ack: session.counters.stale_ack,
+      },
+    };
+
+    const boundary = {
+      epoch: session.epoch,
+      boot_id: session.bootId,
+      flush_generation: session.gen,
+      confirmed: session.boundaryConfirmed,
+      status: session.boundaryConfirmed ? "confirmed" : "boundary_unconfirmed",
+      unconfirmed_reason: boundaryFailureReason(session),
+      diagnostics_enabled: session.diagEnabled !== false,
+      start_ts_us: session.startTsUs,
+      end_ts_us: session.endTsUs,
+      diag_seq_max: session.dsMax,
+      loss_accounting: lossAccounting,
+      device_high_waters: session.device ? {
+        assigned: Number(dev.diag_seq_assigned_max) || 0,
+        enqueued: Number(dev.diag_seq_enqueued_max) || 0,
+        emitted: Number(dev.diag_seq_emitted_max) || 0,
+      } : null,
+      queue_pending: session.device ? Number(dev.queue_pending) || 0 : null,
+      inflight_at_close: session.device ? Number(dev.inflight_at_close) || 0 : null,
+      barrier_ok: session.device ? dev.barrier_ok === true : false,
+      tx_drained: session.device ? dev.tx_drained === true : false,
+    };
+
+    return { ping: pingEnc, csi_diag: csiEnc, session_stats: sessionStats, boundary };
+  }
+
+  /*
+   * Pure mirror of the firmware TAKE_BEGIN lifecycle gate (post-implementation
+   * review §1): TAKE_BEGIN may only open a new epoch once the previous session
+   * is closed AND quiescent — no pending queue items, no producer inflight, no
+   * drain inflight. Used by the host tests to pin the contract the device
+   * enforces (device-side state polling lives in web_serial_monitor.c).
+   */
+  function diagTakeBeginAllowed(state) {
+    const s = state || {};
+    if (s.takeOpen) {
+      return { allowed: false, reason: "take_open" };
+    }
+    if ((Number(s.queuePending) || 0) > 0
+        || (Number(s.inflight) || 0) > 0
+        || (Number(s.drainInflight) || 0) > 0) {
+      return { allowed: false, reason: "prev_not_quiescent" };
+    }
+    return { allowed: true, reason: "quiescent" };
+  }
+
   return {
     /* v3 activity system */
     ACTIVITY_LABELS,
@@ -1169,5 +1824,17 @@
     parseIqCsv,
     buildMeta,
     buildMetaV2,
+    /* Prioritas 1 diagnostic session (plan §18) */
+    PING_TYPE_ENUM,
+    CSI_DROP_ENUM,
+    MAX_EVENTS_PER_TAKE,
+    seqNewer,
+    createDiagSession,
+    diagNoteStartAck,
+    diagNoteStopping,
+    diagNoteStopAck,
+    diagAcceptEvent,
+    diagFinalize,
+    diagTakeBeginAllowed,
   };
 });

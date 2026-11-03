@@ -1,0 +1,24 @@
+dependencies:
+  cmake_utilities: 0.*
+  esp-radar:
+    version: '>=0.3.3'
+  idf: '>=5.4'
+description: ESP Wi-Fi sensing component for motion-triggered interaction based on
+  CSI data.
+files:
+  exclude:
+  - '**/build*/**/*'
+issues: https://github.com/espressif/esp-csi/issues
+sbom:
+  originator: 'Organization: Espressif Systems (Shanghai) CO LTD'
+  supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+targets:
+- esp32
+- esp32s3
+- esp32s2
+- esp32c3
+- esp32c5
+- esp32c6
+- esp32c61
+url: https://github.com/espressif/esp-csi/tree/master
+version: 0.1.1~3

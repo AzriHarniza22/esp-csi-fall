@@ -180,6 +180,129 @@ class HttpApiTests(unittest.TestCase):
         self.assertIn("fall_forward", index)
         self.assertIn("fall", index)
 
+    def test_post_persists_diagnostic_events_in_meta(self):
+        """Prioritas 1: meta.events.ping/csi_diag + session_stats + boundary
+        round-trip through the server while the take still stores exactly two
+        files (frames.csv + meta.json)."""
+        rec_id = "20261101T000000Z_walking_001"
+        diag_meta = make_meta(
+            rec_id, "walking", 3,
+            events={
+                "segments": [],
+                "motion_samples": [],
+                "ping": {
+                    "columns": ["type", "ds", "ts_delta_us", "seqno", "seqno_valid",
+                                "timegap_ms", "ttl", "recv_size", "transmitted", "received"],
+                    "ts_base_us": 1000, "ts_unit": "us", "ts_monotonic": "esp_timer",
+                    "type_enum": {"success": 1, "timeout": 2},
+                    "rows": [[1, 7001, 0, 7, 1, 3, 64, 29, 1, 1],
+                             [2, 7002, 10000, 8, 1, None, None, None, 1, 0]],
+                },
+                "csi_diag": {
+                    "columns": ["cb", "ds", "ts_delta_us", "mac", "dmac", "rx_seq",
+                                "sig_mode", "mcs", "rssi", "bandwidth", "stbc",
+                                "payload_len", "firmware_seq", "drop_reason"],
+                    "ts_base_us": 1000, "mac_format": "12-hex lowercase, no colons",
+                    "drop_reason_enum": {"throttle": 0, "tx_lock_timeout": 1,
+                                         "oversized": 2, "base64_fail": 3,
+                                         "uart_write_fail": 4},
+                    "rows": [[1, 7101, 0, "f8731a5923f4", "3c22fbe1a2b4", 512, 0, 7,
+                              -59, 0, 0, 128, None, 0],
+                             [1, 7102, 900, "f8731a5923f4", "3c22fbe1a2b4", 513, 0, 7,
+                              -60, 0, 0, 128, 55, 2]],
+                },
+            },
+            session_stats={"success_callback_count": 1, "timeout_callback_count": 1,
+                           "truncated": False},
+            boundary={"epoch": 5, "flush_generation": 1, "confirmed": True,
+                      "status": "confirmed"},
+        )
+        status, payload = self._json(
+            "POST", "/api/recordings",
+            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, 3), "meta": diag_meta},
+        )
+        self.assertEqual(status, 200, payload)
+        folder = self.recordings / "walking"
+        self.assertTrue((folder / f"{rec_id}.frames.csv").is_file())
+        self.assertTrue((folder / f"{rec_id}.meta.json").is_file())
+        for suffix in LEGACY_SUFFIXES:
+            self.assertFalse((folder / f"{rec_id}{suffix}").exists())
+        status, one = self._json("GET", f"/api/recordings/{rec_id}")
+        self.assertEqual(status, 200)
+        self.assertEqual(one["events"]["ping"]["rows"][1][0], 2)  # timeout enum preserved
+        self.assertIsNone(one["events"]["ping"]["rows"][1][5])    # null preserved on round-trip
+        # Fallback csi_diag rows keep firmware_seq/drop_reason through the server.
+        self.assertEqual(one["events"]["csi_diag"]["rows"][1][12], 55)
+        self.assertEqual(one["events"]["csi_diag"]["rows"][1][13], 2)
+        self.assertEqual(one["events"]["csi_diag"]["drop_reason_enum"]["uart_write_fail"], 4)
+        self.assertEqual(one["boundary"]["status"], "confirmed")
+        self.assertEqual(one["session_stats"]["timeout_callback_count"], 1)
+
+    def test_post_persists_degraded_and_staged_meta(self):
+        """Final audit: degraded diagnostics (streams null, reason kept) and
+        the staged loss_accounting round-trip; null must never be rewritten
+        as 0 by the server."""
+        rec_id = "20261101T000100Z_walking_002"
+        degraded_meta = make_meta(
+            rec_id, "walking", 2,
+            events={"segments": [], "motion_samples": [], "ping": None, "csi_diag": None},
+            session_stats={
+                "diagnostics_unavailable": True,
+                "diagnostics_unavailable_reason": "queue_alloc_failed",
+                "success_callback_count": None,
+                "diagnostic_event_loss_count": None,
+                "loss_accounting": None,
+                "truncated": False,
+            },
+            boundary={"epoch": 6, "flush_generation": 1, "confirmed": True,
+                      "status": "confirmed", "diagnostics_enabled": False,
+                      "diagnostics_unavailable_reason": "queue_alloc_failed"},
+        )
+        status, payload = self._json(
+            "POST", "/api/recordings",
+            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, 2), "meta": degraded_meta},
+        )
+        self.assertEqual(status, 200, payload)
+        status, one = self._json("GET", f"/api/recordings/{rec_id}")
+        self.assertEqual(status, 200)
+        self.assertIsNone(one["events"]["ping"])
+        self.assertIsNone(one["events"]["csi_diag"])
+        self.assertTrue(one["session_stats"]["diagnostics_unavailable"])
+        self.assertEqual(
+            one["session_stats"]["diagnostics_unavailable_reason"], "queue_alloc_failed")
+        self.assertIsNone(one["session_stats"]["success_callback_count"])
+        self.assertIsNone(one["session_stats"]["diagnostic_event_loss_count"])
+        self.assertFalse(one["boundary"]["diagnostics_enabled"])
+
+        staged_id = "20261101T000200Z_walking_003"
+        staged_meta = make_meta(
+            staged_id, "walking", 2,
+            session_stats={
+                "diagnostic_event_loss_count": 6,
+                "diag_tx_failure_count": 1,
+                "loss_accounting": {"counter_inconsistent": False, "stages": {
+                    "diag_assigned_count": 8, "diag_queue_overflow_count": 2, "diag_queue_enqueued_count": 6,
+                    "diag_tx_failure_count": 1, "diag_pending_at_close_count": 0, "transport_unaccounted_count": 3,
+                    "browser_received_unique_count": 2, "browser_persisted_count": 2,
+                    "diag_unaccounted_stage1_count": 0,
+                }},
+            },
+            boundary={"epoch": 7, "flush_generation": 1, "confirmed": False,
+                      "status": "boundary_unconfirmed"},
+        )
+        status, payload = self._json(
+            "POST", "/api/recordings",
+            {"id": staged_id, "frames_csv": make_frames_csv(staged_id, 2), "meta": staged_meta},
+        )
+        self.assertEqual(status, 200, payload)
+        status, one = self._json("GET", f"/api/recordings/{staged_id}")
+        stages = one["session_stats"]["loss_accounting"]["stages"]
+        self.assertEqual(stages["diag_queue_overflow_count"], 2)
+        self.assertEqual(stages["diag_tx_failure_count"], 1)
+        self.assertEqual(stages["transport_unaccounted_count"], 3)
+        self.assertEqual(one["session_stats"]["diagnostic_event_loss_count"], 6)
+        self.assertEqual(one["boundary"]["status"], "boundary_unconfirmed")
+
     def test_get_and_delete_two_files(self):
         rec_id = "20261030T000100Z_walking_001"
         self._json(

@@ -112,6 +112,26 @@ esp_err_t web_serial_monitor_attach_sensing(const web_serial_monitor_config_t *c
  */
 esp_err_t web_serial_monitor_update_peer_mac(const char *name, const uint8_t *mac);
 
+/**
+ * @brief Apply the selected traffic stimulus once the link is usable.
+ *
+ * Called from the Wi-Fi GOT_IP / rebind path after `attach_sensing()`. The
+ * stimulus mode (off / HTTP / ICMP ping) is owned here so HTTP and the router
+ * ping are mutually exclusive: this stops both and starts only the selected
+ * one. With the default mode `off` nothing runs until a `SET_STIMULUS_MODE`
+ * command arrives, which is the intended behaviour for the HTTP-vs-Ping
+ * comparison experiment.
+ */
+void web_serial_monitor_link_up_apply_stimulus(void);
+
+/**
+ * @brief Stop whichever stimulus is active when the link goes down.
+ *
+ * The selected mode is remembered so `web_serial_monitor_link_up_apply_stimulus()`
+ * restores it after a reconnect.
+ */
+void web_serial_monitor_link_down_stop_stimulus(void);
+
 #ifdef __cplusplus
 }
 #endif

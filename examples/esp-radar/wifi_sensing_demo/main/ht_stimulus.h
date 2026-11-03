@@ -24,6 +24,7 @@ typedef struct {
     bool     enabled;      /**< Requested state; may differ from the task state for the short moment after a stop. */
     uint32_t burst_bytes;  /**< Download size of one burst, in bytes. */
     uint32_t pause_ms;     /**< Quiet gap between bursts, in milliseconds. */
+    bool     keep_alive;   /**< Reuse TCP connection across bursts (skip init/cleanup per cycle). */
 } ht_stimulus_config_t;
 
 /**
@@ -87,6 +88,39 @@ esp_err_t ht_stimulus_set_config(const ht_stimulus_config_t *cfg);
  * @return ESP_OK on success.
  */
 esp_err_t ht_stimulus_get_config(ht_stimulus_config_t *cfg);
+
+/**
+ * @brief Measured HTTP stimulus counters, accumulated by the stimulus task.
+ *
+ * These are measured, not derived from the configuration, so the experiment
+ * metadata can record what the stimulus actually did during a take. A 64-bit
+ * field may tear when read while the task is updating it, which is acceptable
+ * for a diagnostic counter but must not be used for exact byte accounting.
+ */
+typedef struct {
+    uint32_t requests;        /**< HTTP GET cycles attempted while running. */
+    uint32_t burst_success;   /**< Bursts that transferred the full byte count. */
+    uint32_t burst_failed;    /**< Bursts that ended short or with an error. */
+    uint64_t bytes_requested; /**< Sum of burst_bytes over attempts that opened OK. */
+    uint64_t bytes_received;  /**< Sum of bytes actually read. */
+    uint32_t active_ms;       /**< Total time spent reading bursts. */
+    uint32_t idle_ms;         /**< Total pause time between bursts. */
+    uint32_t errors;          /**< Client init / open / status failures. */
+} ht_stimulus_stats_t;
+
+/**
+ * @brief Read the stimulus counters accumulated since the last reset.
+ *
+ * @param stats Destination; may not be NULL.
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG when @c stats is NULL,
+ *         ESP_ERR_NOT_SUPPORTED when the stimulus feature was compiled out.
+ */
+esp_err_t ht_stimulus_get_stats(ht_stimulus_stats_t *stats);
+
+/**
+ * @brief Zero the stimulus counters (called when a take's stimulus is applied).
+ */
+void ht_stimulus_reset_stats(void);
 
 #ifdef __cplusplus
 }

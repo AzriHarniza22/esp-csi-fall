@@ -3,8 +3,13 @@ dependencies:
   idf: '>=5.4'
   espressif/led_strip: "^3.0.0"
 
-  esp_wifi_sensing:
-    version: '>=0.1.1'
+  # esp_wifi_sensing is vendored (git-tracked copy at ../esp_wifi_sensing) so the
+  # per-reply ping instrumentation (Prioritas 1, §17.7) survives dependency
+  # re-resolution. Editing managed_components/ directly would be overwritten by
+  # the Component Manager (that path is git-ignored). The folder is named exactly
+  # "esp_wifi_sensing" so it registers under the short name app_main REQUIRES.
+  espressif/esp_wifi_sensing:
+    override_path: ../esp_wifi_sensing
 
   # esp-radar is pulled transitively by esp_wifi_sensing. It is overridden
   # here with a locally vendored, git-tracked patch so the CSI sub-carrier
