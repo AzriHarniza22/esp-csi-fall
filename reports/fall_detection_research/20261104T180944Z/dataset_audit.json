@@ -1,0 +1,5455 @@
+{
+ "rows": [
+  {
+   "recording_id": "20261104T154653Z_bending_001",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.033,
+   "batch_id": null,
+   "take": null,
+   "take_count": null,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 297
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154719Z_bending_001",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.054,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 1,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 296
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154735Z_bending_002",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.01,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 2,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 302
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154750Z_bending_003",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.006,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 3,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 302
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154805Z_bending_004",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.049,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 4,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 273
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154835Z_bending_006",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.02,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 6,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 293
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154851Z_bending_007",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.029,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 7,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 301
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154906Z_bending_008",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.031,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 8,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 294
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154921Z_bending_009",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.019,
+   "batch_id": "20261104T154714Z_bending_001",
+   "take": 9,
+   "take_count": 9,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 299
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155021Z_bending_001",
+   "label": "bending",
+   "folder": "bending",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.038,
+   "batch_id": null,
+   "take": null,
+   "take_count": null,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Membungkuk lalu berdiri"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 281
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121450Z_empty_room_001",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.012,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 302
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121506Z_empty_room_002",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.033,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 289
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121521Z_empty_room_003",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.016,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 283
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121536Z_empty_room_004",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.018,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 281
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121551Z_empty_room_005",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.049,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 306
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121606Z_empty_room_006",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.021,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 279
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121622Z_empty_room_007",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.027,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 266
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121637Z_empty_room_008",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.009,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 293
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T121652Z_empty_room_009",
+   "label": "empty_room",
+   "folder": "empty_room",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.045,
+   "batch_id": "20261104T121445Z_empty_room_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Ruangan kosong \u2014 tidak ada orang"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 307
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160100Z_fall_backward_001",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.028,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 297
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160120Z_fall_backward_002",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.029,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 288
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160140Z_fall_backward_003",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.042,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 289
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160200Z_fall_backward_004",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.026,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 274
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160220Z_fall_backward_005",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.018,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 284
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160241Z_fall_backward_006",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.035,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 273
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160301Z_fall_backward_007",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.005,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 287
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160321Z_fall_backward_008",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.035,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 289
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160341Z_fall_backward_009",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.04,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 293
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160401Z_fall_backward_010",
+   "label": "fall_backward",
+   "folder": "fall_backward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.031,
+   "batch_id": "20261104T160049Z_fall_backward_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke belakang sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 299
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155713Z_fall_forward_001",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.013,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 285
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155733Z_fall_forward_002",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.017,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 19,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 250
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155753Z_fall_forward_003",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.033,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 299
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155813Z_fall_forward_004",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.022,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 298
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155834Z_fall_forward_005",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.022,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 20,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 262
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155854Z_fall_forward_006",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.007,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 287
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155914Z_fall_forward_007",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.047,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 276
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155934Z_fall_forward_008",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.047,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 284
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155954Z_fall_forward_009",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.011,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 20,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 253
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T160014Z_fall_forward_010",
+   "label": "fall_forward",
+   "folder": "fall_forward",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.019,
+   "batch_id": "20261104T155703Z_fall_forward_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": 10,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuh ke depan sekarang!"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 265
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154253Z_fast_sitting_001",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.015,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 300
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154308Z_fast_sitting_002",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.004,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 289
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154324Z_fast_sitting_003",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.007,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 292
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154339Z_fast_sitting_004",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.008,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 295
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154409Z_fast_sitting_006",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.008,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 298
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154424Z_fast_sitting_007",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.007,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 294
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154440Z_fast_sitting_008",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.028,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 295
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154455Z_fast_sitting_009",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.015,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 294
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154510Z_fast_sitting_010",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.046,
+   "batch_id": "20261104T154248Z_fast_sitting_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 306
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T154615Z_fast_sitting_001",
+   "label": "fast_sitting",
+   "folder": "fast_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.019,
+   "batch_id": null,
+   "take": null,
+   "take_count": null,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jongkok atau duduk cepat"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 300
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155116Z_object_drop_001",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.003,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 300
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155131Z_object_drop_002",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.005,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 282
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155146Z_object_drop_003",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.016,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 295
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155201Z_object_drop_004",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.039,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 294
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155217Z_object_drop_005",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.046,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 295
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155232Z_object_drop_006",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.059,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 298
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155247Z_object_drop_007",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.038,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 292
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155302Z_object_drop_008",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.063,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 299
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155317Z_object_drop_009",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.074,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 293
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T155333Z_object_drop_010",
+   "label": "object_drop",
+   "folder": "object_drop",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.152,
+   "batch_id": "20261104T155111Z_object_drop_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": 5,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Jatuhkan benda"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 300
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115746Z_still_sitting_001",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.005,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 272
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115801Z_still_sitting_002",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.036,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 20,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 262
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115816Z_still_sitting_003",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.023,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 285
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115831Z_still_sitting_004",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.042,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 298
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115846Z_still_sitting_005",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.035,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 273
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115902Z_still_sitting_006",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.009,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 271
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115917Z_still_sitting_007",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.041,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 20,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 252
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115932Z_still_sitting_008",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.005,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 284
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T115947Z_still_sitting_009",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.037,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 301
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120003Z_still_sitting_010",
+   "label": "still_sitting",
+   "folder": "still_sitting",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.045,
+   "batch_id": "20261104T115746Z_still_sitting_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Duduk diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 293
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120043Z_still_standing_001",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.032,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 18,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 236
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120058Z_still_standing_002",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.034,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 20,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 257
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120113Z_still_standing_003",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.006,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 20,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 256
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120128Z_still_standing_004",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.017,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 19,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 248
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120143Z_still_standing_005",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.007,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 283
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120159Z_still_standing_006",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.007,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 21,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 271
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120214Z_still_standing_007",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.029,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 296
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120229Z_still_standing_008",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.039,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 303
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120244Z_still_standing_009",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.035,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 281
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T120300Z_still_standing_010",
+   "label": "still_standing",
+   "folder": "still_standing",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.022,
+   "batch_id": "20261104T120042Z_still_standing_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berdiri diam sepanjang rekaman"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 23,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 297
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043259Z_walking_001",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.021,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 1,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 18,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 228
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043314Z_walking_002",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.03,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 2,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 22,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 276
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043329Z_walking_003",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.006,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 3,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 303
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043344Z_walking_004",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.09,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 4,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 309
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043359Z_walking_005",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.007,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 5,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 309
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043415Z_walking_006",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.052,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 6,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 309
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043430Z_walking_007",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.041,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 7,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 25,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 315
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043445Z_walking_008",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.009,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 8,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 311
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043500Z_walking_009",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.049,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 9,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 24,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 305
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  },
+  {
+   "recording_id": "20261104T043515Z_walking_010",
+   "label": "walking",
+   "folder": "walking",
+   "schema_version": 3,
+   "status": "complete",
+   "eligible": true,
+   "reasons": [],
+   "frame_count": null,
+   "actual_duration_s": 10.06,
+   "batch_id": "20261104T043258Z_walking_001",
+   "take": 10,
+   "take_count": 10,
+   "gap_before_s": null,
+   "subject_id": null,
+   "pre_action": "still",
+   "post_action": "still",
+   "phases": [
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Tetap diam"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berjalan"
+    },
+    {
+     "start_s": null,
+     "end_s": null,
+     "phase_id": null,
+     "instruction": "Berhenti dan diam"
+    }
+   ],
+   "annotations": {
+    "fall_start": null,
+    "fall_impact": null,
+    "annotation_complete": false
+   },
+   "feature_windows": 25,
+   "lltf_width": 51,
+   "layout": {
+    "layouts": [
+     {
+      "sig_mode": "1",
+      "bandwidth": "0",
+      "stbc": "0",
+      "secondary": "0",
+      "data_type": "0",
+      "lltf_len": "102",
+      "ht_ltf_len": "112",
+      "stbc_ht_ltf_len": "0",
+      "valid_len": "214",
+      "first_word_invalid": "true",
+      "frames": 314
+     }
+    ]
+   },
+   "audio_cue_mode": "visual_only",
+   "clock_source": null
+  }
+ ],
+ "summary": {
+  "bending": {
+   "takes": 10,
+   "windows": 230,
+   "frames": 0,
+   "batches": [
+    "20261104T154714Z_bending_001",
+    "None"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "empty_room": {
+   "takes": 9,
+   "windows": 205,
+   "frames": 0,
+   "batches": [
+    "20261104T121445Z_empty_room_001"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "fall_backward": {
+   "takes": 10,
+   "windows": 224,
+   "frames": 0,
+   "batches": [
+    "20261104T160049Z_fall_backward_001"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "fall_forward": {
+   "takes": 10,
+   "windows": 214,
+   "frames": 0,
+   "batches": [
+    "20261104T155703Z_fall_forward_001"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "fast_sitting": {
+   "takes": 10,
+   "windows": 233,
+   "frames": 0,
+   "batches": [
+    "20261104T154248Z_fast_sitting_001",
+    "None"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "object_drop": {
+   "takes": 10,
+   "windows": 231,
+   "frames": 0,
+   "batches": [
+    "20261104T155111Z_object_drop_001"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "still_sitting": {
+   "takes": 10,
+   "windows": 217,
+   "frames": 0,
+   "batches": [
+    "20261104T115746Z_still_sitting_001"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "still_standing": {
+   "takes": 10,
+   "windows": 212,
+   "frames": 0,
+   "batches": [
+    "20261104T120042Z_still_standing_001"
+   ],
+   "schema": [
+    3
+   ]
+  },
+  "walking": {
+   "takes": 10,
+   "windows": 234,
+   "frames": 0,
+   "batches": [
+    "20261104T043258Z_walking_001"
+   ],
+   "schema": [
+    3
+   ]
+  }
+ }
+}

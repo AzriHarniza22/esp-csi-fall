@@ -330,10 +330,23 @@
 
     select {
       border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--panel-soft);
       color: var(--text);
       padding: 10px 12px;
       border-radius: 10px;
+    }
+
+    /* Native dropdown popups are drawn by the OS/browser with an opaque
+       light background; without an explicit option color, the inherited
+       near-white text (--text) becomes white-on-white. */
+    option {
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    option:checked {
+      background: var(--accent);
+      color: #081018;
     }
 
     .csi-status {
@@ -668,9 +681,11 @@
             <select id="recPostActionSelect"></select>
           </label>
           <label><span id="recTakesLabel">Takes (max 100)</span><input id="recTakesInput" type="number" min="1" max="100" step="1" value="1" autocomplete="off" /></label>
-          <label><span id="recGapLabel">Gap between takes (s)</span><input id="recGapInput" type="number" min="0" max="60" step="1" value="5" autocomplete="off" /></label>
+          <label><span id="recGapLabel">Gap before each take (s)</span><input id="recGapInput" type="number" min="0" max="60" step="1" value="5" autocomplete="off" /></label>
+          <label><span id="recSessionIdLabel">Session ID (day / position / subject)</span><input id="recSessionIdInput" type="text" autocomplete="off" placeholder="auto" /></label>
+          <label><span id="recSubjectIdLabel">Subject ID</span><input id="recSubjectIdInput" type="text" autocomplete="off" placeholder="1" /></label>
         </div>
-        <div id="recDurationInfo" class="muted">Duration: fixed 10 s per take.</div>
+        <div id="recDurationInfo" class="muted">Duration: 10 s per take (fall: 12 s).</div>
         <div style="height: 10px;"></div>
         <div class="config-form">
           <label class="checkbox-label"><input id="recEnableAudio" type="checkbox" checked /><span id="recEnableAudioLabel">Audio cues (voice + tone)</span></label>
@@ -713,8 +728,8 @@
             <div class="status-pill"><span id="recLiveAudioLabel">Audio</span><strong id="recLiveAudio">-</strong></div>
           </div>
           <div class="button-row" id="recAnnotRow" hidden>
-            <button id="recMarkFallStartBtn" disabled style="font-size:1.1rem;padding:14px 18px;">TANDAI AWAL JATUH</button>
-            <button id="recMarkImpactBtn" disabled style="font-size:1.1rem;padding:14px 18px;">TANDAI BENTURAN</button>
+            <button id="recMarkFallStartBtn" disabled style="font-size:1.1rem;padding:14px 18px;">1. TANDAI AWAL JATUH (Spasi)</button>
+            <button id="recMarkImpactBtn" disabled style="font-size:1.1rem;padding:14px 18px;">2. TANDAI BENTURAN (Spasi)</button>
           </div>
           <div id="recAnnotStatus" class="muted"></div>
         </div>
@@ -1039,7 +1054,7 @@
         recActivityLabel: "Activity",
         recPreActionLabel: "Pre-action",
         recPostActionLabel: "Post-action",
-        recDurationInfo: "Duration: fixed 10 s per take.",
+        recDurationInfo: "Duration: 10 s per take (fall: 12 s).",
         recOptStill: "Still (diam)",
         recOptWalking: "Walking (berjalan)",
         recOptCrawl: "Crawl (merangkak)",
@@ -1076,6 +1091,7 @@
         recLiveDisconnected: "DISCONNECTED",
         recAnnotFallStart: "Fall start",
         recAnnotImpact: "Impact",
+        recAnnotNext: "Next (Space)",
         recAnnotMarked: "Marked",
         recAnnotComplete: "complete",
         recAnnotIncomplete: "INCOMPLETE - fall buttons were not pressed",
@@ -1093,7 +1109,9 @@
         recResSaved: "Saved via",
         recResRxSeqGaps: "rx_seq gaps",
         recTakesLabel: "Takes (max 100)",
-        recGapLabel: "Gap between takes (s)",
+        recGapLabel: "Gap before each take (s)",
+        recSessionIdLabel: "Session ID (day / position / subject)",
+        recSubjectIdLabel: "Subject ID",
         recTimerLabel: "Recorder",
         recTimerIdle: "Idle",
         recTimerCountdown: "Countdown",
@@ -1104,10 +1122,11 @@
         recStartStimulusBtn: "Start stimulus",
         recNeedLabel: "Enter a label before recording.",
         recNeedSerial: "Connect serial before recording.",
-        recInvalidBatch: "Use 1-100 takes and a 0-60 second gap. Duration is fixed at 10 s.",
+        recInvalidBatch: "Use 1-100 takes and a 0-60 second gap. Duration is fixed at 10 s per take, and the gap runs before every take including the first.",
         recStimulusOff: "HT stimulus is stopped. CSI on this hardware usually needs it; start it before recording.",
         recSaved: "Saved recording",
         recSaveFailed: "Could not save to the recorder server; downloaded a backup instead.",
+        recSaveFailedEmpty: "Could not save to the recorder server, and this take captured no frames — nothing to download.",
         recIncomplete: "Recording marked incomplete",
         recCancelled: "Recording cancelled",
         recNeedServer: "Recording library needs python3 csi_recorder_server.py (not python -m http.server).",
@@ -1505,7 +1524,7 @@
         recActivityLabel: "活动",
         recPreActionLabel: "前置动作",
         recPostActionLabel: "后置动作",
-        recDurationInfo: "时长：每个样本固定 10 秒。",
+        recDurationInfo: "时长：每个样本 10 秒（跌倒：12 秒）。",
         recOptStill: "静止（diam）",
         recOptWalking: "行走（berjalan）",
         recOptCrawl: "爬行（merangkak）",
@@ -1542,6 +1561,7 @@
         recLiveDisconnected: "已断开",
         recAnnotFallStart: "跌倒开始",
         recAnnotImpact: "撞击",
+        recAnnotNext: "下一个（空格）",
         recAnnotMarked: "已标记",
         recAnnotComplete: "完整",
         recAnnotIncomplete: "不完整——未按下跌倒标记按钮",
@@ -1559,7 +1579,9 @@
         recResSaved: "保存方式",
         recResRxSeqGaps: "rx_seq 缺口",
         recTakesLabel: "次数（最多 100）",
-        recGapLabel: "样本间隔（秒）",
+        recGapLabel: "每次采集前的间隔（秒）",
+        recSessionIdLabel: "会话 ID（日期 / 位置 / 受试者）",
+        recSubjectIdLabel: "受试者 ID",
         recTimerLabel: "采集器",
         recTimerIdle: "空闲",
         recTimerCountdown: "倒计时",
@@ -1570,10 +1592,11 @@
         recStartStimulusBtn: "启动激励",
         recNeedLabel: "请先填写标签。",
         recNeedSerial: "请先连接串口再采集。",
-        recInvalidBatch: "次数须为 1–100，间隔须为 0–60 秒。时长固定为 10 秒。",
+        recInvalidBatch: "次数须为 1–100，间隔须为 0–60 秒。时长固定为 10 秒，且间隔在每次采集前执行（包括第一次）。",
         recStimulusOff: "HT 激励已停止。此硬件上的 CSI 通常需要激励；请先启动再采集。",
         recSaved: "已保存",
         recSaveFailed: "无法写入采集服务器，已改为下载备份。",
+        recSaveFailedEmpty: "无法写入采集服务器，且本次采集未捕获任何帧——没有可下载的内容。",
         recIncomplete: "采集标记为不完整",
         recCancelled: "已取消采集",
         recNeedServer: "数据管理需要 python3 csi_recorder_server.py（不能只用 python -m http.server）。",
@@ -1775,6 +1798,9 @@
       takes: 1,
       gapS: 0,
       batchId: "",
+      sessionId: "",
+      subjectId: "",
+      batchAborts: [],
       library: [],
       /* v3 per-take state (recording-pipeline-implementation.md §8-§11) */
       plan: null,
@@ -2232,6 +2258,8 @@
       document.getElementById("recForegroundNote").textContent = t("recForegroundNote");
       document.getElementById("recTakesLabel").textContent = t("recTakesLabel");
       document.getElementById("recGapLabel").textContent = t("recGapLabel");
+      document.getElementById("recSessionIdLabel").textContent = t("recSessionIdLabel");
+      document.getElementById("recSubjectIdLabel").textContent = t("recSubjectIdLabel");
       document.getElementById("recTimerLabel").textContent = t("recTimerLabel");
       document.getElementById("recStartBtn").textContent = t("recStartBtn");
       document.getElementById("recCancelBtn").textContent = t("recCancelBtn");
@@ -2567,14 +2595,15 @@
       }
       const takePart = csiRecorder.takes > 1 ? ` · ${csiRecorder.take}/${csiRecorder.takes}` : "";
       if (csiRecorder.phase === "countdown") {
-        const remainingSec = Math.max(0, Math.ceil((csiRecorder.phaseEndsAt - Date.now()) / 1000));
+        const remainingSec = Math.max(0, Math.ceil((csiRecorder.phaseEndsAt - performance.now()) / 1000));
         recTimerText.textContent = `${t("recTimerCountdown")} ${remainingSec}s${takePart}`;
         return;
       }
       if (csiRecorder.phase === "recording") {
         const offset = recordingOffsetNowS();
-        const elapsed = Math.min(CsiRecorder.TARGET_DURATION_S, Math.max(0, Math.floor(offset)));
-        recTimerText.textContent = `${t("recTimerRecording")} ${elapsed}/${CsiRecorder.TARGET_DURATION_S}s · ${csiRecorder.frames.length} ${t("csiFrames")}${takePart}`;
+        const total = (csiRecorder.plan && csiRecorder.plan.durationS) || CsiRecorder.TARGET_DURATION_S;
+        const elapsed = Math.min(total, Math.max(0, Math.floor(offset)));
+        recTimerText.textContent = `${t("recTimerRecording")} ${elapsed}/${total}s · ${csiRecorder.frames.length} ${t("csiFrames")}${takePart}`;
         return;
       }
       if (csiRecorder.phase === "saving") {
@@ -2668,7 +2697,7 @@
         return;
       }
       const offset = recordingOffsetNowS();
-      const total = CsiRecorder.TARGET_DURATION_S;
+      const total = (csiRecorder.plan && csiRecorder.plan.durationS) || CsiRecorder.TARGET_DURATION_S;
       const clamped = Math.min(total, Math.max(0, offset));
       if (recLiveTime) {
         const fmt = (s) => `00:${String(Math.floor(s)).padStart(2, "0")}`;
@@ -2699,6 +2728,26 @@
       renderAnnotStatus();
     }
 
+    /*
+     * Live fall annotation walks a fixed two-step sequence so one key can drive
+     * it: the next unset mark wins, matching makeAnnotator's first-press-wins
+     * rule (spec §11). "Diam"/still is NOT a live mark here - it is captured by
+     * the post_action choice, so only fall_start then fall_impact advance.
+     */
+    function nextPendingAnnotation(snap) {
+      const snapshot = snap || (csiRecorder.annotator ? csiRecorder.annotator.snapshot() : null);
+      if (!snapshot) {
+        return null;
+      }
+      if (!snapshot.fall_start) {
+        return "fall_start";
+      }
+      if (!snapshot.fall_impact) {
+        return "fall_impact";
+      }
+      return null;
+    }
+
     function renderAnnotStatus() {
       if (!recAnnotStatus || !csiRecorder.annotator) {
         return;
@@ -2708,6 +2757,11 @@
         `${t("recAnnotFallStart")}: ${snap.fall_start ? `${snap.fall_start.offset_s.toFixed(2)}s` : "-"}`,
         `${t("recAnnotImpact")}: ${snap.fall_impact ? `${snap.fall_impact.offset_s.toFixed(2)}s` : "-"}`,
       ];
+      const nextKind = nextPendingAnnotation(snap);
+      if (nextKind) {
+        const label = t(nextKind === "fall_start" ? "recAnnotFallStart" : "recAnnotImpact");
+        parts.push(`${t("recAnnotNext")}: ${label} [Spasi]`);
+      }
       recAnnotStatus.textContent = parts.join("  ·  ");
       if (recMarkFallStartBtn) recMarkFallStartBtn.disabled = Boolean(snap.fall_start);
       if (recMarkImpactBtn) recMarkImpactBtn.disabled = Boolean(snap.fall_impact);
@@ -2829,7 +2883,7 @@
       renderAnnotStatus();
       startRecorderTicker();
 
-      const totalMs = CsiRecorder.TARGET_DURATION_S * 1000;
+      const totalMs = (plan.durationS || CsiRecorder.TARGET_DURATION_S) * 1000;
       const endMono = captureStartMono + totalMs;
       let cueIndex = 0;
       let phaseIndex = 0;
@@ -2955,7 +3009,7 @@
     function refreshRecorderOptions() {
       const label = recActivitySelect ? recActivitySelect.value : "";
       const kind = (CsiRecorder.TIMELINE_DEFS[label] || {}).kind || "";
-      const preValues = kind === "walking" ? ["still"] : CsiRecorder.PRE_ACTIONS;
+      const preValues = kind === "walking" || kind === "idle" ? ["still"] : CsiRecorder.PRE_ACTIONS;
       let postValues = ["still"];
       if (kind === "fall") {
         postValues = CsiRecorder.POST_ACTIONS;
@@ -2965,10 +3019,10 @@
       fillSelect(recPreActionSelect, preValues.map((v) => [v, PRE_ACTION_KEYS[v]]));
       fillSelect(recPostActionSelect, postValues.map((v) => [v, POST_ACTION_KEYS[v]]));
       if (recPreActionWrap) {
-        recPreActionWrap.hidden = kind === "walking";
+        recPreActionWrap.hidden = kind === "walking" || kind === "idle";
       }
       if (recPostActionWrap) {
-        recPostActionWrap.hidden = kind === "walking" || kind === "fast_sitting";
+        recPostActionWrap.hidden = kind === "walking" || kind === "fast_sitting" || kind === "idle";
       }
     }
 
@@ -3012,9 +3066,12 @@
     }
 
     async function waitRecorderPhase(ms) {
-      csiRecorder.phaseEndsAt = Date.now() + ms;
+      /* The countdown shares the take loop's monotonic clock (spec §8): a
+       * wall-clock step during a pre-roll would otherwise stretch or shrink it
+       * while the operator is waiting to start. */
+      csiRecorder.phaseEndsAt = performance.now() + ms;
       startRecorderTicker();
-      while (!csiRecorder.cancelled && Date.now() < csiRecorder.phaseEndsAt) {
+      while (!csiRecorder.cancelled && performance.now() < csiRecorder.phaseEndsAt) {
         await waitMs(150);
       }
     }
@@ -3435,6 +3492,10 @@
           dropped_on_device: csiDroppedCount,
           dropped_delta: completeness.dropped_delta,
           complete: completeness.complete && !earlyStop && !statusOverride,
+          /* Quiet time that preceded this take, including the first one; 0 when
+           * the gap is disabled. Recorded so a take's device warm-up state is
+           * reproducible (spec §8). */
+          gap_before_s: Number(plan.pre_roll_s) || 0,
         },
         activity: { pre_action: plan.options.pre_action, post_action: plan.options.post_action },
         timeline: plan.timeline,
@@ -3477,12 +3538,17 @@
         } : {}),
         session_stats: diag ? diag.session_stats : null,
         boundary: diag ? diag.boundary : null,
-        batch: csiRecorder.takes > 1 ? {
+        session_id: csiRecorder.sessionId || null,
+        subject_id: csiRecorder.subjectId || null,
+        batch: csiRecorder.batchId ? {
           batch_id: csiRecorder.batchId,
           take: plan.takeIndex,
           take_count: csiRecorder.takes,
           gap_s: csiRecorder.gapS,
         } : null,
+        abort: csiRecorder.batchAborts.length
+          ? { aborted_slots: csiRecorder.batchAborts.slice(), cancelled: csiRecorder.cancelled }
+          : null,
       });
       const framesCsv = CsiRecorder.buildFramesCsv(recId, frames);
       if (status !== "complete") {
@@ -3495,16 +3561,33 @@
           body: JSON.stringify({ id: recId, frames_csv: framesCsv, meta }),
         });
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          /* Surface the server's validation reason; a bare "HTTP 400" hides why
+           * the take was refused (e.g. "frames.csv has no data rows"). */
+          let detail = "";
+          try {
+            const reject = await response.json();
+            detail = reject && reject.error ? `: ${reject.error}` : "";
+          } catch (parseError) {
+            /* Non-JSON body (error page from a proxy); keep the status-only text. */
+          }
+          throw new Error(`HTTP ${response.status}${detail}`);
         }
         logEvent(`${t("recSaved")}: ${recId}`);
         return { saved: "server", recId, meta };
       } catch (error) {
-        /* Save failed: fall back to browser download of the SAME two files so
-         * no take is ever silently lost, and report the failure explicitly. */
+        logEvent(`${t("recSaveFailed")}: ${error.message}`);
+        /* Fall back to a browser download of the SAME two files so no take is
+         * silently lost — but only when there is data to salvage. A header-only
+         * CSV saves nothing, and two programmatic downloads trigger the
+         * browser's "automatic downloads" prompt (2026-11-04: a zero-frame
+         * take left a 352-byte header-only frames.csv in ~/Downloads while
+         * Chrome blocked the meta.json). */
+        if (frames.length === 0) {
+          logEvent(t("recSaveFailedEmpty"));
+          return { saved: "failed", recId, meta };
+        }
         downloadTextFile(`${recId}.frames.csv`, framesCsv);
         downloadTextFile(`${recId}.meta.json`, JSON.stringify(meta, null, 2));
-        logEvent(`${t("recSaveFailed")}: ${error.message}`);
         return { saved: "download", recId, meta };
       }
     }
@@ -3552,6 +3635,7 @@
       }
       const timeline = CsiRecorder.buildActivityTimeline(label, options);
       const cues = CsiRecorder.buildActivityCues(label, options);
+      const durationS = CsiRecorder.durationFromTimeline(timeline);
       if (!timeline || !cues) {
         logEvent(t("recInvalidOptions"));
         return;
@@ -3565,15 +3649,35 @@
         return;
       }
       const { takes, gapS } = batchSettings;
+      /* Load the library so take numbers stay monotonic across restarts
+       * (ACTION_PLAN 2.8). A multi-take batch must persist to the server, so a
+       * reachable library is required there; a single offline take refreshes
+       * best-effort and falls back to the per-label localStorage counter. */
+      let libraryEntries = [];
       if (takes > 1) {
         try {
           const response = await fetch("/api/recordings");
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
+          const payload = await response.json();
+          libraryEntries = Array.isArray(payload.recordings) ? payload.recordings : [];
+          csiRecorder.library = libraryEntries;
         } catch (error) {
           logEvent(`${t("recNeedServer")}: ${error.message}`);
           return;
+        }
+      } else {
+        try {
+          const response = await fetch("/api/recordings");
+          if (response.ok) {
+            const payload = await response.json();
+            libraryEntries = Array.isArray(payload.recordings) ? payload.recordings : [];
+            csiRecorder.library = libraryEntries;
+          }
+        } catch (error) {
+          /* Offline single take: monotonic numbering falls back to the local
+           * counter, which survives a browser reload even without the server. */
         }
       }
       unlockAudio();
@@ -3587,7 +3691,14 @@
       csiRecorder.disconnected = false;
       csiRecorder.takes = takes;
       csiRecorder.gapS = gapS;
-      csiRecorder.batchId = CsiRecorder.makeRecordingId(label, new Date(), 1);
+      /* batch_id is mandatory and auto-generated per run; session_id is the
+       * operator-owned physical-session grouping (never aliased to batch);
+       * subject_id names the performer and defaults to "1" when left blank. */
+      csiRecorder.batchId = CsiRecorder.makeBatchId(new Date());
+      csiRecorder.sessionId = resolveRecorderSessionId();
+      csiRecorder.subjectId = resolveRecorderSubjectId();
+      csiRecorder.batchAborts = [];
+      const startTake = computeNextTakeNumber(label, libraryEntries);
       csiRecorder.restorePeriod = Number(csiPeriodInput.value) || 100;
       csiRecorder.restoreStream = csiStreamActive;
       document.getElementById("recStartBtn").disabled = true;
@@ -3603,24 +3714,41 @@
         csiStreamActive = true;
         renderCsiStatus();
 
-        for (let take = 1; take <= takes && !csiRecorder.cancelled; take++) {
-          csiRecorder.take = take;
-          if (take > 1 && gapS > 0) {
+        /* The gap is a pre-roll before EVERY take, the first one included: it
+         * gives the operator time to get into position, or to leave the room for
+         * an empty_room take, before capture opens. Frames arriving during the
+         * pre-roll are dropped by runTake's per-take reset (spec §8). */
+        for (const slot of CsiRecorder.buildBatchSchedule({ takes, gapS, startTake })) {
+          if (csiRecorder.cancelled) {
+            /* Keep walking the remaining slots so each is traced as aborted in
+             * the batch record instead of vanishing silently (ACTION_PLAN 2.8). */
+            csiRecorder.batchAborts.push({ take: slot.take, reason: "cancelled" });
+            continue;
+          }
+          csiRecorder.take = slot.take;
+          if (slot.pre_roll_s > 0) {
             csiRecorder.phase = "countdown";
-            await waitRecorderPhase(gapS * 1000);
+            await waitRecorderPhase(slot.pre_roll_s * 1000);
             if (csiRecorder.cancelled) {
-              break;
+              csiRecorder.batchAborts.push({ take: slot.take, reason: "cancelled_in_preroll" });
+              continue;
             }
           }
-          const plan = { label, options, timeline, cues, takeIndex: take };
-          /* Every take re-runs the full 10 s deadline loop; nothing carries
+          const plan = {
+            label, options, timeline, cues, durationS,
+            takeIndex: slot.take, pre_roll_s: slot.pre_roll_s,
+          };
+          /* Every take re-runs the full per-take deadline loop (plan.durationS:
+           * 10 s, or 12 s for fall); nothing carries
            * over between takes except the batch identity. */
           const takeCtx = await runTake(plan);
           if (!takeCtx) {
             /* runTake skipped this take (device refused TAKE_BEGIN); the reason
-             * was already logged. Continue with the next take of the batch. */
+             * was already logged. Trace it and continue with the next take. */
+            csiRecorder.batchAborts.push({ take: slot.take, reason: "take_begin_refused" });
             continue;
           }
+          rememberTakeNumber(label, slot.take);
           pendingSaves.push(
             saveTakeV3(takeCtx)
               .then((result) => {
@@ -3676,6 +3804,104 @@
         return;
       }
       sendCommand(`SET_STIMULUS on ${values.burstBytes} ${values.pauseMs}`);
+    }
+
+    /* Session identity + monotonic take numbering (ACTION_PLAN 2.8). The
+     * session id is operator-supplied (free text: day/position/subject) and
+     * persisted, so it survives a reload and is independent of batch_id. Take
+     * numbers continue past the highest existing take for a label, combining the
+     * server library with a per-label localStorage counter so numbering stays
+     * monotonic even for offline single takes across a browser restart. */
+    const SESSION_STORAGE_KEY = "csiRecorder.sessionId";
+    const TAKE_COUNT_PREFIX = "csiRecorder.takeCount.";
+
+    function resolveRecorderSessionId() {
+      const input = document.getElementById("recSessionIdInput");
+      const explicit = input && input.value ? input.value.trim() : "";
+      if (explicit) {
+        try {
+          localStorage.setItem(SESSION_STORAGE_KEY, explicit);
+        } catch (error) {
+          /* storage disabled: still use the value for this run */
+        }
+        return explicit;
+      }
+      let stored = "";
+      try {
+        stored = localStorage.getItem(SESSION_STORAGE_KEY) || "";
+      } catch (error) {
+        stored = "";
+      }
+      if (!stored) {
+        stored = CsiRecorder.makeSessionId(new Date());
+        try {
+          localStorage.setItem(SESSION_STORAGE_KEY, stored);
+        } catch (error) {
+          /* ignore */
+        }
+      }
+      if (input && !input.value) {
+        input.value = stored;
+      }
+      return stored;
+    }
+
+    /* Subject identity (ACTION_PLAN 4.2/3.3). Blank means "subject 1", not
+     * "unknown": an unset field resolves to CsiRecorder.DEFAULT_SUBJECT_ID so
+     * every recorded take carries a subject the dataset loader can split on. A
+     * value entered once is persisted and reused across reloads; the resolved
+     * default is shown as the placeholder rather than written into the field,
+     * so the box stays honestly empty while the take still gets "1". */
+    const SUBJECT_STORAGE_KEY = "csiRecorder.subjectId";
+
+    function resolveRecorderSubjectId() {
+      const input = document.getElementById("recSubjectIdInput");
+      const explicit = input && input.value ? input.value.trim() : "";
+      if (explicit) {
+        try {
+          localStorage.setItem(SUBJECT_STORAGE_KEY, explicit);
+        } catch (error) {
+          /* storage disabled: the value still applies to this run */
+        }
+        return CsiRecorder.normalizeSubjectId(explicit);
+      }
+      let stored = "";
+      try {
+        stored = localStorage.getItem(SUBJECT_STORAGE_KEY) || "";
+      } catch (error) {
+        stored = "";
+      }
+      const value = CsiRecorder.normalizeSubjectId(stored);
+      if (input && !input.value) {
+        input.placeholder = value;
+      }
+      return value;
+    }
+
+    function computeNextTakeNumber(label, libraryEntries) {
+      const fromLibrary = CsiRecorder.nextTakeNumber(libraryEntries || [], label);
+      let fromStorage = 1;
+      try {
+        const raw = parseInt(localStorage.getItem(TAKE_COUNT_PREFIX + label) || "0", 10);
+        if (Number.isFinite(raw)) {
+          fromStorage = raw + 1;
+        }
+      } catch (error) {
+        /* ignore */
+      }
+      return Math.max(fromLibrary, fromStorage);
+    }
+
+    function rememberTakeNumber(label, takeNumber) {
+      try {
+        const key = TAKE_COUNT_PREFIX + label;
+        const current = parseInt(localStorage.getItem(key) || "0", 10);
+        if (!Number.isFinite(current) || takeNumber > current) {
+          localStorage.setItem(key, String(takeNumber));
+        }
+      } catch (error) {
+        /* ignore */
+      }
     }
 
     async function refreshRecordingsLibrary() {
@@ -5512,13 +5738,18 @@
       });
       recMarkFallStartBtn.addEventListener("click", () => markAnnotation("fall_start"));
       recMarkImpactBtn.addEventListener("click", () => markAnnotation("fall_impact"));
-      /* Spacebar marks fall start during capture so the participant does not
-       * have to aim at the button mid-action. */
+      /* Spacebar walks the live fall-annotation sequence during capture, so the
+       * operator does not have to aim at buttons mid-action: first press marks
+       * fall start, second marks floor impact, then it is a no-op once both are
+       * set (spec §11 first-press-wins). "Diam" is captured via post_action. */
       window.addEventListener("keydown", (event) => {
         if (event.code === "Space" && csiRecorder.phase === "recording" &&
-            recAnnotRow && !recAnnotRow.hidden && !recMarkFallStartBtn.disabled) {
-          event.preventDefault();
-          markAnnotation("fall_start");
+            recAnnotRow && !recAnnotRow.hidden) {
+          const next = nextPendingAnnotation();
+          if (next) {
+            event.preventDefault();
+            markAnnotation(next);
+          }
         }
       });
       document.getElementById("libRefreshBtn").addEventListener("click", refreshRecordingsLibrary);

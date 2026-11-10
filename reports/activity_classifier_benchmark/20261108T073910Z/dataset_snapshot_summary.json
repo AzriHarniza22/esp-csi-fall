@@ -1,0 +1,122 @@
+{
+  "takes": 130,
+  "frames": 39337,
+  "windows": 3088,
+  "skipped_frames": 0,
+  "labels": {
+    "bending": {
+      "takes": 10,
+      "windows": 230,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    },
+    "empty_room": {
+      "takes": 9,
+      "windows": 205,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    },
+    "fall_backward": {
+      "takes": 20,
+      "windows": 495,
+      "subjects": [
+        "1",
+        "None"
+      ],
+      "sessions": [
+        "None",
+        "sess_20261107T100226Z_luxlof"
+      ]
+    },
+    "fall_forward": {
+      "takes": 20,
+      "windows": 470,
+      "subjects": [
+        "1",
+        "None"
+      ],
+      "sessions": [
+        "None",
+        "sess_20261107T100226Z_luxlof"
+      ]
+    },
+    "fall_keseleo": {
+      "takes": 11,
+      "windows": 297,
+      "subjects": [
+        "1"
+      ],
+      "sessions": [
+        "sess_20261107T100226Z_luxlof"
+      ]
+    },
+    "fall_lemas": {
+      "takes": 10,
+      "windows": 264,
+      "subjects": [
+        "2"
+      ],
+      "sessions": [
+        "sess_20261107T100226Z_luxlof"
+      ]
+    },
+    "fast_sitting": {
+      "takes": 10,
+      "windows": 233,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    },
+    "object_drop": {
+      "takes": 10,
+      "windows": 231,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    },
+    "still_sitting": {
+      "takes": 10,
+      "windows": 217,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    },
+    "still_standing": {
+      "takes": 10,
+      "windows": 212,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    },
+    "walking": {
+      "takes": 10,
+      "windows": 234,
+      "subjects": [
+        "None"
+      ],
+      "sessions": [
+        "None"
+      ]
+    }
+  }
+}

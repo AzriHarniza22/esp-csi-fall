@@ -11,9 +11,13 @@ from pathlib import Path
 
 from fall_detection.dataset_io import (
     _FRAMES_COLUMNS,
+    EmptyFeatureMatrixError,
+    MixedLayoutError,
     amplitude,
     component_pairs,
     decode_iq,
+    frame_layout_pairs,
+    frame_lltf_pairs,
     leading_invalid_pairs,
     load_recording,
     ltf_sections,
@@ -305,61 +309,146 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(self.rec.frames[0].valid_payload, before)
 
 
-class FirstWordInvalidTests(unittest.TestCase):
-    """D: the flag is metadata; trimming is deferred until the payload
-    mapping is audited. Adapters read esp-radar's compacted valid_data, whose
-    leading pairs do not map onto the invalid first four bytes of buf, so no
-    adapter may apply the drop."""
+class _LayoutFixtureMixin:
+    """Build v2 recordings from one frame template repeated ``n`` times."""
+
+    def _write_repeated(self, rec_id: str, rows: list[dict[str, str]]) -> None:
+        _write_v2(self.root, rec_id, "berjalan", rows)
+
+    @staticmethod
+    def _payload(n_bytes: int, offset: int) -> bytes:
+        return bytes([(j + offset) % 100 for j in range(n_bytes)])
+
+
+class LayoutAFlaggedTests(_LayoutFixtureMixin, unittest.TestCase):
+    """Layout A (DATA_CONTRACT §1): 102 B / 51 pairs, first_word_invalid=true.
+
+    The dynamic floor must decode these 51-pair frames instead of dropping
+    them on the old >=52 filter; the flag never causes an extra trim of the
+    already-source-compacted valid_data.
+    """
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         rows = []
         for i in range(30):
-            payload = bytes([(j + i) % 100 for j in range(104)])  # 52 int8 pairs
             rows.append(_row(
-                recording_id="fw", frame_sequence=i, valid_len=104, lltf_len=104,
+                recording_id="a51", frame_sequence=i, valid_len=102, lltf_len=102,
                 data_type=0, sig_mode=0, bandwidth=0, stbc=0, secondary_channel=0,
                 first_word_invalid=True, callback_timestamp_us=1000 + i * 10000,
-                valid_b64=_b64(payload), payload_ok="true",
+                valid_b64=_b64(self._payload(102, i)), payload_ok="true",
             ))
-        _write_v2(self.root, "fw", "berjalan", rows)
-        self.rec = load_recording(self.root, "fw")
+        self._write_repeated("a51", rows)
+        self.rec = load_recording(self.root, "a51")
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_default_adapter_keeps_all_pairs(self):
-        obs, _, cfg = to_observation_sequence(self.rec)
-        self.assertEqual(len(obs[0]), 52)
-        self.assertNotIn("drop_first_word", cfg)
-        self.assertIn("first_word_invalid_handling", cfg)
+    def test_frame_lltf_pairs_is_flag_bound(self):
+        self.assertEqual(frame_layout_pairs(self.rec.frames[0]), 51)
 
-    def test_adapters_reject_unverified_first_word_trim(self):
-        # drop_first_word was removed from the valid-payload adapters: the
-        # mapping of the invalid word into compacted valid_data is layout-
-        # dependent and not yet proven, so the API must not invite it.
-        with self.assertRaises(TypeError):
-            to_observation_sequence(self.rec, drop_first_word=True)
-        with self.assertRaises(TypeError):
-            to_feature_matrix(self.rec, drop_first_word=True)
-        with self.assertRaises(TypeError):
-            to_time_series_tensor(self.rec, drop_first_word=True)
+    def test_feature_matrix_keeps_51_pairs(self):
+        X, _, cfg = to_feature_matrix(self.rec, model_pairs=51)
+        self.assertEqual(len(X), 1)
+        self.assertEqual(len(X[0]), 16)
+        self.assertEqual(cfg["subcarriers"], 51)
+        self.assertTrue(cfg["layout_matches_model"])
+        self.assertEqual(cfg["frames_kept"], 30)
+        self.assertEqual(cfg["contract_rejects"], 0)
 
-    def test_flagged_frames_are_not_trimmed(self):
-        # first_word_invalid=true must not change extracted features: the
-        # adapter output equals the untrimmed pair list, leading pairs kept.
+    def test_observation_sequence_not_trimmed_by_flag(self):
         obs, _, _ = to_observation_sequence(self.rec)
         frame = self.rec.frames[0]
         self.assertTrue(frame.first_word_invalid)
         self.assertEqual(obs[0], amplitude(component_pairs(frame, "lltf")))
-        self.assertEqual(len(obs[0]), 52)
+        self.assertEqual(len(obs[0]), 51)
 
-    def test_baseline_feature_matrix_is_unchanged_by_default(self):
+    def test_51_pairs_dropped_against_52_pair_model(self):
+        # Against the default 52-pair model width these frames are a legal
+        # layout but not consumable; with no other layout present the matrix
+        # is empty and must raise rather than silently produce zero rows.
+        with self.assertRaises(EmptyFeatureMatrixError):
+            to_feature_matrix(self.rec)  # model_pairs defaults to 52
+
+
+class LayoutBUnflaggedTests(_LayoutFixtureMixin, unittest.TestCase):
+    """Layout B: 104 B / 52 pairs, first_word_invalid=false (default model)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        rows = []
+        for i in range(30):
+            rows.append(_row(
+                recording_id="b52", frame_sequence=i, valid_len=104, lltf_len=104,
+                data_type=0, sig_mode=0, bandwidth=0, stbc=0, secondary_channel=0,
+                first_word_invalid=False, callback_timestamp_us=1000 + i * 10000,
+                valid_b64=_b64(self._payload(104, i)), payload_ok="true",
+            ))
+        self._write_repeated("b52", rows)
+        self.rec = load_recording(self.root, "b52")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_frame_lltf_pairs_is_flag_bound(self):
+        self.assertEqual(frame_lltf_pairs(self.rec.frames[0]), 52)
+
+    def test_feature_matrix_baseline_unchanged(self):
         X, _, cfg = to_feature_matrix(self.rec)
-        self.assertEqual(len(X), 1)          # baseline still produces a window
+        self.assertEqual(len(X), 1)
         self.assertEqual(len(X[0]), 16)
+        self.assertEqual(cfg["subcarriers"], 52)
+        self.assertTrue(cfg["layout_matches_model"])
         self.assertNotIn("drop_first_word", cfg)
+
+
+class FeatureMatrixContractTests(_LayoutFixtureMixin, unittest.TestCase):
+    """Contract violations and mixed layouts are explicit errors, not silent."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_inconsistent_flag_length_is_rejected(self):
+        # first_word_invalid=true but 104 B LLTF: not a legal layout.
+        rows = [_row(
+            recording_id="bad", frame_sequence=0, valid_len=104, lltf_len=104,
+            data_type=0, sig_mode=0, bandwidth=0, stbc=0, secondary_channel=0,
+            first_word_invalid=True, callback_timestamp_us=1000,
+            valid_b64=_b64(self._payload(104, 0)), payload_ok="true",
+        )]
+        self._write_repeated("bad", rows)
+        rec = load_recording(self.root, "bad")
+        self.assertEqual(frame_layout_pairs(rec.frames[0]), 0)
+        with self.assertRaises(EmptyFeatureMatrixError):
+            to_feature_matrix(rec)
+
+    def test_mixed_layouts_raise(self):
+        rows = []
+        for i in range(6):
+            if i % 2 == 0:  # Layout A, consumable under a 51-pair model
+                rows.append(_row(
+                    recording_id="mix", frame_sequence=i, valid_len=102, lltf_len=102,
+                    data_type=0, sig_mode=0, bandwidth=0, stbc=0, secondary_channel=0,
+                    first_word_invalid=True, callback_timestamp_us=1000 + i * 10000,
+                    valid_b64=_b64(self._payload(102, i)), payload_ok="true",
+                ))
+            else:           # Layout B, also legal; two widths in one take
+                rows.append(_row(
+                    recording_id="mix", frame_sequence=i, valid_len=104, lltf_len=104,
+                    data_type=0, sig_mode=0, bandwidth=0, stbc=0, secondary_channel=0,
+                    first_word_invalid=False, callback_timestamp_us=1000 + i * 10000,
+                    valid_b64=_b64(self._payload(104, i)), payload_ok="true",
+                ))
+        self._write_repeated("mix", rows)
+        rec = load_recording(self.root, "mix")
+        with self.assertRaises(MixedLayoutError):
+            to_feature_matrix(rec, model_pairs=51)
 
 
 class LoadV3Tests(unittest.TestCase):

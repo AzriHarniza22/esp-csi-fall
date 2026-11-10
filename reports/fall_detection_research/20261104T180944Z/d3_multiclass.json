@@ -1,0 +1,36 @@
+{
+ "n_windows": {
+  "still": 378,
+  "fall": 170,
+  "other": 255
+ },
+ "three_class_LOO_accuracy": 0.4994,
+ "confusion": {
+  "still->still": 247,
+  "still->fall": 53,
+  "still->other_action": 78,
+  "fall->fall": 94,
+  "fall->other_action": 38,
+  "fall->still": 38,
+  "other_action->still": 111,
+  "other_action->fall": 84,
+  "other_action->other_action": 60
+ },
+ "fall_post_pred_as_other_action": 0.2235,
+ "fall_post_pred_as_still": 0.2235,
+ "change_magnitude_mean": {
+  "still": 0.6439,
+  "fall": 1.2751,
+  "other": 0.8801
+ },
+ "change_magnitude_median": {
+  "still": 0.5666,
+  "fall": 0.9623,
+  "other": 0.8191
+ },
+ "untestable_contrasts": [
+  "Normal still -> intentionally lying down: no lying-down class in dataset",
+  "Normal still -> kneeling: no kneeling class in dataset",
+  "fall_left/fall_right: zero takes recorded"
+ ]
+}

@@ -1,0 +1,144 @@
+{
+ "algorithm_version": "1.0",
+ "method": "csi_envelope_p95",
+ "parameters": {
+  "grid_hz": 20,
+  "smooth_n": 20,
+  "search_offset": -0.5
+ },
+ "characterization": {
+  "bending": {
+   "n_takes": 10,
+   "kind": "action",
+   "candidates_emitted": 1,
+   "no_onset": 9,
+   "needs_manual_review": 9,
+   "pre_action_candidate": 0,
+   "onset_s_median": 4.0,
+   "onset_s_range": [
+    4.0,
+    4.0
+   ],
+   "onset_minus_action_start_median": 1.0,
+   "onset_before_action_start": 0,
+   "settle_s_median": 8.0,
+   "settle_s_max": 8.0,
+   "tail_s_median": 2.0,
+   "tail_s_min": 2.0
+  },
+  "empty_room": {
+   "n_takes": 9,
+   "kind": "hold",
+   "spearman_rho_median": 0.23,
+   "late_over_early_p95_median": 1.03
+  },
+  "fall_backward": {
+   "n_takes": 10,
+   "kind": "action",
+   "candidates_emitted": 10,
+   "no_onset": 0,
+   "needs_manual_review": 0,
+   "pre_action_candidate": 0,
+   "onset_s_median": 5.275,
+   "onset_s_range": [
+    5.0,
+    5.6
+   ],
+   "onset_minus_action_start_median": 1.275,
+   "onset_before_action_start": 0,
+   "settle_s_median": 7.525,
+   "settle_s_max": 7.9,
+   "tail_s_median": 2.475,
+   "tail_s_min": 2.1
+  },
+  "fall_forward": {
+   "n_takes": 10,
+   "kind": "action",
+   "candidates_emitted": 10,
+   "no_onset": 0,
+   "needs_manual_review": 0,
+   "pre_action_candidate": 0,
+   "onset_s_median": 4.875,
+   "onset_s_range": [
+    4.35,
+    5.2
+   ],
+   "onset_minus_action_start_median": 0.875,
+   "onset_before_action_start": 0,
+   "settle_s_median": 6.3,
+   "settle_s_max": 7.25,
+   "tail_s_median": 3.7,
+   "tail_s_min": 2.75
+  },
+  "fast_sitting": {
+   "n_takes": 10,
+   "kind": "action",
+   "candidates_emitted": 2,
+   "no_onset": 8,
+   "needs_manual_review": 8,
+   "pre_action_candidate": 0,
+   "onset_s_median": 6.2,
+   "onset_s_range": [
+    5.6,
+    6.8
+   ],
+   "onset_minus_action_start_median": 2.2,
+   "onset_before_action_start": 0,
+   "settle_s_median": 8.125,
+   "settle_s_max": 9.3,
+   "tail_s_median": 1.875,
+   "tail_s_min": 0.7
+  },
+  "object_drop": {
+   "n_takes": 10,
+   "kind": "action",
+   "candidates_emitted": 2,
+   "no_onset": 8,
+   "needs_manual_review": 8,
+   "pre_action_candidate": 0,
+   "onset_s_median": 6.225,
+   "onset_s_range": [
+    4.4,
+    8.05
+   ],
+   "onset_minus_action_start_median": 2.225,
+   "onset_before_action_start": 0,
+   "settle_s_median": 6.7,
+   "settle_s_max": 8.9,
+   "tail_s_median": 3.3,
+   "tail_s_min": 1.1
+  },
+  "still_sitting": {
+   "n_takes": 10,
+   "kind": "hold",
+   "spearman_rho_median": -0.018,
+   "late_over_early_p95_median": 0.995
+  },
+  "still_standing": {
+   "n_takes": 10,
+   "kind": "hold",
+   "spearman_rho_median": 0.366,
+   "late_over_early_p95_median": 0.995
+  },
+  "walking": {
+   "n_takes": 10,
+   "kind": "action",
+   "candidates_emitted": 6,
+   "no_onset": 4,
+   "needs_manual_review": 4,
+   "pre_action_candidate": 0,
+   "onset_s_median": 4.275,
+   "onset_s_range": [
+    3.95,
+    5.4
+   ],
+   "onset_minus_action_start_median": 1.275,
+   "onset_before_action_start": 0,
+   "settle_s_median": 5.35,
+   "settle_s_max": 6.35,
+   "tail_s_median": 4.65,
+   "tail_s_min": 3.65
+  }
+ },
+ "note": "Fase 2.4 cross-class candidate-segmentation characterization; read-only preview over the 89 existing takes (fall takes use the pre-2.1 [0,4,6,10] protocol). No dataset mutation."
+}

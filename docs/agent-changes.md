@@ -3341,3 +3341,687 @@ API (init/open/read/close/cleanup lifecycle and keep_alive_enable semantics).
   di entri sebelumnya.
 - Verifikasi: `git check-ignore` mengonfirmasi `p1_flash_backup/` dan `.qoder/` ter-ignore; hasil commit
   dicatat di pesan commit / log hook.
+
+## 2026-11-04 — Tiga label jangkar idle: empty_room, still_standing, still_sitting
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `tools/csi_recorder.js`, `tools/web_serial_monitor.html`,
+  `tools/csi_recorder_server.py`, `tools/tests/csi_recorder.test.js`,
+  `fall_detection/dataset_io.py`, `docs/recording-pipeline-implementation.md`.
+- Perubahan: menambah tiga label aktivitas baru dengan `kind: "idle"` — timeline satu fase
+  `hold` (boundaries `[0, 10]`), binary `non_fall`, opsi pre/post dipaksa still/still, cue hanya
+  start+end (tanpa cue tengah), instruksi GUI per label (IDLE_INSTRUCTION). UI menyembunyikan
+  dropdown pre/post untuk kind idle (sejalan dengan walking). `buildActivityCues` kini memakai
+  `b[b.length-1]` untuk offset cue akhir karena indeks tetap `b[3]` undefined pada boundaries
+  2-elemen. Spec §7/§9.6/§16-E diperbarui (heading §10 sempat terserap replace, sudah dipulihkan).
+- Alasan: kebutuhan akuisisi dataset pasca-purge — lantai noise per sesi, normalisasi antar-sesi,
+  dan referensi "manusia ada tetapi diam" untuk logika konfirmasi stillness (diskusi analisis take
+  walking 2026-11-04: energi pre 21–33% tidak bisa dinilai tanpa empty_room). Data lama label
+  `empty_room` (purge 2026-11-03) sebelumnya terekam sebagai label kustom; kini jadi preset resmi.
+  Pemetaan biner tetap dua nilai (fall|non_fall) agar konsumer index.csv/meta tidak berubah semantik.
+- Dokumen: `docs/recording-pipeline-implementation.md` §7/§9 — kutipan sebelum edit:
+  "Gunakan delapan label utama berikut"; bukan pertanyaan API ESP-IDF (perubahan host/UI saja,
+  firmware tidak disentuh).
+- Verifikasi: `node --check csi_recorder.js` SYNTAX_OK; JS inline HTML SYNTAX_OK;
+  `csi_recorder.test.js` exit 0 — 109 PASS, 0 GAGAL (10 assertion baru: idle mapping, opsi,
+  boundaries 1 fase, cue start/end only, instruksi hold); `test_csi_recorder_server.py` exit 0 (OK);
+  `python3 -m unittest discover -s fall_detection/tests` exit 0 (OK). Recording yang sudah ada
+  tidak berubah formatnya; label baru hanya preset tambahan (label kustom tetap didukung).
+
+## 2026-11-04 — Perbaikan kontras dropdown gelap di Web Serial Monitor
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`
+- Perubahan: aturan `select` memakai latar solid `var(--panel-soft)` (sebelumnya
+  `rgba(255,255,255,0.04)`), ditambah aturan `option` (latar `var(--panel)`, teks
+  `var(--text)`) dan `option:checked` (latar aksen, teks gelap). Berlaku untuk semua
+  dropdown: Activity, Pre/Post-action, stimulus preset/mode, CSI view, subcarrier step.
+- Alasan: laporan pengguna — saat dropdown Activity dibuka, daftar opsi tampil
+  tulisan putih di atas latar putih sehingga tidak terbaca. Penyebab: `select`
+  mengeset `color: var(--text)` (#edf2ff, nyaris putih); popup opsi native dirender
+  dengan latar terang, dan `option` tanpa warna eksplisit mewarisi color tersebut.
+  Latar translusen pada `select` juga membuat tampilan tertutup tidak solid.
+- Dokumen: tidak ditemukan dokumen resmi yang mengatur warna popup `option` native;
+  ini perilaku rendering browser (Chrome/Android menyetarakan `background` option
+  terhadap color swatch). Bukti: pengamatan langsung pengguna, bukan tebakan.
+- Verifikasi: perubahan hanya CSS, tidak ada perubahan perilaku recorder maupun
+  JS inline (tidak ada test yang sentuh gaya). Verifikasi visual dilakukan
+  pengguna di browser.
+
+## 2026-11-04 — Fallback unduhan dilewati untuk take kosong + alasan 400 ditampilkan
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/test_csi_recorder_server.py`,
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`.
+- Perubahan: `saveTakeV3` kini (a) menyisipkan pesan error dari body respons server
+  ke log (`HTTP 400: frames.csv has no data rows`, bukan `HTTP 400` saja), dan
+  (b) melewati fallback unduhan ketika `frames.length === 0` — hanya log
+  `recSaveFailedEmpty` dan mengembalikan `saved: "failed"`. Fallback dua file tetap
+  aktif untuk take yang berisi frame. Strings baru di tabel I18N `en` dan `zh_CN`.
+  Test baru `test_rejects_header_only_frames_csv` mengunci perilaku tolak-server.
+  Spec §13.1 menambahkan kontrak jalur penyimpanan/fallback.
+- Alasan: laporan pengguna — browser menanyakan izin unduh banyak file. Bukti:
+  `~/Downloads/20261104T042249Z_walking_001.frames.csv` (352 byte, header saja,
+  0 baris data) tanpa `meta.json` — pola cocok dengan satu download lolos dan satu
+  diblokir. `recordings/` tidak memuat recId itu, dan validasi server menolak
+  nol-frame (`csi_recorder_server.py` baris 254-255). Jadi fallback berjalan untuk
+  take kosong yang tidak ada isinya, menghasilkan sampah + prompt. Pengambilan
+  `result.saved` hanya satu (baris tampilan 2759), jadi nilai `"failed"` aman.
+- Dokumen: `docs/recording-pipeline-implementation.md` §13 (kondisi "Tidak ada frame
+  yang diterima" dan "Penulisan file gagal" harus menghasilkan status akurat) —
+  sebelum edit bagian ini tidak mendokumentasikan fallback unduhan sama sekali.
+  Perilaku prompt "this site is trying to download multiple files" adalah kebijakan
+  izin browser (Chromium: Settings > Privacy and security > Site settings >
+  Automatic downloads), terverifikasi lewat pencarian web, bukan tebakan.
+- Verifikasi: `node --check csi_recorder.js` SYNTAX_OK; JS inline HTML (2 blok,
+  196622 char) lolos `node --check`; `csi_recorder.test.js` exit 0 — 109 PASS,
+  0 GAGAL; `python3 tests/test_csi_recorder_server.py` exit 0 — Ran 14 tests OK
+  (termasuk test baru); `fall_detection/tests` Ran 66 tests OK. Server port 8000
+  masih hidup (pid 25841) — probing POST tanpa label menghasilkan 400 JSON yang
+  benar.
+
+## 2026-11-04 — Gap menjadi pre-roll sebelum setiap take, termasuk take pertama
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`,
+  `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/csi_recorder.test.js`,
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`.
+- Perubahan: fungsi baru `CsiRecorder.buildBatchSchedule({takes, gapS})` menghasilkan
+  satu slot per take dengan `pre_roll_s` = gap; loop sesi memakai jadwal itu sehingga
+  countdown dijalankan sebelum SETIAP take (sebelumnya `if (take > 1 && gapS > 0)`
+  — take pertama mulai segera). `plan` membawa `pre_roll_s` dan disimpan sebagai
+  `meta.recording.gap_before_s` (0 bila gap mati). Label UI diubah menjadi "Gap before
+  each take (s)" (en) / "每次采集前的间隔（秒）" (zh_CN) plus span statis dan pesan
+  `recInvalidBatch` keduanya. `waitRecorderPhase` dan display countdown dipindah dari
+  `Date.now()` ke `performance.now()`. Spec: §8.1 baru, contoh node `recording` di §6.5
+  menambah `gap_before_s`, §16.I daftar uji batch/gap.
+- Alasan: permintaan eksplisit operator — gap harus berlaku juga untuk recording pertama.
+  Secara praktis: take pertama sebelumnya mulai tepat sesudah START_CSI_STREAM, jadi
+  operator belum berada di posisi (jalan dari garis start, atau keluar ruangan untuk
+  `empty_room`), dan warm-up AGC perangkat ikut terekam dalam fase pre. Reset buffer
+  per-take di `runTake` (baris 2775) sudah menjamin frame selama pre-roll tidak masuk
+  ke take, jadi pre-roll aman ditambahkan tanpa mengubah durasi 10 detik.
+- Dokumen: `docs/recording-pipeline-implementation.md` §8 — "Gunakan satu clock monotonik
+  sebagai sumber waktu untuk seluruh proses: ... Countdown." dan "Semua aktivitas
+  menggunakan durasi recording tepat 10 detik." Catatan: kode lama countdown memakai
+  `Date.now()` (wall-clock), yang melanggar aturan ini; deviation tersebut sudah ada sebelum
+  perubahan ini dan sekarang diperbaiki, bukan hanya dicatat.
+- Verifikasi: `node --check csi_recorder.js` SYNTAX_OK; JS inline HTML (2 blok) lolos
+  `node --check`; `csi_recorder.test.js` exit 0 — 113 PASS, 0 GAGAL (4 assertion baru:
+  pre-roll semua take, single take tetap pre-roll, gap 0 tanpa pre-roll, settings tidak
+  valid → null); `diag_session.test.js` exit 0 — 91 PASS, 0 GAGAL; server tests Ran 14 OK;
+  `fall_detection/tests` Ran 66 OK. `validate_meta` diuji langsung dengan meta berisi
+  `gap_before_s` → tanpa error (field tambahan di node `recording` aman; buildMetaV3
+  memakai Object.assign sehingga menurunkan kunci tanpa whitelist). Perilaku runtime
+  belum diuji di perangkat — butuh sesi recording sungguhan.
+
+## 2026-11-06 — Fase 1A.1: gerbang LLTF terikat-flag + log diagnostik (firmware, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/main/activity_classifier.c`
+- Perubahan: gerbang layout `has_supported_lltf_layout` (yang lama) diganti
+  `classify_csi_layout` yang mengembalikan vonis terstruktur (valid, model_compat,
+  pairs, reason). Panjang LLTF kini **terikat flag** sesuai kontrak:
+  `first_word_invalid=true` hanya sah bila `valid_lltf_len==102` (51 paritas),
+  `flag=false` hanya sah bila panjang cocok model (kini 104/52); kombinasi lain
+  ditolak. Sum HT/STBC dihitung eksplisit (`valid_len == lltf+ht+stbc_ht`) karena
+  percabangan lama memakai `valid_len == valid_lltf_len + ...` yang hanya benar
+  untuk NON_HT. Layout yang ditolak (kontrak salah ATAU valid tapi lebar ≠ model)
+  kini menghasilkan **log diagnostik ter-throttle** berisi panjang, flag, dan
+  alasan, langsung di gerbang enqueue (bukan lagi per-frame di task konsumen).
+  `activity_frame_t` menambah `lltf_pairs` + `model_compat`; `frame_to_amplitude`
+  memakai `lltf_pairs` alih-alih `ACTIVITY_MODEL_SUBCARRIERS` agar decoding tidak
+  terikat satu lebar; salinan `samples` dibatasi `pairs*2` byte. Log skip per-frame
+  di task konsumen dihapus (diagnostik sudah di gerbang).
+- Alasan: bug B1 — classifier iners terhadap frame 51-paritas karena gerbang
+  lama hanya menerima panjang persis `ACTIVITY_MODEL_LLTF_BYTES` (104) dan
+  tidak pernah membaca `first_word_invalid`; data perangkat nyata ber-layout A
+  (102 B, flag true hasil klamp-di-sumber commit `3ac4a35`) sehingga ditolak
+  diam-diam tanpa jejak. ACTION_PLAN rev 2.6 1A.1 menuntut gerbang terikat-flag
+  + log diagnostik, BUKAN toleransi `X atau X-2` bebas.
+- Dokumen:
+  - esp-radar 0.3.4 `esp-radar/include/esp_radar.h` — "`wifi_csi_filtered_info_t`
+    memuat `wifi_csi_info_t *info`; field `first_word_invalid` TIDAK ada di struct
+    filtered, diakses lewat `info->info`."
+  - ESP-IDF v5.5.3 `components/esp_wifi/include/local/esp_wifi_types_native.h:123`
+    — "bool first_word_invalid; first four bytes of the CSI data is invalid ...
+    due to hardware limitation."
+  - `docs/DATA_CONTRACT.md` §1 — "Layout A 102 B/51 ⟺ true, Layout B 104 B/52 ⟺
+    false; panjang↔flag terikat 1-ke-1; kombinasi lain = error eksplisit dengan
+    log diagnostik (length, first_word_invalid, reason)."
+- Verifikasi: `idf.py build` sukses (exit 0), `activity_classifier.c.obj`
+  tercompile, `wifi_sensing_demo.bin` tergenerasi. **Tidak di-flash** sesuai
+  kebijakan rev 2.6 (bukti run device digabung ke Fase V). GetProblems hanya
+  menampilkan noise toolchain clangd (`-mlongcalls`, `machine/endian.h`), bukan
+  error dari perubahan ini. Semantik decode 51 vs 52 dan log penolakan akan
+  dibuktikan di fixture host (1A.2/1A.4) dan run device Fase V #1.
+
+## 2026-11-06 — Fase 1A.4: lantai dinamis terikat-flag di `dataset_io` + fixture per-layout (host, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `fall_detection/dataset_io.py`, `fall_detection/tests/test_dataset_io.py`
+- Perubahan: `to_feature_matrix` tidak lagi memotong ke lantai tetap
+  `BASELINE_SUBCARRIERS` (52). Lebar kini **terikat flag** dan dipisahkan menjadi
+  dua konsep: `frame_layout_pairs` (legalitas layout intrinsik — 102 B ⟺ flag
+  true → 51 paritas, 104 B ⟺ flag false → 52, lain → 0) dan `frame_lltf_pairs`
+  (kecocokan model — layout hanya dipakai bila sama dengan lebar model).
+  konstanta `LLTF_PAIRS_FLAGGED=51` / `LLTF_PAIRS_UNFLAGGED=52` ditambahkan. Tiga
+  kelas error baru diperkenalkan (`DatasetError`, `EmptyFeatureMatrixError`,
+  `MixedLayoutError`): baris kosong → `EmptyFeatureMatrixError` (bukan hasil hening),
+  dua layout sah bercampur dalam satu run → `MixedLayoutError`. Config keluaran
+  kini melaporkan `subcarriers`, `model_pairs`, `layout_matches_model`,
+  `frames_total`, `frames_kept`, `contract_rejects`, `distinct_layouts`. Test
+  lama `FirstWordInvalidTests` (yang memakai `len(row) >= 52` salah konsep)
+  diganti mixin `_LayoutFixtureMixin` plus `LayoutAFlaggedTests` (102/51/true),
+  `LayoutBUnflaggedTests` (104/52/false), dan `FeatureMatrixContractTests`
+  (flag/panjang tidak konsisten → ditolak; layout A/B bergantian → MixedLayoutError).
+- Alasan: jalur trainer sudah menurunkan lebar dari frame (`_lltf_pair_count`),
+  tetapi `dataset_io` masih memaksa 52 sehingga recording Layout A (51 paritas,
+  data perangkat nyata) terpotong/dibuang diam-diam — sama seperti bug B1 di
+  firmware. ACTION_PLAN rev 2.6 1A.4 menuntut lantai dinamis terikat-flag,
+  0-baris = raise eksplisit, dan fixture uji per layout sah.
+- Dokumen:
+  - `docs/DATA_CONTRACT.md` §1 — "Layout A 102 B/51 ⟺ true, Layout B 104 B/52 ⟺
+    false; panjang↔flag terikat 1-ke-1; kombinasi lain = error eksplisit."
+  - esp-radar 0.3.4 `esp-radar/include/esp_radar.h` — sumber klamp `first_word_invalid`
+    yang memangkas pasangan leading saat flag true (commit `3ac4a35`).
+- Verifikasi: `python -m unittest` modul `test_dataset_io` → 27 OK; satu suite
+  lengkap `fall_detection/tests` → 76 OK. Tidak ada perubahan firmware, tidak
+  di-flash.
+
+## 2026-11-06 — Fase 1A.2: header renderer menulis lebar terukur + assertion layout campur (host, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `fall_detection/train_activity_model.py`, `fall_detection/tests/test_train_activity_model.py`
+- Perubahan: `render_c_header` kini menerima parameter wajib `subcarriers: int`
+  dan menulis `ACTIVITY_MODEL_SUBCARRIERS {subcarriers}` serta
+  `ACTIVITY_MODEL_LLTF_BYTES {subcarriers*2}` dari nilai terukur, bukan konstanta
+  52 yang di-hardcode. Validasi `isinstance(int) and > 0` menolak lebar non-positif.
+  `train_from_recordings` mengumpulkan `measured_widths: set[int]` dari setiap
+  recording; bila `len(measured_widths) > 1` → `ValueError` (satu model tidak boleh
+  dibangun dari dua lebar LLTF), lalu mengembalikan lebar tunggal. Panggilan `main()`
+  membuka 6-tuple dan meneruskan `measured_subcarriers`. Test: pemanggilan
+  `render_c_header` lama diperbarui (+`CSI_SUBCARRIERS`), dan kelas
+  `HeaderRendererFixtureTests` baru menguji lewat fixture sintetis 5-kelas — lebar
+  terukur 51 dan 52, `LLTF_BYTES == 2*subcarriers`, penolakan lebar non-positif,
+  konsistensi dimensi bobot/urutan kelas/indeks, dan roundtrip encode↔decode.
+- Alasan: renderer lama selalu menulis 52/104 tanpa mempedulikan lebar data
+  training, sehingga model yang diekspor dari Layout A (51) tidak cocok dengan
+  buffer firmware dan gerbang 1A.1 membuang semua frame. ACTION_PLAN rev 2.6 1A.2
+  menuntut renderer menulis lebar terukur + assertion layout campur, dan pengujian
+  lewat fixture sintetis (BUKAN model lama sebagai pengganti).
+- Dokumen:
+  - `docs/DATA_CONTRACT.md` §1 — kontrak lebar↔flag 1-ke-1; header wajib
+    menyatakan lebar yang benar-benar diukur.
+  - `ACTION_PLAN.md` rev 2.6 1A.2 — "header renderer menulis lebar terukur +
+    assertion layout campur + uji fixture sintetis."
+- Verifikasi: `python -m unittest` modul `test_train_activity_model` → 16 OK;
+  satu suite lengkap `fall_detection/tests` → 76 OK; `idf.py build` ulang
+  (ESP-IDF v5.5.3, esp32) → exit 0, `wifi_sensing_demo.bin` 0xf1900 (6% free).
+  Tidak di-flash (kebijakan rev 2.6; run device digabung ke Fase V).
+
+## 2026-11-06 — Shortcut Spasi menjalankan dua mark anotasi jatuh berurutan (web tool, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`
+- Perubahan: handler `keydown` Spasi diubah dari "selalu `fall_start`" menjadi
+  **menelusuri urutan dua mark**: tekan pertama → `fall_start` (mulai jatuh),
+  kedua → `fall_impact` (menyentuh lantai), selanjutnya no-op bila keduanya
+  sudah terisi. Ditambah helper `nextPendingAnnotation()` yang mengembalikan mark
+  belum-terisi berikutnya (order tetap `fall_start` → `fall_impact`), selaras
+  aturan first-press-wins `makeAnnotator`. Kondisi gerbang diperlonggar: Spasi aktif
+  selama take jatuh berjalan (`phase==="recording"` + `recAnnotRow` terlihat),
+  tidak lagi bergantung pada `recMarkFallStartBtn.disabled`. Status live
+  (`renderAnnotStatus`) kini menampilkan petunjuk "Next (Space): <mark>" agar
+  operator tahu tombol berikutnya; label tombol diberi penanda urutan + hint
+  "(Spasi)". Tambahan i18n `recAnnotNext` (en "Next (Space)" / zh "下一个（空格）").
+- Alasan: user ingin operator cukup menekan satu tombol saat subjek jatuh, tanpa
+  membidik tombol di layar. MARK "diam" TIDAK ditambahkan ke jalur live —
+  keputusan user: "diam" sudah tersedia sebagai opsi `post_action` (Still/diam,
+  sudah ada di `POST_ACTION_KEYS`), jadi anotasi live tetap dua mark. Tidak ada
+  perubahan `csi_recorder.js`, skema meta, maupun spec §11 karena kedua mark
+  (`fall_start`/`fall_impact`) dan field meta-nya sudah ada.
+- Dokumen:
+  - `docs/recording-pipeline-implementation.md` §11 (annotations) —
+    "`annotations.fall_start` / `fall_impact` = `{offset_s, timestamp_utc}`;
+    first valid click wins; duplicates ignored."
+  - `docs/DATA_CONTRACT.md` §4 — anotasi kandidat signal-derived
+    (`candidate_*`, `annotation_method="csi_envelope_p95"`) terpisah dari mark
+    live-observer; "Physical fall latency ... TIDAK DAPAT diverifikasi tanpa video".
+  - `docs/agent-preflight.md` — path `tools/**` wajib preflight + entri changelog.
+- Verifikasi: `node --check` blok `<script>` inline (baris 893–5665) → SYNTAX OK;
+  `node tools/tests/csi_recorder.test.js` → exit 0 (PASS). Handler keydown Spasi
+  **diverifikasi di browser nyata** (Chromium via browser-use, halaman diserve
+  statis): dispatch `KeyboardEvent{code:"Space"}` ke listener sungguhan pada state
+  `phase="recording"` + `recAnnotRow` terlihat + annotator fall → (1) tekan#1
+  mengisi `fall_start` lalu `nextPendingAnnotation()`→`fall_impact`; (2) tekan#2
+  mengisi `fall_impact`, `annotation_complete=true`, `next=null`; (3) tekan#3 =
+  no-op (offset `fall_start` tak berubah); (4) klik tombol `fall_impact` tetap
+  menandai jenisnya sendiri (next→`fall_start`); (5) saat `phase="idle"` Spasi
+  TIDAK menandai. Teks status menampilkan "Next (Space): Fall start/Impact" sesuai
+  urutan. CJK-check: hanya string terjemahan zh yang sah (`recAnnotNext`).
+
+## 2026-11-06 — Fase 2.1/2.2: timeline fall jadi 12 s [0,4,8,12]; durasi per-take turunan boundary (web tool, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`,
+  `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/csi_recorder.test.js`,
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`
+- Perubahan (2.1): `TIMELINE_DEFS.fall_*` boundaries `[0,4,6,10]` → `[0,4,8,12]`;
+  empat label fall kini ber-take 12 s. Semua label lain tetap (walking/bending
+  [0,3,7,10]; fast_sitting/object_drop [0,4,6,10]; idle [0,10]).
+- Perubahan (2.2): durasi take TIDAK lagi dari konstanta global
+  `TARGET_DURATION_S` (tetap 10 sebagai default non-fall). Ditambah
+  `durationFromTimeline(timeline)` = `end_offset_s` boundary terakhir (fallback 10).
+  `buildActivityCues` sudah boundary-driven (`lastOffset = b[last]`), jadi cue akhir
+  ikut geser ke 12 tanpa perubahan. `buildMetaV3.target_duration_s` kini
+  `durationFromTimeline(fields.timeline)`. Di HTML, `plan.durationS`
+  (via `durationFromTimeline`) dipakai untuk: deadline loop `runTake`
+  (`totalMs = plan.durationS*1000`), progress bar (`renderRecorderLive`), dan
+  status timer (`renderRecorderStatus`) — keempat situs `TARGET_DURATION_S` diganti.
+  Teks i18n `recDurationInfo` en/zh tak lagi menyebut "fixed 10 s". Spec
+  `recording-pipeline-implementation.md` §C (target_duration_s) dan §E (Fall)
+  disinkronkan. Test: boundary map fall → [0,4,8,12], assertion "spans 0..10"
+  jadi generik per-label, probe `phaseAtOffset` post 7s→10s, offset cue
+  [0,4,6,10]→[0,4,8,12], `target_duration_s` "fixed at 10"→"derived = 12", plus
+  assertion baru `durationFromTimeline(timeline) === lastBoundary` untuk tiap label.
+- Alasan: keputusan user yang mengikat (ACTION_PLAN rev 2.6 baris 4): "fall 12 s
+  [0,4,8,12]; semua label lain tetap 10 s". B1/1A sudah menegakkan gerbang layout;
+  2.1 adalah prasyarat timeline-driven untuk 2.3 (anotasi kandidat membaca parameter
+  dari `meta.timeline`) dan 2.2 (capture-end/cue turunan boundary terakhir). Angka
+  12 dan batas [0,4,8,12] bukan tebakan — dari keputusan eksplisit user + bukti
+  settle 20/20 ≤ 8 s (report 07/08) yang memberi ekor 8–12 s.
+- Dokumen:
+  - `ACTION_PLAN.md` rev 2.6 (baris 4) — "keputusan user yang mengikat: fall 12 s
+    [0,4,8,12]; semua label lain tetap 10 s; TANPA video".
+  - `docs/recording-pipeline-implementation.md` §8/§9/§E — timeline & batas fase
+    per aktivitas; sebelumnya menyebut "fixed 10 s" (kini dikoreksi utk fall).
+  - `docs/DATA_CONTRACT.md` §4.3 — anotasi "membaca parameter sendiri dari
+    `meta.timeline`" (`pre_end/action_start/action_end/take_end = timeline[i]...`);
+    sudah timeline-driven, jadi tidak perlu angka 12 di kontrak.
+  - Catatan: sumber driver ESP-IDF/esp-radar TIDAK relevan — perubahan ini murni
+    perilaku UI/protokol rekaman host, bukan radio/driver.
+- Verifikasi: `node --check tools/csi_recorder.js` OK; `node --check` blok `<script>`
+  inline HTML (baris 893–5668) → SYNTAX OK; `node tools/tests/csi_recorder.test.js`
+  → exit 0, **0 FAIL** (termasuk assertion durasi per-take baru);
+  `python3 tools/tests/test_csi_recorder_server.py` → 14 OK. `recordingCompleteness`
+  dan audit/validate tidak mengecek durasi, jadi take 12 s lolos eligibility.
+  **Capture 12 s nyata di perangkat belum diuji** — butuh sesi Web Serial (Fase V);
+  yang dibuktikan di host adalah logika timeline/durasi, bukan akuisisi CSI nyata.
+
+## 2026-11-06 — Fase 2.3: tool anotasi kandidat signal-driven, timeline-driven (host tool, tanpa flash, read-only default)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/annotate_candidates.py` (baru),
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/test_annotate_candidates.py` (baru)
+- Perubahan: Tool host standalone yang menghasilkan **anotasi kandidat** per-take
+  (`candidate_onset/peak/settle`) dari envelope gerakan CSI, sebagai kanon
+  algoritma + `ALGORITHM_VERSION` yang dirujuk ACTION_PLAN 2.3/2.5. Alur:
+  `load_series` + `smooth_on_grid` dipindah apa adanya dari skrip kanon
+  (`07_settle_times.py`, dipakai `08_label_durations.py`) — motion = `mean|Δamp|`,
+  grid 20 Hz, moving-average 20 sampel (=1 s), edge di-hold. Bedanya dari skrip 07:
+  **SELURUH parameter dibaca dari `meta.timeline` per kelas**, bukan konstanta
+  fall (`PRE_END=4.0`, onset `t≥3.5`). `extract_timeline_params`:
+  `pre_end=timeline[0].end_offset_s`, `action_start=timeline[1].start_offset_s`,
+  `action_end=timeline[1].end_offset_s`, `take_end=timeline[2].end_offset_s`;
+  threshold = p95 `motions[offs<pre_end]`; onset = grid pertama `t≥pre_end−0.5`
+  dengan envelope>threshold; peak=argmax setelah onset; settle=titik pertama
+  setelah peak yang bertahan <threshold sampai akhir. Timeline 1-fase (idle/hold)
+  → `kind=hold`, laporkan stabilitas (Spearman rho + rasio late/early p95), BUKAN
+  onset. **Timeline hilang/kosong/jumlah fase tak sah/boundary non-numerik →
+  `TimelineError` → failed-fast**, TIDAK ada fallback diam-diam ke 4.0. Kandidat
+  dengan `onset<action_start` → `pre_action_candidate=true` + `needs_manual_review`
+  (kontrak §4.4); tak ada crossing / tak settle / tak ada frame pre → `needs_manual_review`.
+  `annotation_status` yang dihasilkan tool SELALU `auto_pending` (promosi
+  `signal_reviewed`/`manual_corrected` = hak panel review manusia, bukan tool).
+  Output = blok turunan `candidate_annotation` (field persis §4.2: method,
+  algorithm_version, parameters, status, `candidate_*_s`, `needs_manual_review`,
+  `pre_action_candidate`, `timeline_parameters`, threshold, notes) yang **tidak
+  pernah menimpa data mentah maupun `annotations` observer**. Default **read-only
+  (preview)**; `--write` (mutasi dataset) dan `--plot` (PNG kurva) opsional;
+  `--strict` exit≠0 bila ada failed-fast.
+- Alasan: ACTION_PLAN 2.3 menuntut wujud tool kanon (bukan reimplementasi di panel
+  review) dengan metode skrip 08 (timeline-driven), BUKAN skrip 07 (fall-hardcoded).
+  Putaran-2 review #2 mengoreksi fakta: skrip 08 sudah timeline-driven; yang nyata
+  dibutuhkan = fallback `4.0` → failed-fast + flag `pre_action_candidate` +
+  parameter terdokumentasi. Review grafik memvalidasi BENTUK sinyal, bukan waktu
+  fisik (keputusan tanpa video → level `independently_verified` tidak ada).
+- Dokumen:
+  - `docs/DATA_CONTRACT.md` §4.2/§4.3/§4.4 — "field `annotation_method=
+    csi_envelope_p95`, `annotation_algorithm_version`, `annotation_parameters
+    {grid_hz:20, smooth_n:20, search_offset:-0.5}`, `candidate_onset/peak/settle_s`,
+    `needs_manual_review`"; "`pre_end=timeline[0].end_offset_s; action_start=
+    timeline[1].start_offset_s; action_end=timeline[1].end_offset_s; take_end=
+    timeline[2].end_offset_s`"; "**Meta tanpa timeline → failed-fast, bukan
+    fallback ke 4.0**"; "`candidate_onset_s < action_start` → `pre_action_candidate
+    = true` ... TIDAK otomatis dianggap onset ... wajib review".
+  - `ACTION_PLAN.md` rev 2.6 2.3 — "kanon = metode skrip 08 yang timeline-driven,
+    BUKAN skrip 07 yang fall-hardcoded ... `tools/annotate_candidates.py` (kanon
+    algoritma + `ALGORITHM_VERSION` dipelihara di sana)".
+  - `fall_detection/dataset_io.py` (repo) `decode_iq`/`amplitude` — decoder yang
+    dipakai `load_series`, sama seperti skrip 07.
+  - Catatan: sumber driver ESP-IDF/esp-radar TIDAK relevan — tool host murni di atas
+    CSV rekaman, tidak menyentuh radio/firmware.
+- Verifikasi: `python -m py_compile` tool → OK; unit test baru
+  `tools/tests/test_annotate_candidates.py` → **13 OK** (failed-fast missing/
+  empty/2-fase/non-numerik timeline; onset bersih >action_start; kandidat
+  pra-aksi ter-flag; no-crossing & never-settled → needs_review; hold→stability;
+  identity fields §4.2). Suite regressi: `fall_detection/tests` → **76 OK**;
+  `tools/tests` python → **27 OK**. **Preview read-only di data nyata** (89 take,
+  tanpa `--write`): fall_forward onset 4,35–5,2 s & settle 5,95–7,25 s (selaras
+  report 07 median ≤8 s); walking **6/10 onset + 4 None** (persis crossing 6/10
+  yang dilaporkan skrip 08); idle `kind=hold` tanpa kandidat. JSON blok terbit
+  cocok field §4.2. **Belum ada penulisan metadata** — backfill dataset (2.5)
+  adalah mandat terpisah yang menyentuh data dan butuh persetujuan eksplisit user.
+
+## 2026-11-06 — Fase 2.4: karakterisasi lintas kelas segmentasi kandidat (host tool, read-only, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/annotate_candidates.py`
+  (tambah `characterize()` + flag `--characterize`),
+  `reports/fall_detection_research/20261104T180944Z/candidate_characterization.json` (baru, artefak)
+- Perubahan: Menambah mode agregasi **read-only** di tool kanon 2.3 — merangkum
+  output anotasi kandidat per label aktivitas (BUKAN reimplementasi; hanya
+  konsumen hasil `compute_candidate`). Metrik per kelas action: jumlah kandidat
+  terbit vs no-onset, `needs_manual_review`, jumlah `pre_action_candidate`,
+  median/rentang onset, **deviasi onset terhadap `action_start` milik kelas itu
+  sendiri** (bukan angka tetap), median/max settle, median/min tail. Kelas hold
+  (idle): median Spearman rho + rasio late/early p95. Artefak JSON disimpan di
+  folder snapshot riset (bukan dataset). Tidak ada perubahan jalur anotasi per-take.
+- Alasan: ACTION_PLAN 2.4 meminta "karakterisasi segmentasi kandidat gerakan CSI
+  lintas kelas aktivitas" (bukan "uji spesifisitas deteksi jatuh") dengan
+  **parameter per aktivitas sesuai timeline masing-masing**, mencakup (i) jumlah
+  kandidat per kelas, (ii) deviasi onset vs batas fase protokol per kelas,
+  (iii) dampak tumpang tindih 0,5 s baseline. Membuatnya sebagai mode di tool
+  kanon menjaga satu sumber kebenaran algoritma + reproduksibel, sesuai 2.3
+  ("kanon algoritma dipelihara di sana").
+- Dokumen:
+  - `ACTION_PLAN.md` rev 2.6 2.4 — "Karakterisasi segmentasi kandidat gerakan CSI
+    lintas kelas aktivitas ... Dengan parameter per aktivitas sesuai timeline
+    masing-masing, bukan parameter fall universal ... (iii) dampak tumpang tindih
+    0,5 s baseline".
+  - `docs/DATA_CONTRACT.md` §10 — "istilah untuk §2.4: karakterisasi segmentasi
+    kandidat gerakan CSI lintas kelas aktivitas — bukan uji spesifisitas".
+  - `reports/fall_detection_research/20261104T180944Z/label_durations.json` —
+    angka awal skrip 08 (crossing p95 fall 20/20, walking 6/10, sisanya 1–2/10,
+    idle ≈ 0) yang jadi pembanding.
+- Verifikasi: `py_compile` OK; `test_annotate_candidates.py` tetap **13 OK**
+  (perubahan hanya menambah fungsi agregasi, tidak menyentuh jalur anotasi).
+  Jalan penuh `--characterize` atas **89 take (0 failed-fast)**, hasil disimpan di
+  `candidate_characterization.json`. Angka terukur mereproduksi dasar laporan 08
+  **persis**: fall_forward kandidat **10/10** (onset median 4,875 s, settle median
+  6,3 s / maks 7,25 s; tail min 2,75 s), fall_backward **10/10** (settle median
+  7,525 s / maks 7,9 s) → **20/20 ≤ 8 s**; walking **6/10** onset; bending **1/10**,
+  fast_sitting **2/10**, object_drop **2/10**; idle (empty_room/still_sitting/
+  still_standing) semua `hold`, **0 kandidat**, late/early p95 ≈ 1,0. Temuan
+  penting 2.4(iii): **`pre_action_candidate` = 0 di SEMUA kelas** dan
+  `onset_minus_action_start` selalu positif (fall 0,875–1,275 s) → tumpang tindih
+  window pencarian `pre_end−0,5` ke baseline **tidak** menyeret kandidat ke
+  wilayah pra-aksi pada data ini (dampak empiris nol). Catatan jujur: take fall di
+  dataset ini masih memakai protokol lama [0,4,6,10] (action_start=4), jadi
+  karakterisasi ini memvalidasi metode pada data yang ada — distribusi onset
+  protokol baru 12 s menunggu pilot 4.1 (soft check, bukan gate), dan emisi
+  kandidat rendah pada bending/fast_sitting/object_drop adalah **sifat metode**,
+  BUKAN kegagalan (gerakan kelas itu memang tak menembus p95 baseline-nya sendiri).
+
+## 2026-11-06 — Fase 2.7: keputusan protokol audio cue (rekaman keputusan, tanpa kode baru)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: tidak ada perubahan kode — ini entri keputusan. Field yang relevan sudah
+  ada di `csi_recorder.js` (`buildMetaV3.audio_cues`: `enabled`, `mode`,
+  `language`, `events[]`) dan `buildActivityCues()` sudah mencatat status playback
+  per cue ke `meta.audio_cues.events`.
+- Perubahan: menetapkan **satu protokol audio cue yang bisa diikuti** sebagai
+  resmi, dengan **mode dicatat per take** di metadata. `mode` default
+  `voice_and_tone` (bahasa `id-ID`); operator dapat memilih visual-only sebagai
+  opsi murah, tetapi pilihan itu **wajib tercatat** agar konsistensi antar take
+  dapat diaudit, bukan diasumsikan seragam.
+- Alasan: review eksternal §2 + temuan C3 (89/89 take berdeviasi dari jadwal cue).
+  Yang penting bukan akurasi cue — onset kandidat CSI (2.3) toh tidak bergantung
+  pada cue akurat — melainkan **konsistensi + pencatatan** supaya deviasi dapat
+  direkonstruksi pasca-hoc. Karena mekanisme pencatatan per-take (`audio_cues.mode`
+  + `.events`) sudah ada, 2.7 menjadi rekaman keputusan, bukan perubahan perilaku.
+- Dokumen:
+  - `ACTION_PLAN.md` rev 2.6 2.7 — "Audio cue: tetapkan SATU protokol yang bisa
+    diikuti dan catat mode per take (visual-only resmi = opsi murah; onset
+    kandidat toh tidak butuh cue akurat)" (dasar: "C3 89/89 deviasi; review §2:
+    yang penting konsistensi + pencatatan").
+  - `csi_recorder.js` `buildMetaV3`/`buildActivityCues` — field `audio_cues`
+    `{enabled, mode, language, events}` sudah menyimpan mode & status per cue.
+  - Catatan: dokumentasi driver ESP-IDF/esp-radar TIDAK relevan — ini keputusan
+    protokol operasi host/GUI, bukan perilaku radio.
+- Verifikasi: konfirmasi kode bahwa `meta.audio_cues.mode` terisi per take (grep
+  `audio_cues` di `csi_recorder.js`: blok default + dokumentasi `events`); tidak
+  ada perubahan runtime sehingga tidak ada build/flash baru. Suite regressi tetap
+  hijau (lihat entri 2.8).
+
+## 2026-11-06 — Fase 2.8: identitas batch/sesi, penomoran take monoton, jejak abort (host tool, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`
+  (`makeBatchId`/`makeSessionId`/`parseTakeNumber`/`nextTakeNumber` +
+  `buildBatchSchedule({startTake})` + `buildMetaV3` menaikkan
+  `session_id`/`batch_id`/`batch`/`abort` ke top-level + ekspor baru),
+  `tools/web_serial_monitor.html` (state `sessionId`/`batchAborts`, helper
+  `resolveRecorderSessionId`/`computeNextTakeNumber`/`rememberTakeNumber`, loop
+  batch `break`→`continue`+trace, input Session ID, i18n en/zh),
+  `tools/csi_recorder_server.py` (`validate_meta`: `target_duration_s` dilonggarkan
+  dari `not in (None, 10)` menjadi "angka positif atau null"),
+  `tools/tests/csi_recorder.test.js` (+14 assert), `tools/tests/test_csi_recorder_server.py`
+  (+2 test), `docs/recording-pipeline-implementation.md` (§6.2 koreksi session_id,
+  §8 durasi per-take, §8.1 jejak abort, §8.2 baru, rujukan silang §8.1→§8.2).
+- Perubahan:
+  1. **`batch_id` wajib & otomatis per run** (`batch_<utcStamp>_<nonce6>`),
+     disimpan top-level + `meta.batch.batch_id`, bahkan untuk satu take.
+  2. **`session_id` kepunyaan operator** (input GUI, di-generate & dipersist via
+     `localStorage` bila kosong) — jelas **berbeda** dari `batch_id`, disimpan
+     top-level sehingga dibaca `dataset_io.Recording.session_id`.
+  3. **Nomor take monoton lintas-restart**: `startTake = max(nomor di library untuk
+     label itu, penghitung localStorage) + 1`; `buildBatchSchedule` menerima
+     `startTake` sehingga suffix `_NNN` tak mengulang nomor lama.
+  4. **Jejak abort**: cancel/`take_begin` ditolak → `continue` (bukan `break`) +
+     push ke `batchAborts`, ditulis ke `meta.abort.aborted_slots` pada take sisa.
+  5. **Perbaikan bug laten**: server menolak `target_duration_s != 10`, padahal
+     durasi kini diturunkan dari timeline (fall = 12 s) → take fall 12 s akan
+     ditolak saat POST.
+- Alasan: review §2 eksternal & ACTION_PLAN 2.8 menuntut batch≠session (jangan
+  pakai batch sebagai proksi sesi) + penomoran monoton + jejak abort. Bug durasi
+  dan celah sesi ditemukan dengan **membaca kode**, bukan menebak:
+  `dataset_io.Recording.session_id` membaca `meta.session_id`/`meta.batch_id` di
+  TOP-LEVEL yang tak pernah diisi (validator selalu warn), dan `validate_meta`
+  hardcoded `!= 10` bertentangan dengan `durationFromTimeline` dari 2.1/2.2.
+- Dokumen:
+  - `ACTION_PLAN.md` rev 2.6 2.8 — "Penomoran take monoton lintas-restart,
+    `batch_id` wajib, jejak take abort; **`batch_id` ≠ `session_id`** — sesi
+    independen didefinisikan terpisah (beda hari/posisi/subjek), jangan pakai
+    batch sebagai proksi sesi."
+  - `fall_detection/dataset_io.py` — properti `Recording.session_id` membaca
+    `meta.get("session_id") or meta.get("batch_id")` (top-level).
+  - Catatan: sumber driver ESP-IDF/esp-radar TIDAK relevan — perubahan murni
+    bookkeeping recording di host/GUI + validasi server penyimpanan, tidak
+    menyentuh radio/firmware.
+- Verifikasi: `csi_recorder.test.js` **semua lulus** (100+ assert, termasuk 14
+  baru 2.8: startTake offset [7,8,9], default 1, parseTakeNumber, nextTakeNumber
+  per-label/unseen/string polos, batchId≠sessionId, meta mengekspos
+  session_id+batch_id top-level, batch untuk single-take, abort terisi/null);
+  inline `<script>` HTML lolos cek sintaks; `test_csi_recorder_server.py` **16
+  lulus** (termasuk `test_accepts_12s_fall_take` membuktikan bug 12 s teratasi &
+  `test_rejects_nonpositive_target_duration` membuktikan 0/"ten" ditolak);
+  `test_annotate_candidates.py` tetap **13 lulus**; `fall_detection/tests` **76
+  lulus**. Belum flash ke perangkat (no-flash policy host-side); smoke test
+  browser atas wiring input sesi + penomoran take menyusul (item g).
+
+## 2026-11-07 — Fase 2.8 lanjutan: `subject_id` dipulihkan + default "1" bila kosong (host tool, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`
+  (`DEFAULT_SUBJECT_ID` + `normalizeSubjectId()` + `subject_id` di `buildMetaV3`
+  top-level + ekspor baru),
+  `tools/web_serial_monitor.html` (state `subjectId`, input "Subject ID" +
+  `resolveRecorderSubjectId()` dengan persist `localStorage`, pemanggilan di
+  batch-start, field `subject_id` ke `buildMetaV3`, i18n en/zh, render label,
+  teks fallback `recDurationInfo` diluruskan),
+  `tools/tests/csi_recorder.test.js` (+4 assert),
+  `docs/recording-pipeline-implementation.md` (§6.2 `subject_id` keluar dari
+  daftar hapus + koreksi, §8.3 baru).
+- Perubahan: `subject_id` kini **selalu terisi pada rekaman baru**. GUI punya
+  input terpisah di samping Session ID; bila operator **membiarkannya kosong**,
+  nilainya menjadi string `"1"` (subjek tunggal), **bukan `null`**. Nilai
+  eksplisit dipangkas spasi tepinya dan dipertahankan di `localStorage`
+  (`csiRecorder.subjectId`) lintas reload; saat kosong, default efektif tampil
+  sebagai *placeholder* sehingga kolom tetap jujur kosong sementara take tetap
+  mendapat `"1"`. Rekaman lama tanpa field ini tetap sah (`dataset_io`
+  mengembalikan `None`, tidak ditafsirkan ulang sebagai subjek `"1"`).
+- Alasan: user memutuskan "jika subject id di web kosong, masukkan nomor 1 saja".
+  Konflik dokumen ditemukan **dengan membaca, bukan menebak**: spec §6.2
+  memasukkan `subject_id` ke daftar "Field yang harus dihilangkan", padahal
+  ACTION_PLAN 4.2 mewajibkan `subject_id` terisi (≥2 subjek × ≥2 sesi) dan 3.3
+  menunda klaim subject-independent sampai field itu ada. Bukti lapangan:
+  take uji `20261107T100345Z_fall_left_004` tidak punya key `subject_id` sama
+  sekali — `buildMetaV3` tidak pernah memancarnya; satu-satunya penyebutan
+  `subject_id` di `csi_recorder.js` ada di **`buildMetaV2`** (skema legacy), dan
+  tidak ada input web untuk itu, sehingga nilainya selalu `null`. Tanpa field
+  ini, split per-subjek di Fase 3.3 dan E6 di Fase 4 tidak dapat dijalankan.
+- Dokumen:
+  - `fall_detection/dataset_io.py` (repo) — `def subject_id(self) -> str | None:
+    return self.meta.get("subject_id")` (alasan nilai disimpan sebagai string).
+  - `ACTION_PLAN.md` rev 2.6 4.2 / 3.3 — "`subject_id` terisi"; "klaim
+    subject/session-independent menunggu E6 dengan `subject_id` terisi dan split
+    per-subjek".
+  - `docs/recording-pipeline-implementation.md` §6.2 — teks lama "Field yang
+    harus dihilangkan … `subject_id`" yang kini dikoreksi (konflik, bukan
+    fakta final).
+  - Catatan: dokumentasi driver ESP-IDF v5.5.3 / esp-radar 0.3.4 **tidak
+    ditemukan dan tidak relevan** — ini field metadata host/GUI, tidak
+    menyentuh radio, firmware, atau protokol payload.
+- Verifikasi: `node tests/csi_recorder.test.js` → **rc=0**, termasuk 4 assert
+  baru (default blank/null/whitespace → `"1"`; trim & lestarikan nilai eksplisit
+  sebagai string; `buildMetaV3` kosong → `subject_id==="1"`; nilai operator
+  `" 2 "` → `"2"`). Inline `<script>` HTML lolos `node --check`; suite python
+  `tools/tests` → **29 lulus**; `fall_detection/tests` → **76 lulus**.
+  Cek artefak CJK pada wilayah spec + changelog baru: bersih (entri kamus i18n
+  zh `受试者 ID` memang Chinese, bukan artefak). Tidak ada flash perangkat.
+
+## 2026-11-08 — Rename taksonomi manner-fall: `fall_left`→`fall_lemas`, `fall_right`→`fall_keseleo` (host tool, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`
+  (`ACTIVITY_LABELS`, `BINARY_LABELS`, `TIMELINE_DEFS`, `PHASE_IDS`; `FALL_DIRECTIONS`
+  → `FALL_ACTION_CUES` berupa frasa lengkap; dua call-site cue `phaseInstruction`
+  + `buildActivityCues`; ekspor), `tools/csi_recorder_server.py` (`BINARY_LABELS`),
+  `fall_detection/dataset_io.py` (`BINARY_LABELS`),
+  `tools/tests/csi_recorder.test.js` (assert label + boundary + cue manner baru),
+  `docs/DATA_CONTRACT.md` (§9 tabel + §9.1 baru arah-vs-manner + catatan onset),
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`
+  (tabel label, daftar uji, §9.1 arah→manner, koreksi timeline 10s→12s, contoh
+  cue), `tools/annotate_candidates.py` (tidak berubah — kanon tetap), dan
+  **migrasi dataset**: `recordings/fall_left/`→`fall_lemas/` (10 take),
+  `recordings/fall_right/`→`fall_keseleo/` (11 take), `activity_label` ditulis
+  ulang di 21 `*.meta.json` sementara `recording_id`/nama file DIPERTAHANKAN.
+- Perubahan: Dua kelas jatuh berbasis arah (`fall_left`/`fall_right`) diganti
+  menjadi kelas berbasis **cara**: `fall_lemas` (collapse lunglai, **pre-action
+  diam** — sama seperti forward/backward) dan `fall_keseleo` (collapse lateral
+  terkontrol, pre-action berjalan + post-action bergerak perlahan).
+  `FALL_ACTION_CUES` kini memetakan tiap label ke frasa cue
+  penuh ("Jatuh lemas sekarang!" / "Jatuh keseleo sekarang!") alih-alih
+  menyisipkan kata arah ke template `Jatuh ke {arah} sekarang!`. Onset untuk
+  manner-fall dengan pre-action berjalan ditetapkan **berasal dari mark observer
+  (`annotations.fall_start`, level `manual_corrected`)**, bukan p95 auto.
+- Alasan: user merekam 41 take (2026-11-07) dan meminta rename + analisis.
+  Analisis atas 4 kelas: gerbang teknis 4.1 LULUS semua; `subject_id` terisi
+  (lemas=`'2'`, sisanya `'1'`). Temuan utama — **`fall_right` 0/11 kandidat**
+  karena ambang kanon `p95(motion[pre_action])` (§4.3) terangkat oleh pre-action
+  **berjalan** di atas puncak gerak jatuh yang halus (`peak/baseline ≈ 0,56`; vs
+  lemas-diam `≈ 1,1`). Riset menunjukkan menurunkan persentil ke p50 adalah
+  jebakan: onset melompat ke tepi window (`pre_end−0,5`, 3,5 s) →
+  `pre_action_candidate` menyala 7–9/10, yaitu **deteksi palsu**. Verifikasi mark
+  spasi: `fall_start` mendahului rise p95 ~0,2–0,6 s dan motion pasca-`fall_impact`
+  runtuh ke ~⅔ level jatuh → mark observer memotret fisik, sah jadi onset primer.
+  Rekomendasi user: rename kunci folder penuh; pengolahan baseline: riset dulu.
+- Dokumen:
+  - `docs/DATA_CONTRACT.md` §4.3 — "Threshold = p95 dari `motion[offs < pre_end]`"
+    (asumsi pre-action diam; sumber kegagalan manner-fall berjalan).
+  - `docs/DATA_CONTRACT.md` §4.1 — tangga `auto_pending → signal_reviewed →
+    manual_corrected`; `independently_verified` TIDAK ADA (tanpa video).
+  - `fall_detection/dataset_io.py:598` — `label = str(meta.get("activity_label")
+    or meta.get("label") or folder.name)` → `activity_label` otoritatif, folder
+    hanya fallback; `recording_id` identitas terpisah → migrasi aman.
+  - Catatan: dokumentasi ESP-IDF v5.5.3 / esp-radar 0.3.4 **tidak relevan** —
+    ini taksonomi label + metadata host, tidak menyentuh radio/firmware/protokol.
+- Verifikasi: `node tests/csi_recorder.test.js` → rc=0 (assert label 11, boundary
+  `[0,4,8,12]` utk lemas/keseleo, cue manner baru); `tools/tests` python lulus;
+  `fall_detection/tests` lulus. `git grep fall_left|fall_right` pada kode →
+  nol (hanya tersisa di entri changelog historis). Dataset: 21 meta terverifikasi
+  `activity_label` baru + `recording_id` tak berubah; `annotate_candidates.py`
+  membaca folder baru tanpa failed-fast. Belum flash; belum ada `--write` ke
+  dataset anotasi (2.5 tetap mandat terpisah).
+- Klarifikasi (user, 2026-11-08): `fall_lemas` **memang pre-action diam**, jadi
+  10 take lemas yang sudah ada sudah benar (7/10 onset p95 valid) — TIDAK perlu
+  rekam ulang. Hanya `fall_keseleo` yang pre-action berjalan. Untuk pertanyaan
+  "bagaimana agar jatuh-dari-berjalan terdeteksi": diukur pada 11 take keseleo —
+  p95 (0/11) dan change-point level (k=2: 3/11, meleset s.d. +2,9 s; k=3: 0/11)
+  keduanya gagal karena puncak jatuh (<5,4) berada di bawah pita berjalan
+  (p95 ~6–8). Diskriminator yang bekerja = **settling ke diam pasca-puncak
+  (11/11)**, yaitu ciri bentuk dua-tahap `fall_transition`→`fallen_still` (§6/§7),
+  wilayah Fase 3/5 (model + state machine), bukan alat anotasi. Onset waktu
+  keseleo tetap memakai mark observer `fall_start`. DATA_CONTRACT §9.1 +
+  recording-pipeline-implementation §9.1 + test cue diluruskan (lemas=diam).
+
+## 2026-11-08 — Uji kelayakan dua-domain "berjalan biasa" vs "jatuh dari berjalan" (probe host, read-only, tanpa flash)
+
+- Agent/tool: Qoder
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/probe_keseleo_separability.py`
+  (baru; konsumen `annotate_candidates.load_series`/`smooth_on_grid`, tidak
+  mengubah dataset maupun jalur anotasi per-take).
+- Perubahan: Probe read-only yang memisahkan dua domain — `fall_keseleo`
+  (11 take, berjalan→tersandung→jatuh) vs `walking` (10 take, berjalan biasa)
+  — memakai ciri **bentuk + settle** pada envelope gerak kanon, SELURUHNYA
+  dibatasi di dalam action window (0–4/4–8 utk keseleo; 3–7 utk walking) agar
+  berhenti-protokol tidak disalahartikan sebagai jatuh. Ciri: `drop_ratio`
+  (penurunan pasca-puncak), `still_confirm` (minimum pasca-puncak ÷ floor diam
+  pre-action), `peak_pos_frac`, dan komposit `fall_shape`. Melapor AUC
+  Mann-Whitney + tabel TP/FP pada ambang eksplisit.
+- Alasan: user menanyakan apakah "jatuh dari berjalan" (kasus riil) bisa
+  terdeteksi meski onset-nya tak terambil ambang level (terukur sebelumnya: p95 0/11,
+  change-point k=2 3/11 meleset s.d. +2,9 s, k=3 0/11 — puncak jatuh < pita
+  berjalan). Hipotesis: yang memisahkan bukan level, tapi bentuk dua-tahap
+  (naik-tajam → settle ke diam) ala `fall_transition`→`fallen_still` §6/§7.
+  Hasil terukur mengonfirmasi: `still_confirm` AUC 0,99 (keseleo 0,61–1,00 =
+  kembali ke diam; walking 0,97–1,50 = tidak pernah diam di tengah window),
+  `fall_shape` AUC 0,89. Aturan `fall_shape>0,18 AND still_confirm<1,0` =
+  **9/11 keseleo terdeteksi, 0/10 walking false-alarm**. Kesimpulan: LAYAK
+  secara prinsip; onset waktu tetap butuh mark observer (fallback level gagal).
+- Dokumen:
+  - `docs/DATA_CONTRACT.md` §6/§7 — dua tahap `fall_transition`→`fallen_still`;
+    statistik baseline `mean(log1p(amplitude))` per band (fitur relatif, bukan
+    ambang level global). §9.1 — hanya keseleo yang pre-action berjalan.
+  - `annotate_candidates.py` (kanon motion envelope, dipakai ulang probe).
+  - Catatan: ESP-IDF v5.5.3 / esp-radar 0.3.4 **tidak relevan** — analisis host
+    murni di atas CSV rekaman, tidak menyentuh radio/firmware.
+- Batasan jujur (dinyatakan di jawaban): n kecil (11 vs 10), 2 subjek
+  (keseleo='1', walking='1'), satu ruang; ambang dipilih pada data yang sama
+  (belum LOO/cross-validated); `fall_shape` = proxy envelope 1-ciri, BUKAN fitur
+  16-band kanon model. Ini bukti **kelayakan**, bukan akurasi siap-deploy.
+- Verifikasi: `py_compile` OK; `python probe_keseleo_separability.py` → AUC
+  (`fall_shape`=0,89, `still_confirm`=0,01 arah terbalik) + tabel threshold
+  direproduksi stabil. Tidak ada mutasi dataset; tidak ada flash; `--write` tidak
+  pernah disentuh.

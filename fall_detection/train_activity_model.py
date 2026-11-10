@@ -32,7 +32,12 @@ from fall_detection.classifier_models import (  # noqa: E402
     fit_classifier,
     predict_scores,
 )
-from fall_detection.dataset_io import amplitude, decode_iq  # noqa: E402
+from fall_detection.dataset_io import (  # noqa: E402
+    LLTF_PAIRS_FLAGGED,
+    LLTF_PAIRS_UNFLAGGED,
+    amplitude,
+    decode_iq,
+)
 
 
 DEFAULT_RECORDINGS = (
@@ -263,6 +268,7 @@ def train_from_recordings(
     list[FeatureWindow],
     tuple[int, ...],
     tuple[int, ...],
+    int,
 ]:
     parsed = [parse_class_spec(spec) for spec in class_specs]
     class_order = tuple(name for name, _ in parsed)
@@ -279,6 +285,7 @@ def train_from_recordings(
     windows: list[FeatureWindow] = []
     takes_per_label: dict[str, set[str]] = defaultdict(set)
     found_labels: set[str] = set()
+    measured_widths: set[int] = set()
     for meta_path in sorted(recordings_dir.rglob("*.meta.json")):
         audit = audit_take(meta_path)
         if audit.label not in label_to_class:
@@ -305,6 +312,8 @@ def train_from_recordings(
                 f"Recording {audit.recording_id} is shorter than "
                 f"{WINDOW_FRAMES} frames"
             )
+        if frames:
+            measured_widths.add(len(frames[0]))
         class_name = label_to_class[audit.label]
         takes_per_label[class_name].add(audit.recording_id)
         windows.extend(
@@ -317,6 +326,12 @@ def train_from_recordings(
         raise ValueError(
             "No eligible recording found for source labels: "
             + ", ".join(missing_source_labels)
+        )
+    if len(measured_widths) > 1:
+        raise ValueError(
+            "Run mixes two LLTF layouts "
+            f"{sorted(measured_widths)} pairs; a single exported model must "
+            "be built from one layout width"
         )
     found_take_ids = {window.recording_id for window in windows}
     if test_take_ids:
@@ -359,6 +374,7 @@ def train_from_recordings(
         test_windows,
         tuple(len(training_takes[label]) for label in class_order),
         tuple(len(grouped_windows[label]) for label in class_order),
+        measured_widths.pop() if measured_widths else CSI_SUBCARRIERS,
     )
 
 
@@ -377,7 +393,15 @@ def _render_nodes(nodes: tuple[TreeNode, ...]) -> str:
     )
 
 
-def render_c_header(model: ClassifierModel, source_recordings: list[str]) -> str:
+def render_c_header(
+    model: ClassifierModel, source_recordings: list[str], subcarriers: int
+) -> str:
+    if not isinstance(subcarriers, int) or subcarriers <= 0:
+        raise ValueError(
+            f"render_c_header requires a positive measured subcarrier count, "
+            f"got {subcarriers!r}"
+        )
+    lltf_bytes = subcarriers * 2
     labels = ", ".join(json.dumps(label) for label in model.labels)
     source_list = ", ".join(source_recordings)
     algorithm_ids = {
@@ -407,8 +431,8 @@ def render_c_header(model: ClassifierModel, source_recordings: list[str]) -> str
 #define ACTIVITY_MODEL_FEATURE_COUNT {FEATURE_COUNT}
 #define ACTIVITY_MODEL_WINDOW_FRAMES {WINDOW_FRAMES}
 #define ACTIVITY_MODEL_WINDOW_STRIDE {WINDOW_STRIDE}
-#define ACTIVITY_MODEL_SUBCARRIERS {CSI_SUBCARRIERS}
-#define ACTIVITY_MODEL_LLTF_BYTES {LLTF_BYTES}
+#define ACTIVITY_MODEL_SUBCARRIERS {subcarriers}
+#define ACTIVITY_MODEL_LLTF_BYTES {lltf_bytes}
 
 static const char *const activity_model_labels[ACTIVITY_MODEL_CLASS_COUNT] = {{{labels}}};
 static const float activity_model_means[ACTIVITY_MODEL_FEATURE_COUNT] = {{{", ".join(_c_float(value) for value in model.means)}}};
@@ -538,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         for algorithm in algorithms:
-            model, windows, test_windows, takes_per_label, windows_per_label = train_from_recordings(
+            model, windows, test_windows, takes_per_label, windows_per_label, measured_subcarriers = train_from_recordings(
                 args.recordings_dir, args.classes, algorithm, set(args.test_takes)
             )
             if args.algorithm == "all":
@@ -558,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
             source_recordings = sorted({window.recording_id for window in windows})
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
-                render_c_header(model, source_recordings),
+                render_c_header(model, source_recordings, measured_subcarriers),
                 encoding="utf-8",
             )
 
@@ -575,8 +599,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Feature vector: {FEATURE_COUNT} log amplitude-change bands")
             print(
                 f"Window: {WINDOW_FRAMES} frames, stride {WINDOW_STRIDE} frames; "
-                f"LLTF input: {CSI_SUBCARRIERS} complex samples "
-                f"({LLTF_BYTES} bytes)"
+                f"LLTF input: {measured_subcarriers} complex samples "
+                f"({measured_subcarriers * 2} bytes)"
             )
             if test_windows:
                 print_grouped_evaluation(model, test_windows)

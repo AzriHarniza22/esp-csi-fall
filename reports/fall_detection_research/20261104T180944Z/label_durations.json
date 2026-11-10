@@ -1,0 +1,878 @@
+{
+ "per_take": {
+  "bending": [
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154653Z_bending_001"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154719Z_bending_001"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154735Z_bending_002"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154750Z_bending_003"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154805Z_bending_004"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 4.0,
+    "peak_s": 7.85,
+    "settle_s": 8.0,
+    "tail_s": 1.9,
+    "rec": "20261104T154835Z_bending_006"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154851Z_bending_007"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154906Z_bending_008"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154921Z_bending_009"
+   },
+   {
+    "label": "bending",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155021Z_bending_001"
+   }
+  ],
+  "empty_room": [
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 0.84,
+    "spearman_rho": 0.327,
+    "rho_p": 0.0,
+    "rec": "20261104T121450Z_empty_room_001"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 0.89,
+    "spearman_rho": -0.108,
+    "rho_p": 0.127,
+    "rec": "20261104T121506Z_empty_room_002"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 1.08,
+    "spearman_rho": 0.23,
+    "rho_p": 0.0011,
+    "rec": "20261104T121521Z_empty_room_003"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 0.77,
+    "spearman_rho": -0.376,
+    "rho_p": 0.0,
+    "rec": "20261104T121536Z_empty_room_004"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 1.06,
+    "spearman_rho": 0.378,
+    "rho_p": 0.0,
+    "rec": "20261104T121551Z_empty_room_005"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 1.23,
+    "spearman_rho": 0.373,
+    "rho_p": 0.0,
+    "rec": "20261104T121606Z_empty_room_006"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 0.94,
+    "spearman_rho": 0.077,
+    "rho_p": 0.2774,
+    "rec": "20261104T121622Z_empty_room_007"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 1.03,
+    "spearman_rho": -0.191,
+    "rho_p": 0.0069,
+    "rec": "20261104T121637Z_empty_room_008"
+   },
+   {
+    "label": "empty_room",
+    "kind": "idle",
+    "late_over_early_p95": 1.04,
+    "spearman_rho": 0.358,
+    "rho_p": 0.0,
+    "rec": "20261104T121652Z_empty_room_009"
+   }
+  ],
+  "fall_backward": [
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.35,
+    "peak_s": 6.3,
+    "settle_s": 7.7,
+    "tail_s": 2.25,
+    "rec": "20261104T160100Z_fall_backward_001"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.2,
+    "peak_s": 6.15,
+    "settle_s": 7.15,
+    "tail_s": 2.8,
+    "rec": "20261104T160120Z_fall_backward_002"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.3,
+    "peak_s": 6.1,
+    "settle_s": 7.75,
+    "tail_s": 2.2,
+    "rec": "20261104T160140Z_fall_backward_003"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.2,
+    "peak_s": 6.0,
+    "settle_s": 7.6,
+    "tail_s": 2.35,
+    "rec": "20261104T160200Z_fall_backward_004"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.25,
+    "peak_s": 6.0,
+    "settle_s": 6.9,
+    "tail_s": 3.05,
+    "rec": "20261104T160220Z_fall_backward_005"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.35,
+    "peak_s": 6.15,
+    "settle_s": 7.0,
+    "tail_s": 2.95,
+    "rec": "20261104T160241Z_fall_backward_006"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.6,
+    "peak_s": 6.35,
+    "settle_s": 7.45,
+    "tail_s": 2.45,
+    "rec": "20261104T160301Z_fall_backward_007"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.55,
+    "peak_s": 6.05,
+    "settle_s": 7.2,
+    "tail_s": 2.7,
+    "rec": "20261104T160321Z_fall_backward_008"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.0,
+    "peak_s": 6.7,
+    "settle_s": 7.9,
+    "tail_s": 2.05,
+    "rec": "20261104T160341Z_fall_backward_009"
+   },
+   {
+    "label": "fall_backward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.1,
+    "peak_s": 6.0,
+    "settle_s": 7.6,
+    "tail_s": 2.4,
+    "rec": "20261104T160401Z_fall_backward_010"
+   }
+  ],
+  "fall_forward": [
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.9,
+    "peak_s": 5.45,
+    "settle_s": 6.0,
+    "tail_s": 3.9,
+    "rec": "20261104T155713Z_fall_forward_001"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.9,
+    "peak_s": 5.55,
+    "settle_s": 7.0,
+    "tail_s": 2.95,
+    "rec": "20261104T155733Z_fall_forward_002"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.85,
+    "peak_s": 5.9,
+    "settle_s": 7.25,
+    "tail_s": 2.7,
+    "rec": "20261104T155753Z_fall_forward_003"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.8,
+    "peak_s": 5.4,
+    "settle_s": 6.3,
+    "tail_s": 3.6,
+    "rec": "20261104T155813Z_fall_forward_004"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.15,
+    "peak_s": 6.0,
+    "settle_s": 6.95,
+    "tail_s": 2.95,
+    "rec": "20261104T155834Z_fall_forward_005"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.9,
+    "peak_s": 5.6,
+    "settle_s": 6.15,
+    "tail_s": 3.8,
+    "rec": "20261104T155854Z_fall_forward_006"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.35,
+    "peak_s": 5.25,
+    "settle_s": 5.95,
+    "tail_s": 3.65,
+    "rec": "20261104T155914Z_fall_forward_007"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.6,
+    "peak_s": 5.4,
+    "settle_s": 6.4,
+    "tail_s": 3.55,
+    "rec": "20261104T155934Z_fall_forward_008"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.2,
+    "peak_s": 5.5,
+    "settle_s": 6.3,
+    "tail_s": 3.65,
+    "rec": "20261104T155954Z_fall_forward_009"
+   },
+   {
+    "label": "fall_forward",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.65,
+    "peak_s": 5.3,
+    "settle_s": 5.95,
+    "tail_s": 4.0,
+    "rec": "20261104T160014Z_fall_forward_010"
+   }
+  ],
+  "fast_sitting": [
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154253Z_fast_sitting_001"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154308Z_fast_sitting_002"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 5.6,
+    "peak_s": 8.95,
+    "settle_s": 9.3,
+    "tail_s": 0.6,
+    "rec": "20261104T154324Z_fast_sitting_003"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154339Z_fast_sitting_004"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154409Z_fast_sitting_006"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 6.8,
+    "peak_s": 6.8,
+    "settle_s": 6.95,
+    "tail_s": 2.9,
+    "rec": "20261104T154424Z_fast_sitting_007"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154440Z_fast_sitting_008"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154455Z_fast_sitting_009"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154510Z_fast_sitting_010"
+   },
+   {
+    "label": "fast_sitting",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T154615Z_fast_sitting_001"
+   }
+  ],
+  "object_drop": [
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155116Z_object_drop_001"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 4.4,
+    "peak_s": 4.4,
+    "settle_s": 4.5,
+    "tail_s": 5.1,
+    "rec": "20261104T155131Z_object_drop_002"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155146Z_object_drop_003"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155201Z_object_drop_004"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155217Z_object_drop_005"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155232Z_object_drop_006"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "pre_end": 4.0,
+    "onset_s": 8.05,
+    "peak_s": 8.3,
+    "settle_s": 8.9,
+    "tail_s": 1.05,
+    "rec": "20261104T155247Z_object_drop_007"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155302Z_object_drop_008"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155317Z_object_drop_009"
+   },
+   {
+    "label": "object_drop",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T155333Z_object_drop_010"
+   }
+  ],
+  "still_sitting": [
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 0.69,
+    "spearman_rho": -0.622,
+    "rho_p": 0.0,
+    "rec": "20261104T115746Z_still_sitting_001"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 0.82,
+    "spearman_rho": -0.412,
+    "rho_p": 0.0,
+    "rec": "20261104T115801Z_still_sitting_002"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 1.06,
+    "spearman_rho": 0.164,
+    "rho_p": 0.0208,
+    "rec": "20261104T115816Z_still_sitting_003"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 1.13,
+    "spearman_rho": 0.443,
+    "rho_p": 0.0,
+    "rec": "20261104T115831Z_still_sitting_004"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 0.99,
+    "spearman_rho": 0.27,
+    "rho_p": 0.0001,
+    "rec": "20261104T115846Z_still_sitting_005"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 0.86,
+    "spearman_rho": 0.299,
+    "rho_p": 0.0,
+    "rec": "20261104T115902Z_still_sitting_006"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 1.12,
+    "spearman_rho": 0.182,
+    "rho_p": 0.0101,
+    "rec": "20261104T115917Z_still_sitting_007"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 1.11,
+    "spearman_rho": -0.26,
+    "rho_p": 0.0002,
+    "rec": "20261104T115932Z_still_sitting_008"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 0.84,
+    "spearman_rho": -0.312,
+    "rho_p": 0.0,
+    "rec": "20261104T115947Z_still_sitting_009"
+   },
+   {
+    "label": "still_sitting",
+    "kind": "idle",
+    "late_over_early_p95": 1.0,
+    "spearman_rho": -0.2,
+    "rho_p": 0.0045,
+    "rec": "20261104T120003Z_still_sitting_010"
+   }
+  ],
+  "still_standing": [
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 0.97,
+    "spearman_rho": 0.644,
+    "rho_p": 0.0,
+    "rec": "20261104T120043Z_still_standing_001"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 1.24,
+    "spearman_rho": -0.293,
+    "rho_p": 0.0,
+    "rec": "20261104T120058Z_still_standing_002"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 0.5,
+    "spearman_rho": -0.057,
+    "rho_p": 0.4217,
+    "rec": "20261104T120113Z_still_standing_003"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 1.02,
+    "spearman_rho": 0.49,
+    "rho_p": 0.0,
+    "rec": "20261104T120128Z_still_standing_004"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 0.88,
+    "spearman_rho": 0.116,
+    "rho_p": 0.1029,
+    "rec": "20261104T120143Z_still_standing_005"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 0.84,
+    "spearman_rho": 0.54,
+    "rho_p": 0.0,
+    "rec": "20261104T120159Z_still_standing_006"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 1.18,
+    "spearman_rho": 0.571,
+    "rho_p": 0.0,
+    "rec": "20261104T120214Z_still_standing_007"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 0.96,
+    "spearman_rho": -0.032,
+    "rho_p": 0.6575,
+    "rec": "20261104T120229Z_still_standing_008"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 1.03,
+    "spearman_rho": 0.246,
+    "rho_p": 0.0004,
+    "rec": "20261104T120244Z_still_standing_009"
+   },
+   {
+    "label": "still_standing",
+    "kind": "idle",
+    "late_over_early_p95": 1.08,
+    "spearman_rho": 0.486,
+    "rho_p": 0.0,
+    "rec": "20261104T120300Z_still_standing_010"
+   }
+  ],
+  "walking": [
+   {
+    "label": "walking",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T043259Z_walking_001"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 3.95,
+    "peak_s": 4.4,
+    "settle_s": 5.0,
+    "tail_s": 5.0,
+    "rec": "20261104T043314Z_walking_002"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 5.4,
+    "peak_s": 5.5,
+    "settle_s": 5.75,
+    "tail_s": 4.15,
+    "rec": "20261104T043329Z_walking_003"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 4.15,
+    "peak_s": 4.2,
+    "settle_s": 4.25,
+    "tail_s": 5.7,
+    "rec": "20261104T043344Z_walking_004"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 4.1,
+    "peak_s": 5.0,
+    "settle_s": 5.7,
+    "tail_s": 4.2,
+    "rec": "20261104T043359Z_walking_005"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 5.15,
+    "peak_s": 5.75,
+    "settle_s": 6.35,
+    "tail_s": 3.55,
+    "rec": "20261104T043415Z_walking_006"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "pre_end": 3.0,
+    "onset_s": 4.4,
+    "peak_s": 4.5,
+    "settle_s": 4.95,
+    "tail_s": 5.0,
+    "rec": "20261104T043430Z_walking_007"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T043445Z_walking_008"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T043500Z_walking_009"
+   },
+   {
+    "label": "walking",
+    "kind": "action",
+    "settled": null,
+    "note": "no onset crossing",
+    "rec": "20261104T043515Z_walking_010"
+   }
+  ]
+ },
+ "summary": {
+  "bending": {
+   "n": 10,
+   "settle_median_s": 8.0,
+   "settle_max_s": 8.0,
+   "never_settled": [],
+   "tail_median_s": 1.9,
+   "tail_min_s": 1.9,
+   "peaks": [
+    7.85
+   ]
+  },
+  "empty_room": {
+   "n": 9,
+   "late_over_early_p95_median": 1.03,
+   "spearman_rho_median": 0.23,
+   "worst_ratio_take": "20261104T121606Z_empty_room_006"
+  },
+  "fall_backward": {
+   "n": 10,
+   "settle_median_s": 7.53,
+   "settle_max_s": 7.9,
+   "never_settled": [],
+   "tail_median_s": 2.42,
+   "tail_min_s": 2.05,
+   "peaks": [
+    6.0,
+    6.0,
+    6.0,
+    6.05,
+    6.1,
+    6.15,
+    6.15,
+    6.3,
+    6.35,
+    6.7
+   ]
+  },
+  "fall_forward": {
+   "n": 10,
+   "settle_median_s": 6.3,
+   "settle_max_s": 7.25,
+   "never_settled": [],
+   "tail_median_s": 3.62,
+   "tail_min_s": 2.7,
+   "peaks": [
+    5.25,
+    5.3,
+    5.4,
+    5.4,
+    5.45,
+    5.5,
+    5.55,
+    5.6,
+    5.9,
+    6.0
+   ]
+  },
+  "fast_sitting": {
+   "n": 10,
+   "settle_median_s": 8.12,
+   "settle_max_s": 9.3,
+   "never_settled": [],
+   "tail_median_s": 1.75,
+   "tail_min_s": 0.6,
+   "peaks": [
+    6.8,
+    8.95
+   ]
+  },
+  "object_drop": {
+   "n": 10,
+   "settle_median_s": 6.7,
+   "settle_max_s": 8.9,
+   "never_settled": [],
+   "tail_median_s": 3.07,
+   "tail_min_s": 1.05,
+   "peaks": [
+    4.4,
+    8.3
+   ]
+  },
+  "still_sitting": {
+   "n": 10,
+   "late_over_early_p95_median": 0.99,
+   "spearman_rho_median": -0.018,
+   "worst_ratio_take": "20261104T115831Z_still_sitting_004"
+  },
+  "still_standing": {
+   "n": 10,
+   "late_over_early_p95_median": 0.99,
+   "spearman_rho_median": 0.366,
+   "worst_ratio_take": "20261104T120058Z_still_standing_002"
+  },
+  "walking": {
+   "n": 10,
+   "settle_median_s": 5.35,
+   "settle_max_s": 6.35,
+   "never_settled": [],
+   "tail_median_s": 4.6,
+   "tail_min_s": 3.55,
+   "peaks": [
+    4.2,
+    4.4,
+    4.5,
+    5.0,
+    5.5,
+    5.75
+   ]
+  }
+ }
+}

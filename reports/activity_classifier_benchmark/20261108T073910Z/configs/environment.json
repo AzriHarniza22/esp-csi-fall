@@ -1,0 +1,10 @@
+{
+  "python": "3.11.2",
+  "python_executable": "/usr/bin/python3",
+  "numpy": "2.3.5",
+  "platform": "Linux-6.18.16-2-liquorix-amd64-x86_64-with-glibc2.36",
+  "machine": "x86_64",
+  "cpu_count": 4,
+  "repo_git_commit": "74032e7f862a0ac1d7b73ac6eb45063e41e3b789",
+  "repo_git_dirty": true
+}

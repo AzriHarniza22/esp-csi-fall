@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import re
 import unittest
 import tempfile
 from pathlib import Path
@@ -143,7 +144,7 @@ class TrainingModelTests(unittest.TestCase):
             ("duduk", "ayunkan tangan"),
         )
 
-        header = render_c_header(model, ["sit-1", "wave-1"])
+        header = render_c_header(model, ["sit-1", "wave-1"], CSI_SUBCARRIERS)
 
         self.assertIn('"duduk", "ayunkan tangan"', header)
         self.assertIn("ACTIVITY_MODEL_CLASS_COUNT 2", header)
@@ -176,7 +177,7 @@ class TrainingModelTests(unittest.TestCase):
                 model = fit_classifier(algorithm, rows, targets, labels)
                 self.assertEqual(predict(model, rows[0]), "quiet")
                 self.assertEqual(predict(model, rows[1]), "motion")
-                header = render_c_header(model, ["take-1"])
+                header = render_c_header(model, ["take-1"], CSI_SUBCARRIERS)
                 self.assertIn(f"ACTIVITY_MODEL_ALGORITHM {ALGORITHMS.index(algorithm) + 1}", header)
                 self.assertIn("ACTIVITY_MODEL_FEATURE_COUNT 16", header)
                 if algorithm in {"decision-tree", "random-forest"}:
@@ -191,6 +192,96 @@ class TrainingModelTests(unittest.TestCase):
                 ["quiet", "quiet"],
                 ("quiet", "motion"),
             )
+
+
+class HeaderRendererFixtureTests(unittest.TestCase):
+    """Fase 1A.2: the renderer writes the measured LLTF width and produces a
+    self-consistent C header. Tested with synthetic fixtures only - never by
+    exporting a previously trained model as a stand-in for a temporary header."""
+
+    _LABELS = ("normal_still", "fall_transition", "fallen_still", "other_action", "other_still")
+
+    def _synthetic_model(self, algorithm: str = "linear-svm"):
+        rows, targets = [], []
+        for index in range(6):
+            base = float(index) * 0.01
+            for offset, label in enumerate(self._LABELS):
+                rows.append((base + offset * 3.0,) * FEATURE_COUNT)
+                targets.append(label)
+        return fit_classifier(algorithm, rows, targets, self._LABELS)
+
+    def _define(self, header: str, name: str) -> int:
+        match = re.search(rf"#define {name} (\d+)", header)
+        self.assertIsNotNone(match, f"{name} missing from header")
+        return int(match.group(1))
+
+    def _array_values(self, header: str, name: str) -> list[list[str]]:
+        """Rows of numeric values for one ``static const ... name[..] = {...};``."""
+        match = re.search(rf"{name}\[[^\]]*\][^\"]*?= \{{(.*?)\}};", header, re.DOTALL)
+        self.assertIsNotNone(match, f"{name} missing from header")
+        body = match.group(1)
+        if "{" in body:  # 2-D array: split on inner braces
+            return [re.findall(r"-?\d+\.?\d*f?", inner)
+                    for inner in re.findall(r"\{([^}]*)\}", body)]
+        return [re.findall(r"-?\d+\.?\d*f?", body)]
+
+    def test_measured_51_pair_layout_is_written(self) -> None:
+        header = render_c_header(self._synthetic_model(), ["synth-1"], 51)
+        self.assertEqual(self._define(header, "ACTIVITY_MODEL_SUBCARRIERS"), 51)
+        self.assertEqual(self._define(header, "ACTIVITY_MODEL_LLTF_BYTES"), 102)
+
+    def test_measured_52_pair_layout_is_written(self) -> None:
+        header = render_c_header(self._synthetic_model(), ["synth-1"], 52)
+        self.assertEqual(self._define(header, "ACTIVITY_MODEL_SUBCARRIERS"), 52)
+        self.assertEqual(self._define(header, "ACTIVITY_MODEL_LLTF_BYTES"), 104)
+
+    def test_lltf_bytes_is_twice_subcarriers(self) -> None:
+        for width in (51, 52):
+            header = render_c_header(self._synthetic_model(), ["synth-1"], width)
+            self.assertEqual(
+                self._define(header, "ACTIVITY_MODEL_LLTF_BYTES"), 2 * width)
+
+    def test_rejects_non_positive_measured_width(self) -> None:
+        model = self._synthetic_model()
+        for bad in (0, -1, None, 52.0):
+            with self.subTest(width=bad):
+                with self.assertRaises(ValueError):
+                    render_c_header(model, ["synth-1"], bad)
+
+    def test_weight_dimensions_class_order_and_index_consistency(self) -> None:
+        model = self._synthetic_model("linear-svm")
+        header = render_c_header(model, ["synth-1"], 51)
+        class_count = self._define(header, "ACTIVITY_MODEL_CLASS_COUNT")
+        feature_count = self._define(header, "ACTIVITY_MODEL_FEATURE_COUNT")
+        self.assertEqual(class_count, len(self._LABELS))
+        self.assertEqual(feature_count, FEATURE_COUNT)
+        # Class order + index: the labels array must match model.labels exactly.
+        labels_line = re.search(
+            r"activity_model_labels\[[^\]]*\]\s*=\s*\{(.*)\};", header,
+            re.DOTALL).group(1)
+        labels = re.findall(r'"([^"]+)"', labels_line)
+        self.assertEqual(tuple(labels), model.labels)
+        # Weight matrix shape = class_count rows x feature_count columns.
+        weights = self._array_values(header, "activity_model_weights")
+        self.assertEqual(len(weights), class_count)
+        self.assertTrue(all(len(row) == feature_count for row in weights))
+        biases = self._array_values(header, "activity_model_biases")[0]
+        self.assertEqual(len(biases), class_count)
+        means = self._array_values(header, "activity_model_means")[0]
+        scales = self._array_values(header, "activity_model_scales")[0]
+        self.assertEqual(len(means), feature_count)
+        self.assertEqual(len(scales), feature_count)
+
+    def test_encode_decode_roundtrip_consistency(self) -> None:
+        # The header must reproduce the trained model's per-class biases, so a
+        # consumer reading the C arrays recovers identical parameters.
+        model = self._synthetic_model("linear-svm")
+        header = render_c_header(model, ["synth-1"], 52)
+        biases = [float(v.rstrip("f")) for v in
+                  self._array_values(header, "activity_model_biases")[0]]
+        self.assertEqual(len(biases), len(model.biases))
+        for expected, got in zip(model.biases, biases):
+            self.assertAlmostEqual(expected, got, places=6)
 
 
 if __name__ == "__main__":

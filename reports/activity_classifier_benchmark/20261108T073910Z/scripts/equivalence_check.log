@@ -1,0 +1,110 @@
+nohup: ignoring input
+logistic-regression subset8 ...
+{
+  "algorithm": "logistic-regression",
+  "train_rows": 191,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 24.84,
+  "vectorized_fit_seconds": 0.71,
+  "max_abs_delta_weights": 4.609180836610853e-17,
+  "max_abs_delta_biases": 8.881784197001252e-16,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "subset8"
+}
+logistic-regression subset32 ...
+{
+  "algorithm": "logistic-regression",
+  "train_rows": 714,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 102.72,
+  "vectorized_fit_seconds": 2.34,
+  "max_abs_delta_weights": 5.551115123125783e-16,
+  "max_abs_delta_biases": 4.440892098500626e-16,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "subset32"
+}
+logistic-regression full_fold ...
+{
+  "algorithm": "logistic-regression",
+  "train_rows": 3070,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 539.5,
+  "vectorized_fit_seconds": 4.82,
+  "max_abs_delta_weights": 6.661338147750939e-16,
+  "max_abs_delta_biases": 2.220446049250313e-16,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "full_fold"
+}
+linear-svm subset8 ...
+{
+  "algorithm": "linear-svm",
+  "train_rows": 191,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 21.7,
+  "vectorized_fit_seconds": 6.35,
+  "max_abs_delta_weights": 0.0,
+  "max_abs_delta_biases": 0.0,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "subset8"
+}
+linear-svm subset32 ...
+{
+  "algorithm": "linear-svm",
+  "train_rows": 714,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 42.22,
+  "vectorized_fit_seconds": 37.31,
+  "max_abs_delta_weights": 0.0,
+  "max_abs_delta_biases": 0.0,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "subset32"
+}
+linear-svm full_fold ...
+{
+  "algorithm": "linear-svm",
+  "train_rows": 3070,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 355.91,
+  "vectorized_fit_seconds": 243.73,
+  "max_abs_delta_weights": 0.0,
+  "max_abs_delta_biases": 0.0,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "full_fold"
+}
+GATE PASSED

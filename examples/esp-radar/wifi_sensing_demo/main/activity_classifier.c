@@ -19,6 +19,25 @@
 
 static const char *TAG = "activity_classifier";
 
+/* Diagnostic reason codes for the flag-bound LLTF layout gate (DATA_CONTRACT §1). */
+#define LAYOUT_DIAG_NONE 0
+#define LAYOUT_DIAG_UNSUPPORTED_DATA_TYPE 1
+#define LAYOUT_DIAG_UNSUPPORTED_BANDWIDTH 2
+#define LAYOUT_DIAG_SECONDARY_CHANNEL 3
+#define LAYOUT_DIAG_FIRST_WORD_FLAG_LEN_MISMATCH 4
+#define LAYOUT_DIAG_UNKNOWN_LLTF_LENGTH 5
+#define LAYOUT_DIAG_SIGNAL_MODE 6
+#define LAYOUT_DIAG_SEGMENT_SUM 7
+#define LAYOUT_DIAG_MODEL_WIDTH_MISMATCH 8
+#define LAYOUT_DIAG_MODEL_REASON_BASE 100
+
+typedef struct {
+    bool valid;       /* layout satisfies the DATA_CONTRACT §1 length<->flag binding */
+    bool model_compat;/* valid AND its LLTF width equals the loaded model width */
+    uint8_t pairs;    /* complex pairs decoded from the LLTF segment */
+    int reason;       /* LAYOUT_DIAG_* code, or >= MODEL_REASON_BASE for width mismatch */
+} csi_layout_verdict_t;
+
 typedef struct {
     uint16_t valid_len;
     uint16_t valid_lltf_len;
@@ -29,6 +48,8 @@ typedef struct {
     uint8_t secondary_channel;
     bool supported_layout;
     bool reset_history;
+    uint8_t lltf_pairs;
+    bool model_compat;
     int8_t samples[ACTIVITY_MODEL_LLTF_BYTES];
 } activity_frame_t;
 
@@ -38,6 +59,9 @@ static uint32_t s_frames_processed;
 static bool s_reset_on_next_frame;
 static portMUX_TYPE s_stats_mux = portMUX_INITIALIZER_UNLOCKED;
 static float s_amplitude_history[ACTIVITY_MODEL_WINDOW_FRAMES][ACTIVITY_MODEL_SUBCARRIERS];
+static int s_last_layout_reason = -1;
+static uint32_t s_layout_reason_count;
+static uint32_t s_model_width_mismatch_count;
 
 static void count_queue_drop(void)
 {
@@ -46,32 +70,129 @@ static void count_queue_drop(void)
     taskEXIT_CRITICAL(&s_stats_mux);
 }
 
-static bool has_supported_lltf_layout(const wifi_csi_filtered_info_t *info)
+/*
+ * Classify a frame's LLTF layout against DATA_CONTRACT §1: length and
+ * first_word_invalid are bound 1-to-1 (Layout A 102 B / 51 pairs <=> flag true;
+ * Layout B 104 B / 52 pairs <=> flag false). The gate is bound to the flag, not
+ * to the loaded model width, so any other length/flag combination is an
+ * explicit error rather than a silent pass. Model-width compatibility is a
+ * separate concern reported back to the caller for diagnostics.
+ */
+static csi_layout_verdict_t classify_csi_layout(const wifi_csi_filtered_info_t *info)
 {
+    csi_layout_verdict_t verdict = {0};
     const esp_radar_rx_ctrl_info_t *rx = &info->rx_ctrl_info;
-    if (info->data_type != WIFI_CSI_DATA_TYPE_INT8 ||
-            info->valid_lltf_len != ACTIVITY_MODEL_LLTF_BYTES ||
-            rx->cwb != WIFI_CHANNEL_BANDWIDTH_20MHZ ||
-            rx->secondary_channel != WIFI_SECOND_CHAN_NONE) {
-        return false;
+    const bool first_word_invalid = info->info ? info->info->first_word_invalid : false;
+    uint8_t pairs = 0;
+
+    if (info->data_type != WIFI_CSI_DATA_TYPE_INT8) {
+        verdict.reason = LAYOUT_DIAG_UNSUPPORTED_DATA_TYPE;
+        return verdict;
+    }
+    if (rx->cwb != WIFI_CHANNEL_BANDWIDTH_20MHZ) {
+        verdict.reason = LAYOUT_DIAG_UNSUPPORTED_BANDWIDTH;
+        return verdict;
+    }
+    if (rx->secondary_channel != WIFI_SECOND_CHAN_NONE) {
+        verdict.reason = LAYOUT_DIAG_SECONDARY_CHANNEL;
+        return verdict;
     }
 
-    if (rx->signal_mode == WIFI_SIGNAL_MODE_NON_HT) {
-        return !rx->stbc &&
-               info->valid_len == info->valid_lltf_len &&
-               info->valid_ht_ltf_len == 0 &&
-               info->valid_stbc_ht_ltf_len == 0;
-    }
-    if (rx->signal_mode == WIFI_SIGNAL_MODE_HT) {
-        if (rx->stbc) {
-            return info->valid_len ==
-                   info->valid_lltf_len + info->valid_ht_ltf_len +
-                       info->valid_stbc_ht_ltf_len;
+    verdict.valid = true;
+    if (first_word_invalid) {
+        if (info->valid_lltf_len != 102) {
+            verdict.valid = false;
+            verdict.reason = LAYOUT_DIAG_FIRST_WORD_FLAG_LEN_MISMATCH;
+            return verdict;
         }
-        return info->valid_stbc_ht_ltf_len == 0 &&
-               info->valid_len == info->valid_lltf_len + info->valid_ht_ltf_len;
+        pairs = 51;
+    } else if (info->valid_lltf_len == ACTIVITY_MODEL_LLTF_BYTES) {
+        pairs = ACTIVITY_MODEL_SUBCARRIERS;
+    } else if (info->valid_lltf_len == 104) {
+        pairs = 52;
+    } else {
+        verdict.valid = false;
+        verdict.reason = LAYOUT_DIAG_UNKNOWN_LLTF_LENGTH;
+        return verdict;
     }
-    return false;
+    verdict.pairs = pairs;
+
+    if (rx->signal_mode == WIFI_SIGNAL_MODE_NON_HT) {
+        if (rx->stbc ||
+                info->valid_len != info->valid_lltf_len ||
+                info->valid_ht_ltf_len != 0 ||
+                info->valid_stbc_ht_ltf_len != 0) {
+            verdict.valid = false;
+            verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
+        }
+    } else if (rx->signal_mode == WIFI_SIGNAL_MODE_HT) {
+        const uint32_t expected = (uint32_t)info->valid_lltf_len +
+                                  info->valid_ht_ltf_len + info->valid_stbc_ht_ltf_len;
+        if (rx->stbc) {
+            if (info->valid_len != expected) {
+                verdict.valid = false;
+                verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
+            }
+        } else if (info->valid_stbc_ht_ltf_len != 0 ||
+                   info->valid_len != expected) {
+            verdict.valid = false;
+            verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
+        }
+    } else {
+        verdict.valid = false;
+        verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
+    }
+
+    if (!verdict.valid) {
+        return verdict;
+    }
+
+    verdict.model_compat = (pairs == ACTIVITY_MODEL_SUBCARRIERS);
+    if (!verdict.model_compat) {
+        verdict.reason = LAYOUT_DIAG_MODEL_REASON_BASE + (int)pairs;
+    }
+    return verdict;
+}
+
+/*
+ * Emit a throttled diagnostic so a rejected layout is visible without flooding
+ * the CSI callback: the first occurrence of each reason is logged immediately,
+ * repeats are summarized every 100 frames. Contract violations (valid=false)
+ * and valid-but-mismatched-width frames are distinguished.
+ */
+static void log_layout_reject(const char *source, const wifi_csi_filtered_info_t *info,
+                              const csi_layout_verdict_t *verdict)
+{
+    const bool first_word_invalid = info->info ? info->info->first_word_invalid : false;
+    int reason_key = verdict->reason;
+    if (!verdict->valid) {
+        reason_key += 1000;
+    }
+    if (reason_key != s_last_layout_reason) {
+        s_last_layout_reason = reason_key;
+        s_layout_reason_count = 0;
+    }
+    s_layout_reason_count++;
+    if (s_layout_reason_count != 1 && (s_layout_reason_count % 100) != 0) {
+        return;
+    }
+
+    if (verdict->valid) {
+        ESP_LOGW(TAG,
+                 "%s: layout valid but incompatible with loaded model: lltf_len=%u "
+                 "first_word_invalid=%s pairs=%u model_pairs=%u reason=width_mismatch count=%" PRIu32,
+                 source, (unsigned)info->valid_lltf_len,
+                 first_word_invalid ? "true" : "false",
+                 (unsigned)verdict->pairs, (unsigned)ACTIVITY_MODEL_SUBCARRIERS,
+                 (uint32_t)s_model_width_mismatch_count);
+        s_model_width_mismatch_count++;
+        return;
+    }
+    ESP_LOGW(TAG,
+             "%s: rejected unknown CSI layout: lltf_len=%u first_word_invalid=%s reason=%d count=%" PRIu32,
+             source, (unsigned)info->valid_lltf_len,
+             first_word_invalid ? "true" : "false", verdict->reason,
+             (uint32_t)s_layout_reason_count);
 }
 
 void activity_classifier_enqueue(const wifi_csi_filtered_info_t *info)
@@ -88,11 +209,22 @@ void activity_classifier_enqueue(const wifi_csi_filtered_info_t *info)
         .bandwidth = info->rx_ctrl_info.cwb,
         .stbc = info->rx_ctrl_info.stbc,
         .secondary_channel = info->rx_ctrl_info.secondary_channel,
-        .supported_layout = has_supported_lltf_layout(info),
         .reset_history = s_reset_on_next_frame,
     };
+    csi_layout_verdict_t verdict = classify_csi_layout(info);
+    frame.supported_layout = verdict.valid && verdict.model_compat;
+    frame.model_compat = verdict.model_compat;
+    frame.lltf_pairs = verdict.pairs;
+
+    if (!frame.supported_layout) {
+        log_layout_reject("enqueue", info, &verdict);
+    }
+
     if (frame.supported_layout) {
-        memcpy(frame.samples, info->valid_data, sizeof(frame.samples));
+        const size_t bytes = (size_t)frame.lltf_pairs * 2u;
+        if (bytes <= sizeof(frame.samples)) {
+            memcpy(frame.samples, info->valid_data, bytes);
+        }
     }
 
     if (xQueueSend(s_frame_queue, &frame, 0) != pdTRUE) {
@@ -107,11 +239,11 @@ static bool frame_to_amplitude(const activity_frame_t *frame, float *amplitudes)
 {
     if (!frame->supported_layout ||
             frame->data_type != WIFI_CSI_DATA_TYPE_INT8 ||
-            frame->valid_lltf_len != ACTIVITY_MODEL_LLTF_BYTES) {
+            frame->lltf_pairs == 0) {
         return false;
     }
 
-    for (size_t i = 0; i < ACTIVITY_MODEL_SUBCARRIERS; ++i) {
+    for (uint8_t i = 0; i < frame->lltf_pairs; ++i) {
         const float real = frame->samples[i * 2];
         const float imag = frame->samples[i * 2 + 1];
         amplitudes[i] = hypotf(real, imag);
@@ -276,12 +408,10 @@ static void activity_classifier_task(void *arg)
             s_frames_processed = 0;
         }
         if (!frame_to_amplitude(&frame, amplitudes)) {
+            /* Layout diagnostics (length/flag/reason) are emitted once at the
+             * enqueue gate; frames here are only unsupported or model-width
+             * mismatches, so reset the window and drop without re-logging. */
             s_frames_processed = 0;
-            ESP_LOGW(TAG,
-                     "Skipping CSI frame: type=%u mode=%u bandwidth=%u stbc=%u secondary=%u valid_len=%u lltf_len=%u",
-                     frame.data_type, frame.signal_mode, frame.bandwidth,
-                     frame.stbc, frame.secondary_channel, frame.valid_len,
-                     frame.valid_lltf_len);
             continue;
         }
 

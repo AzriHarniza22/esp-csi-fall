@@ -44,12 +44,15 @@ FRAMES_HEADER = [
 BINARY_LABELS = {
     "fall_forward": "fall",
     "fall_backward": "fall",
-    "fall_left": "fall",
-    "fall_right": "fall",
+    "fall_lemas": "fall",
+    "fall_keseleo": "fall",
     "walking": "non_fall",
     "fast_sitting": "non_fall",
     "bending": "non_fall",
     "object_drop": "non_fall",
+    "empty_room": "non_fall",
+    "still_standing": "non_fall",
+    "still_sitting": "non_fall",
 }
 
 INDEX_HEADER = [
@@ -264,8 +267,13 @@ def validate_meta(meta: dict, rec_id: str) -> list[str]:
         errors.append(f"meta.recording_id={recording_id!r} does not match id={rec_id!r}")
     if not meta.get("activity_label"):
         errors.append("meta.activity_label is missing")
-    if meta.get("target_duration_s") not in (None, 10):
-        errors.append(f"meta.target_duration_s={meta['target_duration_s']!r}, expected 10")
+    target = meta.get("target_duration_s")
+    # target_duration_s is derived from the last timeline boundary (fall = 12 s,
+    # most others = 10 s) rather than a single fixed value; the server only
+    # checks it is a positive number, never a specific one.
+    if target is not None and (not isinstance(target, (int, float))
+                               or isinstance(target, bool) or target <= 0):
+        errors.append(f"meta.target_duration_s={target!r}, expected a positive number or null")
     files = meta.get("files")
     if not isinstance(files, dict) or not files.get("frames_csv") or not files.get("meta_json"):
         errors.append("meta.files must reference frames_csv and meta_json")

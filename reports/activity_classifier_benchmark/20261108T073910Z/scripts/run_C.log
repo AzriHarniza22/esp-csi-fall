@@ -1,0 +1,14 @@
+nohup: ignoring input
+experiment C: 21 takes, 137 windows, linear_mode=canonical
+10/105 folds (0 failed) elapsed=0s
+20/105 folds (0 failed) elapsed=0s
+30/105 folds (0 failed) elapsed=18s
+40/105 folds (0 failed) elapsed=37s
+50/105 folds (0 failed) elapsed=50s
+60/105 folds (0 failed) elapsed=63s
+70/105 folds (0 failed) elapsed=65s
+80/105 folds (0 failed) elapsed=67s
+90/105 folds (0 failed) elapsed=68s
+100/105 folds (0 failed) elapsed=68s
+105/105 folds (0 failed) elapsed=69s
+experiment C complete: 105 folds, 0 failed

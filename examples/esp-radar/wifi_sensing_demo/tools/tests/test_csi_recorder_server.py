@@ -113,6 +113,35 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual(srv.validate_frames_csv(frames, meta), [])
         self.assertEqual(srv.validate_meta(meta, rec_id), [])
 
+    def test_accepts_12s_fall_take(self):
+        """target_duration_s is derived from the timeline (fall = 12 s), so the
+        server must not reject it for != 10 (ACTION_PLAN 2.1/2.8)."""
+        rec_id = "20261030T000000Z_fall_forward_001"
+        meta = make_meta(rec_id, "fall_forward", 3, target_duration_s=12,
+                         actual_duration_s=12.0)
+        self.assertEqual(srv.validate_meta(meta, rec_id), [])
+
+    def test_rejects_nonpositive_target_duration(self):
+        rec_id = "20261030T000000Z_fall_forward_001"
+        self.assertTrue(any("target_duration_s" in e for e in
+                            srv.validate_meta(make_meta(rec_id, "fall_forward", 3,
+                                                        target_duration_s=0), rec_id)))
+        self.assertTrue(any("target_duration_s" in e for e in
+                            srv.validate_meta(make_meta(rec_id, "fall_forward", 3,
+                                                        target_duration_s="ten"), rec_id)))
+
+    def test_rejects_header_only_frames_csv(self):
+        """Zero-frame takes are refused before any write.
+
+        The browser keys its download fallback off this 400: a header-only CSV
+        salvages nothing, and firing two programmatic downloads triggers the
+        browser's automatic-downloads permission prompt.
+        """
+        rec_id = "20261030T000000Z_empty_room_001"
+        frames = make_frames_csv(rec_id, 0)
+        errors = srv.validate_frames_csv(frames, make_meta(rec_id, "empty_room", 0))
+        self.assertTrue(any("no data rows" in e for e in errors), errors)
+
     def test_meta_rejects_legacy_payload_semantics(self):
         rec_id = "20261030T000000Z_walking_001"
         meta = make_meta(

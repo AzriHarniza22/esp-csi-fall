@@ -1,0 +1,62 @@
+{
+ "bending": {
+  "takes": 10,
+  "windows": 230,
+  "windows_fully_pre": 59,
+  "windows_fully_action": 79,
+  "windows_fully_post": 54,
+  "windows_mixed": 38
+ },
+ "empty_room": {
+  "takes": 9,
+  "windows": 205
+ },
+ "fall_backward": {
+  "takes": 10,
+  "windows": 224,
+  "windows_fully_pre": 80,
+  "windows_fully_action": 28,
+  "windows_fully_post": 73,
+  "windows_mixed": 43
+ },
+ "fall_forward": {
+  "takes": 10,
+  "windows": 214,
+  "windows_fully_pre": 76,
+  "windows_fully_action": 27,
+  "windows_fully_post": 70,
+  "windows_mixed": 41
+ },
+ "fast_sitting": {
+  "takes": 10,
+  "windows": 233,
+  "windows_fully_pre": 60,
+  "windows_fully_action": 79,
+  "windows_fully_post": 53,
+  "windows_mixed": 41
+ },
+ "object_drop": {
+  "takes": 10,
+  "windows": 231,
+  "windows_fully_pre": 60,
+  "windows_fully_action": 77,
+  "windows_fully_post": 52,
+  "windows_mixed": 42
+ },
+ "still_sitting": {
+  "takes": 10,
+  "windows": 217
+ },
+ "still_standing": {
+  "takes": 10,
+  "windows": 212
+ },
+ "walking": {
+  "takes": 10,
+  "windows": 234,
+  "windows_fully_pre": 57,
+  "windows_fully_action": 82,
+  "windows_fully_post": 55,
+  "windows_mixed": 40
+ }
+}

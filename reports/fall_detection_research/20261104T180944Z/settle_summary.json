@@ -1,0 +1,24 @@
+{
+ "n_takes": 20,
+ "settled_within_take": 20,
+ "never_settled": [],
+ "settle_median_s": 7.0,
+ "settle_range_s": [
+  5.95,
+  7.9
+ ],
+ "settle_by_label": {
+  "fall_forward": {
+   "n": 10,
+   "median": 6.3,
+   "min": 5.95,
+   "max": 7.25
+  },
+  "fall_backward": {
+   "n": 10,
+   "median": 7.53,
+   "min": 6.9,
+   "max": 7.9
+  }
+ }
+}

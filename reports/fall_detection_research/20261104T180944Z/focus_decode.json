@@ -1,0 +1,83 @@
+{
+ "recording_id": "20261104T160401Z_fall_backward_010",
+ "checks": {
+  "frame_count_matches_meta": true,
+  "valid_len_matches_payload": true,
+  "lltf_ht_sum_matches_valid_len": true,
+  "lltf_pairs": 51,
+  "payload_semantics_node": {
+   "raw": "unfiltered driver CSI buffer (wifi_csi_info_t.buf, includes invalid subcarriers); stored verbatim as base64 in frames.csv raw_b64",
+   "valid": "esp-radar component-filtered payload, layout LLTF | HT-LTF | STBC-HT-LTF; stored verbatim as base64 in frames.csv valid_b64",
+   "valid_selection_rule": "esp-radar concatenates the enabled LTF sub-ranges of the driver buffer according to csi_config (lltf_en, htltf_en, stbc_htltf2_en); the vendored patch makes that concatenation first_word_invalid-aware, so when the flag is true any range reaching raw bytes 0..3 is clamped to start at byte 4 and the invalid leading pair is not copied. Apart from that clamp no bytes are added, reordered or padded by the recorder",
+   "data_type": "0 = int8 (1 byte per component), 1 = int16 little-endian (2 bytes per component)",
+   "iq_byte_order": "imaginary first, then real (ESP-IDF v5.5.3 api-guides/wifi.rst)",
+   "decoding": "pairs of (imag, real) components in payload order; slice the LLTF as the leading lltf_len bytes (lltf_len/2 pairs for int8, lltf_len/4 for int16), never a fixed 52 - HT-LTF follows the LLTF segment. No trimming, padding, smoothing or resampling is applied in the browser",
+   "first_word_invalid": "when true the first four bytes of the driver CSI buffer (raw_b64) are invalid per ESP-IDF v5.5.3 esp_wifi_types_native.h: 2 complex pairs for int8 (data_type 0), 1 pair for int16 (data_type 1). raw_b64 keeps those bytes verbatim; valid_b64 is now produced by a first_word_invalid-aware esp-radar compaction so the invalid leading pair is excluded, which shortens lltf_len/valid_len by 2 bytes (int8) for layouts whose LLTF sub-range reaches raw byte 2 (ESP32 secondary-channel NONE). Consumers reconstruct subcarrier position from lltf_source_ranges + first_word_invalid rather than assuming a fixed 52-pair LLTF",
+   "lltf_source_ranges": "ESP32 byte offsets into raw_b64 copied into the LLTF segment of valid_b64, before the first_word_invalid clamp: secondary NONE {{76,128},{2,54}} (so recorded LLTF pair 26 was raw pair 1 = bytes 2-3, the invalid word); secondary BELOW/ABOVE {{12,64},{66,118}} (never touch bytes 0-3). int8 pair k occupies raw bytes 2k..2k+1. When first_word_invalid the range start 2 becomes 4, dropping that pair",
+   "field_provenance": "frames.csv columns seq..rx_gain_compensation, first_word_invalid and rx_seq are native driver/firmware values forwarded verbatim; recording_id, frame_sequence, host_receive_monotonic_ns, payload_ok are host-computed; dropped is the device-side app instrumentation counter value at emission time",
+   "clocks": "callback_timestamp_us and rx_ctrl_timestamp_us use the device monotonic clock (esp_timer, us); host_receive_monotonic_ns uses the browser performance.now() clock (ms * 1e6); started_at_utc uses the host wall clock. meta.clock_anchor stores a same-instant (performance_now_ms, date_now_ms) pair so host monotonic offsets can be converted to UTC"
+  },
+  "first_word_invalid_all": true,
+  "layouts_unique": true,
+  "fw_expected_lltf_bytes": 104,
+  "fw_would_accept": false,
+  "raw_len": 256,
+  "raw_first4": [
+   254,
+   101,
+   95,
+   0,
+   22,
+   7
+  ],
+  "sample_amp_head": [
+   27.2,
+   29.83,
+   31.38,
+   32.89,
+   29.83,
+   29.07
+  ],
+  "amp_max": 39.319206502675,
+  "annotations": {
+   "fall_start": null,
+   "fall_impact": null,
+   "annotation_complete": false
+  },
+  "audio_cue_mode": "visual_only",
+  "fall_cue": [],
+  "timeline": [
+   {
+    "phase": "pre_action",
+    "start_offset_s": 0,
+    "end_offset_s": 4,
+    "instruction": "Tetap diam"
+   },
+   {
+    "phase": "fall_action",
+    "start_offset_s": 4,
+    "end_offset_s": 6,
+    "instruction": "Jatuh ke belakang sekarang!"
+   },
+   {
+    "phase": "post_action",
+    "start_offset_s": 6,
+    "end_offset_s": 10,
+    "instruction": "Tetap diam"
+   }
+  ],
+  "quality_first_words": 299,
+  "rx_seq_gaps": 89,
+  "sampling_intervals": {
+   "target_period_ms": null,
+   "count": 298,
+   "mean_ms": 33.531,
+   "median_ms": 21.859,
+   "min_ms": 13.098,
+   "max_ms": 176.962,
+   "jitter_ms": 22.895,
+   "deviating_count": null,
+   "deviating_threshold": null
+  }
+ }
+}

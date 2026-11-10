@@ -1,0 +1,76 @@
+{
+  "random_seed": 20261026,
+  "feature_count": 16,
+  "window_frames": 24,
+  "window_stride": 12,
+  "class_order_11": [
+    "fall_forward",
+    "fall_backward",
+    "fall_lemas",
+    "fall_keseleo",
+    "walking",
+    "bending",
+    "fast_sitting",
+    "object_drop",
+    "empty_room",
+    "still_standing",
+    "still_sitting"
+  ],
+  "binary_order": [
+    "fall",
+    "non_fall"
+  ],
+  "fall_labels": [
+    "fall_backward",
+    "fall_forward",
+    "fall_keseleo",
+    "fall_lemas"
+  ],
+  "algorithms": [
+    "nearest-centroid",
+    "logistic-regression",
+    "linear-svm",
+    "decision-tree",
+    "random-forest"
+  ],
+  "fixed_defaults": {
+    "nearest-centroid": {
+      "distance": "squared_euclidean_on_standardized"
+    },
+    "logistic-regression": {
+      "epochs": 700,
+      "learning_rate": 0.12,
+      "l2": 0.001,
+      "optimizer": "full_batch_softmax_sgd"
+    },
+    "linear-svm": {
+      "epochs": 500,
+      "learning_rate": 0.08,
+      "lr_decay": "lr/(1+0.01*epoch)",
+      "l2": 0.002,
+      "scheme": "one_vs_rest_hinge",
+      "shuffle": "random.Random(RANDOM_SEED) per epoch"
+    },
+    "decision-tree": {
+      "criterion": "gini",
+      "max_depth": 4,
+      "min_leaf": 2
+    },
+    "random-forest": {
+      "trees": 9,
+      "bootstrap": true,
+      "max_features": "sqrt(16)=4",
+      "criterion": "gini",
+      "max_depth": 4,
+      "min_leaf": 2
+    }
+  },
+  "score_semantics": {
+    "nearest-centroid": "negative squared euclidean distance (standardized)",
+    "logistic-regression": "softmax logits (NOT calibrated probabilities)",
+    "linear-svm": "one-vs-rest hinge margins",
+    "decision-tree": "leaf class indicator",
+    "random-forest": "integer tree vote counts"
+  },
+  "linear_solver_mode_policy": "vectorized only if equivalence_check.json gate_passed"
+}

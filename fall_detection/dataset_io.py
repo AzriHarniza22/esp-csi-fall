@@ -44,20 +44,45 @@ BASELINE_WINDOW_FRAMES = 24
 BASELINE_WINDOW_STRIDE = 12
 BASELINE_SUBCARRIERS = BASELINE_LLTF_COMPLEX_PAIRS
 
+# CSI layout contract (DATA_CONTRACT.md §1). Length and ``first_word_invalid``
+# are bound 1-to-1: the esp-radar source clamp (commit ``3ac4a35``) drops the
+# 4 hardware-corrupt leading bytes before the ring buffer, so a flagged frame
+# arrives as 102 B / 51 pairs (Layout A) and an unflagged frame as the full
+# 104 B / 52 pairs (Layout B). Any other pairing is a contract violation, not a
+# tolerated "X or X-2". The default model width is Layout B (52 pairs) until the
+# header is regenerated against the target layout (Fase 1B/4B).
+LLTF_PAIRS_FLAGGED = 51     # Layout A: first_word_invalid true, 102 B int8 LLTF
+LLTF_PAIRS_UNFLAGGED = 52   # Layout B: first_word_invalid false, 104 B int8 LLTF
+
+
+class DatasetError(ValueError):
+    """Base for dataset-adapter data-contract failures."""
+
+
+class EmptyFeatureMatrixError(DatasetError):
+    """No frame in the recording passed the flag-bound layout filter."""
+
+
+class MixedLayoutError(DatasetError):
+    """Frames that passed the filter did not share a single LLTF width."""
+
 SCHEMA_VERSION_V2 = 2
 SCHEMA_VERSION_V3 = 3
 
-# Binary mapping of the eight activity labels (spec §7). Derived from
-# activity_label, never stored redundantly in v3 metadata.
+# Binary mapping of the activity labels (spec §7 + §9.6 idle anchors). Derived
+# from activity_label, never stored redundantly in v3 metadata.
 BINARY_LABELS = {
     "fall_forward": "fall",
     "fall_backward": "fall",
-    "fall_left": "fall",
-    "fall_right": "fall",
+    "fall_lemas": "fall",
+    "fall_keseleo": "fall",
     "walking": "non_fall",
     "fast_sitting": "non_fall",
     "bending": "non_fall",
     "object_drop": "non_fall",
+    "empty_room": "non_fall",
+    "still_standing": "non_fall",
+    "still_sitting": "non_fall",
 }
 
 
@@ -316,6 +341,75 @@ def component_pairs(frame: FrameRecord, component: str = "lltf") -> list[tuple[i
         return []
     start, stop = sections[component]
     return decode_iq(frame.valid_payload[start:stop], data_type)
+
+
+def _lltf_component_bytes(frame: FrameRecord) -> int | None:
+    """Reported LLTF byte length for a frame, or ``None`` when unreported.
+
+    Uses esp-radar's per-frame ``lltf_len``; falls back to the whole valid
+    payload only when the component lengths are absent (e.g. v1 recordings).
+    """
+    sections = ltf_sections(frame)
+    if "lltf" in sections:
+        start, stop = sections["lltf"]
+        return stop - start
+    if frame.lltf_len is None and frame.valid_payload:
+        return len(frame.valid_payload)
+    return None
+
+
+def frame_layout_pairs(frame: FrameRecord) -> int:
+    """Complex LLTF pairs of a frame's *intrinsic* layout (DATA_CONTRACT §1).
+
+    Independent of the loaded model: ``first_word_invalid=true`` with a 102 B
+    int8 LLTF is Layout A (51 pairs), ``false``/unknown with a 104 B int8 LLTF
+    is Layout B (52 pairs). Any other length/flag binding is not a legal layout
+    and yields 0. int16 frames (untested against the contract) yield 0 so callers
+    drop them instead of guessing a width.
+    """
+    lltf_bytes = _lltf_component_bytes(frame)
+    if not lltf_bytes or lltf_bytes <= 0:
+        return 0
+    if int(frame.data_type or 0) == 1:
+        return 0
+    flag = frame.first_word_invalid
+    if flag is True:
+        return LLTF_PAIRS_FLAGGED if lltf_bytes == LLTF_PAIRS_FLAGGED * 2 else 0
+    if flag is False or flag is None:
+        return LLTF_PAIRS_UNFLAGGED if lltf_bytes == LLTF_PAIRS_UNFLAGGED * 2 else 0
+    return 0
+
+
+def frame_lltf_pairs(
+    frame: FrameRecord, model_pairs: int = BASELINE_SUBCARRIERS
+) -> int:
+    """Flag-bound pair count of a frame *only if* the loaded model can consume it.
+
+    Mirrors the firmware gate (``main/activity_classifier.c``): 0 is returned for
+    contract violations *and* for frames whose legal layout does not match the
+    model width (e.g. a 51-pair frame under a 52-pair model) - those must wait
+    for the header to be regenerated (Fase 1B/4B), never be silently squeezed.
+    """
+    layout = frame_layout_pairs(frame)
+    return layout if layout == model_pairs else 0
+
+
+def _uniform_lltf_pairs(frames: Sequence[FrameRecord]) -> tuple[int, int]:
+    """Distinct *legitimate* layout widths and the contract-reject count.
+
+    Counts every frame whose length/flag binding is legal (Layout A or B),
+    regardless of the model, so a recording that mixes the two layouts is
+    detected even when one layout happens to equal the model width.
+    """
+    distinct: set[int] = set()
+    rejects = 0
+    for frame in frames:
+        layout = frame_layout_pairs(frame)
+        if layout:
+            distinct.add(layout)
+        else:
+            rejects += 1
+    return len(distinct), rejects
 
 
 # --------------------------------------------------------------------------
@@ -640,22 +734,56 @@ def to_feature_matrix(
     window: int = BASELINE_WINDOW_FRAMES,
     stride: int = BASELINE_WINDOW_STRIDE,
     feature_count: int = BASELINE_FEATURE_COUNT,
+    model_pairs: int = BASELINE_SUBCARRIERS,
 ) -> tuple[list[list[float]], list[str], dict]:
     """Adapter for LR / Linear-SVM / Decision-Tree / Random-Forest.
 
     Returns ``(X, y, config)``: one row per window of band features, the label
     applied to every window of the recording, and the parameters used.
-    The deployed baseline (52 LLTF pairs) is unchanged; ``first_word_invalid``
-    is carried per frame in ``FrameRecord`` but not acted on here because the
-    mapping into the compacted valid payload is unverified (see
-    :func:`leading_invalid_pairs`).
+
+    The LLTF floor is **dynamic and flag-bound** (DATA_CONTRACT §1), not a fixed
+    52: a frame is kept only when its length and ``first_word_invalid`` agree -
+    102 B/51 pairs when flagged (Layout A) or ``model_pairs`` when unflagged
+    (Layout B). This is the reader-side mirror of the firmware gate, so 51-pair
+    takes are decoded instead of silently dropped. Frames that violate the
+    binding are rejected and counted. When the loaded model width differs from
+    the recording's layout the model header must be regenerated to match
+    (Fase 1B/4B); that is reported in ``config`` rather than guessed here.
+
+    Raises :class:`EmptyFeatureMatrixError` when no frame passes the filter
+    (previously this silently produced an empty matrix) and
+    :class:`MixedLayoutError` when the kept frames do not share one width.
     """
     repr_fn = amplitude_representation(component)
-    amps = _series_matrix(recording, repr_fn)
-    amps = [row for row in amps if len(row) >= BASELINE_SUBCARRIERS]
-    amps = [row[:BASELINE_SUBCARRIERS] for row in amps]
+    series = _series_matrix(recording, repr_fn)
+    distinct_layouts, contract_rejects = _uniform_lltf_pairs(recording.frames)
+    if distinct_layouts > 1:
+        raise MixedLayoutError(
+            f"recording {recording.recording_id!r}: mixed LLTF layouts "
+            f"({distinct_layouts} distinct legal widths) in one take"
+        )
+    rows: list[list[float]] = []
+    for frame, row in zip(recording.frames, series):
+        pairs = frame_lltf_pairs(frame, model_pairs)
+        if pairs and len(row) >= pairs:
+            rows.append(row[:pairs])
+    if not rows:
+        raise EmptyFeatureMatrixError(
+            f"recording {recording.recording_id!r}: 0 of {len(series)} frames "
+            f"passed the flag-bound LLTF layout filter "
+            f"({contract_rejects} contract violation(s)); model width "
+            f"{model_pairs} pairs"
+        )
+    widths = {len(row) for row in rows}
+    if len(widths) != 1:
+        raise MixedLayoutError(
+            f"recording {recording.recording_id!r}: mixed LLTF widths "
+            f"{sorted(widths)} pairs in one take"
+        )
+    width = widths.pop()
     X = baseline_band_features(
-        amps, feature_count=feature_count, window=window, stride=stride
+        rows, feature_count=feature_count, window=window, stride=stride,
+        subcarriers=width,
     )
     y = [recording.label] * len(X)
     config = {
@@ -663,11 +791,17 @@ def to_feature_matrix(
         "family": ["logistic-regression", "linear-svm", "decision-tree", "random-forest"],
         "component": component,
         "representation": "amplitude",
-        "first_word_invalid_handling": "metadata only; trimming deferred pending payload-mapping audit",
+        "first_word_invalid_handling": "flag-bound layout filter (DATA_CONTRACT §1); never trims compacted valid_data",
         "window_frames": window,
         "stride_frames": stride,
         "feature_count": feature_count,
-        "subcarriers": BASELINE_SUBCARRIERS,
+        "subcarriers": width,
+        "model_pairs": model_pairs,
+        "layout_matches_model": width == model_pairs,
+        "frames_total": len(series),
+        "frames_kept": len(rows),
+        "contract_rejects": contract_rejects,
+        "distinct_layouts": distinct_layouts,
     }
     return X, y, config
 

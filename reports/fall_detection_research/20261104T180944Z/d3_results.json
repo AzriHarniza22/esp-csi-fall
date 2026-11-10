@@ -1,0 +1,28 @@
+{
+ "counts": {
+  "control_still_to_still_windows": 378,
+  "after_fall_windows": 170,
+  "fall_takes": 20,
+  "idle_takes": 29
+ },
+ "symmetric_LOO_accuracy": 0.7591,
+ "symmetric_confusion": {
+  "still_to_still->still_to_still": 308,
+  "still_to_still->still_to_after_fall": 70,
+  "still_to_after_fall->still_to_after_fall": 108,
+  "still_to_after_fall->still_to_still": 62
+ },
+ "change_magnitude_mean": {
+  "control": 0.6439,
+  "after_fall": 1.2751,
+  "ratio": 1.98
+ },
+ "absolute_within_take_pre_vs_post_LOO": 0.7794,
+ "absolute_fall_pre_vs_still_standing_LOO": 0.793,
+ "post_fall_decay": {
+  "spearman_rho_time_vs_magnitude": -0.5821,
+  "p_value": 8.43e-17,
+  "mean_magnitude_6_to_8s": 1.6456,
+  "mean_magnitude_8_to_10s": 0.8168
+ }
+}

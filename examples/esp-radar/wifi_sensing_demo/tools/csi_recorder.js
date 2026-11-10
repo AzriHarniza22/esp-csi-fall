@@ -23,32 +23,59 @@
   /* ------------------------------------------------------------------ */
 
   const ACTIVITY_LABELS = [
-    "fall_forward", "fall_backward", "fall_left", "fall_right",
+    "fall_forward", "fall_backward", "fall_lemas", "fall_keseleo",
     "walking", "fast_sitting", "bending", "object_drop",
+    /* idle anchors (spec §9.6): no action happens inside the take */
+    "empty_room", "still_standing", "still_sitting",
   ];
 
   const BINARY_LABELS = {
     fall_forward: "fall",
     fall_backward: "fall",
-    fall_left: "fall",
-    fall_right: "fall",
+    fall_lemas: "fall",
+    fall_keseleo: "fall",
     walking: "non_fall",
     fast_sitting: "non_fall",
     bending: "non_fall",
     object_drop: "non_fall",
+    empty_room: "non_fall",
+    still_standing: "non_fall",
+    still_sitting: "non_fall",
   };
 
-  const FALL_DIRECTIONS = {
-    fall_forward: "depan",
-    fall_backward: "belakang",
-    fall_left: "kiri",
-    fall_right: "kanan",
+  /* Full fall_action cue per label. Direction-based falls (forward/backward)
+   * name a direction; the manner-based falls (lemas = limp collapse,
+   * keseleo = sprained lateral collapse) name a manner, so each entry is the
+   * complete phrase rather than a direction word slotted into "Jatuh ke …". */
+  const FALL_ACTION_CUES = {
+    fall_forward: "Jatuh ke depan sekarang!",
+    fall_backward: "Jatuh ke belakang sekarang!",
+    fall_lemas: "Jatuh lemas sekarang!",
+    fall_keseleo: "Jatuh keseleo sekarang!",
   };
 
   const PRE_ACTIONS = ["still", "walking"];
   const POST_ACTIONS = ["still", "crawl", "walk_slow"];
 
+  /* Default take length for every non-fall activity. Fall takes are longer
+   * (12 s) and their duration is derived from the timeline's last boundary,
+   * never from this constant (ACTION_PLAN rev 2.6 binding decision:
+   * fall [0,4,8,12]; all other labels stay 10 s). */
   const TARGET_DURATION_S = 10;
+
+  /* Per-take duration in seconds = the last timeline boundary. Falls back to
+   * the 10 s default for idle anchors or a missing timeline so nothing ever
+   * captures an open-ended take. */
+  function durationFromTimeline(timeline) {
+    if (Array.isArray(timeline) && timeline.length) {
+      const last = timeline[timeline.length - 1];
+      const seconds = Number(last && last.end_offset_s);
+      if (Number.isFinite(seconds) && seconds > 0) {
+        return seconds;
+      }
+    }
+    return TARGET_DURATION_S;
+  }
 
   function binaryLabelOf(label) {
     return BINARY_LABELS[label] || null;
@@ -65,28 +92,35 @@
   /*
    * Phase boundaries per activity (spec §9). Walking has a fixed timeline;
    * the others take pre/post action choices that must be resolved BEFORE the
-   * recording starts so the timeline never changes mid-take.
+   * recording starts so the timeline never changes mid-take. The idle anchors
+   * (spec §9.6) hold one phase across the whole take: boundaries [0, 10].
    */
   const TIMELINE_DEFS = {
-    fall_forward: { kind: "fall", boundaries: [0, 4, 6, 10] },
-    fall_backward: { kind: "fall", boundaries: [0, 4, 6, 10] },
-    fall_left: { kind: "fall", boundaries: [0, 4, 6, 10] },
-    fall_right: { kind: "fall", boundaries: [0, 4, 6, 10] },
+    fall_forward: { kind: "fall", boundaries: [0, 4, 8, 12] },
+    fall_backward: { kind: "fall", boundaries: [0, 4, 8, 12] },
+    fall_lemas: { kind: "fall", boundaries: [0, 4, 8, 12] },
+    fall_keseleo: { kind: "fall", boundaries: [0, 4, 8, 12] },
     walking: { kind: "walking", boundaries: [0, 3, 7, 10] },
     fast_sitting: { kind: "fast_sitting", boundaries: [0, 4, 6, 10] },
     bending: { kind: "bending", boundaries: [0, 3, 7, 10] },
     object_drop: { kind: "object_drop", boundaries: [0, 4, 6, 10] },
+    empty_room: { kind: "idle", boundaries: [0, 10] },
+    still_standing: { kind: "idle", boundaries: [0, 10] },
+    still_sitting: { kind: "idle", boundaries: [0, 10] },
   };
 
   const PHASE_IDS = {
     fall_forward: ["pre_action", "fall_action", "post_action"],
     fall_backward: ["pre_action", "fall_action", "post_action"],
-    fall_left: ["pre_action", "fall_action", "post_action"],
-    fall_right: ["pre_action", "fall_action", "post_action"],
+    fall_lemas: ["pre_action", "fall_action", "post_action"],
+    fall_keseleo: ["pre_action", "fall_action", "post_action"],
     walking: ["pre_action", "walking", "post_action"],
     fast_sitting: ["pre_action", "action", "post_action"],
     bending: ["pre_action", "action", "post_action"],
     object_drop: ["pre_action", "action", "post_action"],
+    empty_room: ["hold"],
+    still_standing: ["hold"],
+    still_sitting: ["hold"],
   };
 
   /*
@@ -100,7 +134,7 @@
       return null;
     }
     const def = TIMELINE_DEFS[label];
-    if (def.kind === "walking") {
+    if (def.kind === "walking" || def.kind === "idle") {
       return { pre_action: "still", post_action: "still" };
     }
     const pre = String(opts.pre_action || "still");
@@ -131,6 +165,13 @@
     walking: "Berjalan seperti biasa",
   };
 
+  /* Whole-take instruction for the idle anchor labels (spec §9.6). */
+  const IDLE_INSTRUCTION = {
+    empty_room: "Ruangan kosong — tidak ada orang",
+    still_standing: "Berdiri diam sepanjang rekaman",
+    still_sitting: "Duduk diam sepanjang rekaman",
+  };
+
   /*
    * Timeline of phases with offsets in seconds and the visual instruction
    * shown in the GUI (spec §9). Built once before the recording starts.
@@ -156,11 +197,14 @@
 
   function phaseInstruction(label, phaseId, opts) {
     const def = TIMELINE_DEFS[label];
+    if (def.kind === "idle") {
+      return IDLE_INSTRUCTION[label] || "Tetap diam";
+    }
     if (phaseId === "pre_action") {
       return PRE_INSTRUCTION[opts.pre_action] || PRE_INSTRUCTION.still;
     }
     if (phaseId === "fall_action") {
-      return `Jatuh ke ${FALL_DIRECTIONS[label]} sekarang!`;
+      return FALL_ACTION_CUES[label];
     }
     if (phaseId === "walking") {
       return "Berjalan";
@@ -253,13 +297,15 @@
     push({ cue_id: "start", kind: "speech", scheduled_offset_s: b[0], phase: "pre_action", text: `Mulai. ${PRE_SPEECH[opts.pre_action]}` });
     push({ cue_id: "start_tone", kind: "tone", scheduled_offset_s: b[0], phase: "pre_action", tone: "start" });
 
-    if (def.kind === "walking") {
+    if (def.kind === "idle") {
+      /* anchor label: hold phase runs start to end; only start/end cues */
+    } else if (def.kind === "walking") {
       push({ cue_id: "walk_begin", kind: "speech", scheduled_offset_s: b[1], phase: "walking", text: "Mulai berjalan sekarang!" });
       push({ cue_id: "walk_begin_tone", kind: "tone", scheduled_offset_s: b[1], phase: "walking", tone: "action" });
       push({ cue_id: "walk_end", kind: "speech", scheduled_offset_s: b[2], phase: "post_action", text: "Berhenti berjalan. Tetap diam." });
       push({ cue_id: "walk_end_tone", kind: "tone", scheduled_offset_s: b[2], phase: "post_action", tone: "phase" });
     } else if (def.kind === "fall") {
-      push({ cue_id: "fall_action", kind: "speech", scheduled_offset_s: b[1], phase: "fall_action", text: `Jatuh ke ${FALL_DIRECTIONS[label]} sekarang!` });
+      push({ cue_id: "fall_action", kind: "speech", scheduled_offset_s: b[1], phase: "fall_action", text: FALL_ACTION_CUES[label] });
       push({ cue_id: "fall_action_tone", kind: "tone", scheduled_offset_s: b[1], phase: "fall_action", tone: "action" });
       push({ cue_id: "post_action", kind: "speech", scheduled_offset_s: b[2], phase: "post_action", text: FALL_POST_SPEECH[opts.post_action] });
       push({ cue_id: "post_action_tone", kind: "tone", scheduled_offset_s: b[2], phase: "post_action", tone: "phase" });
@@ -281,8 +327,9 @@
       push({ cue_id: "post_action_tone", kind: "tone", scheduled_offset_s: b[2], phase: "post_action", tone: "phase" });
     }
 
-    push({ cue_id: "end_tone", kind: "tone", scheduled_offset_s: b[3], phase: "end", tone: "end" });
-    push({ cue_id: "end", kind: "speech", scheduled_offset_s: b[3], phase: "end", text: CUE_END_TEXT });
+    const lastOffset = b[b.length - 1];
+    push({ cue_id: "end_tone", kind: "tone", scheduled_offset_s: lastOffset, phase: "end", tone: "end" });
+    push({ cue_id: "end", kind: "speech", scheduled_offset_s: lastOffset, phase: "end", text: CUE_END_TEXT });
     return cues;
   }
 
@@ -426,7 +473,7 @@
       created_at_utc: fields.created_at_utc || new Date().toISOString(),
       started_at_utc: fields.started_at_utc || null,
       ended_at_utc: fields.ended_at_utc || null,
-      target_duration_s: TARGET_DURATION_S,
+      target_duration_s: durationFromTimeline(fields.timeline),
       actual_duration_s: Number.isFinite(Number(fields.actual_duration_s))
         ? Math.round(Number(fields.actual_duration_s) * 1000) / 1000
         : null,
@@ -544,7 +591,24 @@
       session_stats: fields.session_stats || null,
       boundary: fields.boundary || null,
 
+      /* Session and batch identity (spec §8, ACTION_PLAN 2.8). session_id is
+       * the operator-owned physical-session grouping; batch_id identifies one
+       * capture run. Both are surfaced at the top level because the dataset
+       * loader groups by meta.session_id (fall_detection/dataset_io.py). The
+       * nested `batch` carries the per-run detail and is present whenever a
+       * batch_id is known — even for a single-take run (batch_id is mandatory).
+       * subject_id names the person performing the take; ACTION_PLAN 4.2/3.3
+       * require it filled for subject-split claims, so an empty web field
+       * falls back to DEFAULT_SUBJECT_ID instead of staying null. */
+      session_id: fields.session_id || null,
+      subject_id: normalizeSubjectId(fields.subject_id),
+      batch_id: (fields.batch && fields.batch.batch_id) || fields.batch_id || null,
       batch: fields.batch || null,
+
+      /* Abort trace (ACTION_PLAN 2.8): why a take never produced a clean
+       * capture, and (for a cancelled batch) which scheduled slots were never
+       * started. Null for normal takes so existing datasets stay unchanged. */
+      abort: fields.abort || null,
 
       files: {
         frames_csv: fields.files && fields.files.frames_csv ? fields.files.frames_csv : `${id}.frames.csv`,
@@ -879,7 +943,10 @@
 
   /*
    * Batch settings: duration is FIXED at 10 s (spec §8) and no longer
-   * user-configurable; takes/gap remain configurable.
+   * user-configurable; takes/gap remain configurable. The gap is a pre-roll
+   * that runs before EVERY take, the first one included (see
+   * buildBatchSchedule), so it also buys the operator time to settle into
+   * position or clear the room before capture opens.
    */
   function parseBatchSettings({ takes, gapS }) {
     const count = Number(takes);
@@ -893,6 +960,26 @@
     return { takes: count, durationS: TARGET_DURATION_S, gapS: gap };
   }
 
+  /*
+   * Per-take schedule for a batch session (spec §8): one slot per take, each
+   * carrying the pre-roll that precedes it. Returns null when the settings are
+   * invalid, mirroring parseBatchSettings. Frames arriving during a pre-roll
+   * are discarded by the per-take reset in runTake, so the pre-roll never
+   * leaks into the take it precedes.
+   */
+  function buildBatchSchedule({ takes, gapS, startTake }) {
+    const settings = parseBatchSettings({ takes, gapS });
+    if (!settings) {
+      return null;
+    }
+    const first = Number.isInteger(startTake) && startTake >= 1 ? startTake : 1;
+    const slots = [];
+    for (let i = 0; i < settings.takes; i++) {
+      slots.push({ take: first + i, pre_roll_s: settings.gapS });
+    }
+    return slots;
+  }
+
   function utcStamp(date) {
     const d = date instanceof Date ? date : new Date(date);
     return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -902,6 +989,82 @@
     const slug = slugLabel(label) || "unlabeled";
     const nnn = String(seq || 1).padStart(3, "0");
     return `${utcStamp(date)}_${slug}_${nnn}`;
+  }
+
+  /*
+   * Batch vs session identity (spec §8, ACTION_PLAN 2.8). They are deliberately
+   * distinct namespaces and never proxies for one another:
+   *   - batch_id : one capture run started from the recorder UI (a fixed
+   *     label + take count + gap). Auto-generated per run, mandatory.
+   *   - session_id : an operator-defined grouping of takes that belong to one
+   *     physical session (same day / position / subject). Independent of batch;
+   *     the operator owns it because only they know when a session changes.
+   * A nonce (defaults to a client random, injectable for tests) keeps ids unique
+   * when several are made within the same UTC second.
+   */
+  function randomNonce() {
+    return Math.random().toString(36).slice(2, 8);
+  }
+
+  function makeBatchId(date, nonce) {
+    const stamp = utcStamp(date instanceof Date ? date : new Date(date));
+    return `batch_${stamp}_${String(nonce || randomNonce()).slice(0, 6)}`;
+  }
+
+  function makeSessionId(date, nonce) {
+    const stamp = utcStamp(date instanceof Date ? date : new Date(date));
+    return `sess_${stamp}_${String(nonce || randomNonce()).slice(0, 6)}`;
+  }
+
+  /*
+   * Subject identity. ACTION_PLAN 4.2/3.3 need `subject_id` filled before any
+   * subject-split or subject-independent claim, and `dataset_io.py` exposes it
+   * as `str | None`, so ids are kept as strings. Solo sessions leave the web
+   * field blank; that means "subject 1", not "unknown", so an empty or
+   * whitespace-only value resolves to DEFAULT_SUBJECT_ID rather than null.
+   */
+  const DEFAULT_SUBJECT_ID = "1";
+
+  function normalizeSubjectId(value) {
+    const text = value === null || value === undefined ? "" : String(value).trim();
+    return text || DEFAULT_SUBJECT_ID;
+  }
+
+  // Trailing _NNN take number of a recording id (null when it has none).
+  function parseTakeNumber(id) {
+    if (typeof id !== "string") {
+      return null;
+    }
+    const m = id.match(/_(\d+)$/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  /*
+   * Next monotonic take number for a label. Accepts either recording-id strings
+   * or library rows ({id, activity_label|label}) and returns max(matching take
+   * number) + 1, so numbering continues across browser reloads and separate
+   * batch runs instead of restarting at 1. Callers pass the server library when
+   * reachable and a persisted local counter otherwise (see web_serial_monitor).
+   */
+  function nextTakeNumber(entries, label) {
+    const slug = slugLabel(label) || "unlabeled";
+    let max = 0;
+    for (const entry of entries || []) {
+      const id = typeof entry === "string" ? entry : entry && entry.id;
+      if (!id) {
+        continue;
+      }
+      const entryLabel = entry && (entry.activity_label || entry.label);
+      const matches = entryLabel ? (slugLabel(entryLabel) === slug) : id.includes(`_${slug}_`);
+      if (!matches) {
+        continue;
+      }
+      const n = parseTakeNumber(id);
+      if (Number.isFinite(n) && n > max) {
+        max = n;
+      }
+    }
+    return max + 1;
   }
 
   function makeMotionSample(message) {
@@ -1771,12 +1934,13 @@
     /* v3 activity system */
     ACTIVITY_LABELS,
     BINARY_LABELS,
-    FALL_DIRECTIONS,
+    FALL_ACTION_CUES,
     PRE_ACTIONS,
     POST_ACTIONS,
     TIMELINE_DEFS,
     TONE_PATTERNS,
     TARGET_DURATION_S,
+    durationFromTimeline,
     binaryLabelOf,
     isFallLabel,
     isKnownActivity,
@@ -1809,8 +1973,15 @@
     framePayloadBytes,
     recordingCompleteness,
     parseBatchSettings,
+    buildBatchSchedule,
     utcStamp,
     makeRecordingId,
+    makeBatchId,
+    makeSessionId,
+    DEFAULT_SUBJECT_ID,
+    normalizeSubjectId,
+    parseTakeNumber,
+    nextTakeNumber,
     makeMotionSample,
     downsampleHeatmap,
     /* legacy (manual export / old-dataset readers only) */

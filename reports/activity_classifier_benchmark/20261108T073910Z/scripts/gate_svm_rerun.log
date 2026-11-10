@@ -1,0 +1,55 @@
+linear-svm subset8 ...
+{
+  "algorithm": "linear-svm",
+  "train_rows": 191,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 7.43,
+  "vectorized_fit_seconds": 2.11,
+  "max_abs_delta_weights": 0.0,
+  "max_abs_delta_biases": 0.0,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "subset8"
+}
+linear-svm subset32 ...
+{
+  "algorithm": "linear-svm",
+  "train_rows": 714,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 25.4,
+  "vectorized_fit_seconds": 9.49,
+  "max_abs_delta_weights": 0.0,
+  "max_abs_delta_biases": 0.0,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "subset32"
+}
+linear-svm full_fold ...
+{
+  "algorithm": "linear-svm",
+  "train_rows": 3070,
+  "holdout": "20261104T043259Z_walking_001",
+  "canonical_fit_seconds": 115.52,
+  "vectorized_fit_seconds": 37.66,
+  "max_abs_delta_weights": 0.0,
+  "max_abs_delta_biases": 0.0,
+  "max_abs_delta_means": 0.0,
+  "max_abs_delta_scales": 0.0,
+  "holdout_windows": 18,
+  "holdout_argmax_agreement": 1.0,
+  "all_windows": 3088,
+  "all_argmax_agreement": 1.0,
+  "example_mismatches": [],
+  "scale": "full_fold"
+}
+GATE PASSED

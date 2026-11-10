@@ -263,7 +263,7 @@ Implementasi harus mencakup:
 3. Penyusunan ulang `meta.json` dan penggabungan informasi event dari `events.json`.
 4. Penghapusan dataset recording lama sesuai permintaan.
 5. Implementasi delapan kategori aktivitas beserta variasi fase aktivitas.
-6. Recording otomatis dengan durasi tetap 10 detik.
+6. Recording otomatis dengan durasi per-take (diturunkan dari boundary terakhir timeline).
 7. Instruksi visual dan audio berbahasa Indonesia selama recording.
 8. Penandaan waktu kejadian aktual secara manual.
 9. Validasi integritas payload CSI, timestamp, frame, dan hasil recording.
@@ -587,10 +587,23 @@ Jangan menghapus `schema_version` dengan alasan bahwa versi recorder atau pipeli
 
 Hapus field berikut sesuai kebutuhan desain sebelumnya:
 
-- `subject_id`
-- `session_id`
 - `trial_id`
 - `firmware_target`
+
+> **Koreksi (ACTION_PLAN 2.8):** `session_id` TIDAK jadi dihapus. Ia kini menjadi
+> field wajib hasil keputusan user karena pemuat dataset
+> (`fall_detection/dataset_io.py`) mengelompokkan take lewat `meta.session_id`
+> (fallback `meta.batch_id`) dan validator memperingatkan bila keduanya kosong.
+> `session_id` adalah **pengelompokan sesi fisik yang ditentukan operator**
+> (hari / posisi / subjek) dan **bukan proksi `batch_id`** — lihat §8.2.
+
+> **Koreksi (keputusan user, 2026-11-07):** `subject_id` juga TIDAK jadi dihapus.
+> ACTION_PLAN 4.2 dan 3.3 mensyaratkan `subject_id` **terisi** sebelum klaim
+> apa pun yang bersifat subject-split atau subject-independent, dan
+> `dataset_io.py` membacanya lewat `Recording.subject_id` (`str | None`).
+> Field ini kini tersedia di GUI recorder; **bila operator membiarkannya kosong,
+> nilainya menjadi `"1"`** (subjek tunggal), bukan `null` — kosong berarti
+> "subjek 1", bukan "tidak diketahui". Simpan sebagai string. Lihat §8.3.
 - ESP32 chip revision.
 - Firmware version/build ID.
 - ESP-IDF version.
@@ -670,6 +683,7 @@ Gunakan struktur logis seperti berikut. Sesuaikan dengan arsitektur kode yang su
   },
 
   "recording": {
+    "gap_before_s": 5,
     "frames": 0,
     "dropped_on_device": 0,
     "dropped_delta": 0,
@@ -716,20 +730,23 @@ Struktur tersebut merupakan rancangan, bukan kewajiban untuk menyalin secara per
 
 ---
 
-## 7. Delapan label aktivitas
+## 7. Label aktivitas utama + jangkar idle
 
-Gunakan delapan label utama berikut:
+Gunakan delapan label kejadian berikut, ditambah tiga label jangkar idle (§9.6):
 
 | Label | Kategori biner |
 |---|---|
 | `fall_forward` | fall |
 | `fall_backward` | fall |
-| `fall_left` | fall |
-| `fall_right` | fall |
+| `fall_lemas` | fall |
+| `fall_keseleo` | fall |
 | `walking` | non_fall |
 | `fast_sitting` | non_fall |
 | `bending` | non_fall |
 | `object_drop` | non_fall |
+| `empty_room` | non_fall (jangkar idle, §9.6) |
+| `still_standing` | non_fall (jangkar idle, §9.6) |
+| `still_sitting` | non_fall (jangkar idle, §9.6) |
 
 Label yang digunakan selama recording harus konsisten dengan label yang disimpan pada metadata.
 
@@ -737,9 +754,12 @@ Jangan mengubah empat arah jatuh menjadi satu label aktivitas yang sama. Arah te
 
 ---
 
-## 8. Recording otomatis dengan durasi tetap 10 detik
+## 8. Recording otomatis dengan durasi per-take (turunan timeline)
 
-Semua aktivitas menggunakan durasi recording tepat 10 detik.
+Durasi take **diturunkan dari boundary terakhir `timeline` label** (default
+10 s; **fall = 12 s** per keputusan ACTION_PLAN rev 2.6), bukan konstanta global
+tetap. `CsiRecorder.durationFromTimeline(timeline)` memakainya untuk deadline
+capture, progress bar, dan status timer.
 
 Gunakan satu clock monotonik sebagai sumber waktu untuk seluruh proses:
 
@@ -757,7 +777,7 @@ Gunakan deadline berdasarkan waktu monotonik agar tidak terjadi pergeseran fase 
 
 Durasi pengambilan CSI tidak boleh berubah karena suara atau animasi GUI.
 
-Setelah 10 detik:
+Setelah durasi take tercapai (boundary terakhir timeline):
 
 1. Hentikan penerimaan frame untuk recording tersebut secara terkontrol.
 2. Flush seluruh buffer.
@@ -767,7 +787,81 @@ Setelah 10 detik:
 6. Bersihkan temporary file.
 7. Tampilkan hasil dan status recording.
 
-Durasi target harus tetap 10 detik, sedangkan durasi aktual dicatat berdasarkan hasil pengukuran waktu monotonik. Jangan memalsukan durasi aktual menjadi 10 detik jika proses terhenti lebih awal.
+Durasi target adalah boundary terakhir timeline label tersebut (default 10 detik; fall 12 detik), sedangkan durasi aktual dicatat berdasarkan hasil pengukuran waktu monotonik. Jangan memalsukan durasi aktual menjadi nilai target jika proses terhenti lebih awal.
+
+### 8.1 Gap sebagai pre-roll sebelum setiap take
+
+Gap yang dikonfigurasi adalah **pre-roll yang berjalan sebelum setiap take, termasuk take pertama**, bukan hanya jeda antar take berikutnya. Tujuannya memberi operator waktu masuk posisi (atau mengosongkan ruangan untuk label `empty_room`) sebelum capture dibuka; tanpa pre-roll ini, take pertama selalu mulai tepat sesudah stream CSI dinyalakan dan operator belum siap.
+
+Ketentuan:
+
+- Hitungan mundur memakai clock yang sama dengan fase lain dan tidak mengubah durasi take (tetap boundary terakhir timeline label).
+- Frame yang tiba selama pre-roll **tidak** masuk ke take; buffer frame di-reset pada awal setiap take.
+- `gap = 0` berarti tidak ada pre-roll dan take langsung mulai.
+- Besar pre-roll yang benar-benar dijalankan dicatat di `meta.recording.gap_before_s` untuk setiap take (batch maupun single), agar kondisi warm-up perangkat dapat direproduksi.
+- Cancel selama pre-roll atau saat take berjalan **tidak** lagi menghentikan seluruh batch (ACTION_PLAN 2.8). Slot take yang dibatalkan dicatat di `meta.abort.aborted_slots` pada take yang masih tersimpan, lalu jadwal berlanjut ke slot berikutnya. Lihat §8.2.
+
+### 8.2 Identitas batch, sesi, dan penomoran take monotonik
+
+Tiga identitas yang berbeda disimpan pada metadata setiap take agar pemuat dataset
+(`fall_detection/dataset_io.py`) dapat mengelompokkan take dengan benar.
+
+**`batch_id` (wajib, otomatis per run).**
+Dihasilkan setiap kali operator memulai satu run tangkap (batch maupun single) lewat
+`CsiRecorder.makeBatchId()` dengan format `batch_<utcStamp>_<nonce6>`. Field ini selalu
+ada, bahkan untuk satu take, sehingga setiap recording memiliki grup run yang eksplisit.
+Disimpan di `meta.batch_id` (top-level) dan `meta.batch.batch_id`.
+
+**`session_id` (kepunyaan operator, bukan proksi batch).**
+Pengelompokan sesi fisik yang ditentukan operator — hari / posisi / subjek — dan
+**bukan** sama dengan `batch_id`. Diambil dari input "Session ID" pada GUI; bila kosong
+maka di-generate lewat `CsiRecorder.makeSessionId()` (`sess_<utcStamp>_<nonce6>`) dan
+disimpan di `localStorage` (`csiRecorder.sessionId`) agar konsisten sepanjang sesi
+perangkat. Disimpan di `meta.session_id` (top-level), yang dibaca duluan oleh properti
+`Recording.session_id` (`meta.session_id` → fallback `meta.batch_id`).
+
+**Nomor take monotonik lintas-restart.**
+Suffix `_NNN` pada `recording_id` tidak dimulai ulang setiap reload halaman.
+`computeNextTakeNumber` mengambil nilai awal dari dua sumber dan memakai maksimumnya:
+
+- `CsiRecorder.nextTakeNumber(libraryEntries, label)` — maksimum nomor take yang ada di
+  library untuk label itu (via `parseTakeNumber`), ditambah satu; dan
+- penghitung di `localStorage` (`csiRecorder.takeCount.<label>`) untuk take yang belum
+  tersimpan ke server.
+
+`buildBatchSchedule({ takes, gapS, startTake })` menerima `startTake` ini sehingga slot
+berikutnya bernomor `startTake, startTake+1, …`. `rememberTakeNumber` menulis balik
+nomor tertinggi ke `localStorage` hanya bila lebih besar dari yang tersimpan.
+
+**Jejak abort.**
+Jika sebuah slot dibatalkan (cancel saat pre-roll atau saat take berjalan) atau
+`take_begin` ditolak, loop batch memakai `continue` (bukan `break`) agar slot sisa tetap
+dijadwalkan. Slot yang gagal dicatat di `csiRecorder.batchAborts` lalu ditulis ke
+`meta.abort.aborted_slots` pada take berikutnya yang tersimpan. Take dengan nol frame
+tidak dibuat (server menolaknya, dan §5 melarang memfabrikasi frame), sehingga jejak abort
+hidup di metadata take yang tersisa, bukan sebagai file kosong.
+
+### 8.3 Identitas subjek (`subject_id`)
+
+`subject_id` menamai **orang yang melakukan take**, bukan hari/posisi (itu `session_id`)
+dan bukan run tangkap (itu `batch_id`). ACTION_PLAN 4.2 menuntut **≥2 subjek × ≥2 sesi**
+dan 3.3 menunda klaim subject-independent sampai `subject_id` terisi, sehingga field ini
+**tidak boleh `null` pada rekaman baru**.
+
+Ketentuan:
+
+- Tersedia sebagai input terpisah di panel recorder ("Subject ID"), di samping Session ID.
+- **Bila dibiarkan kosong, nilainya menjadi `"1"`** (`CsiRecorder.DEFAULT_SUBJECT_ID`),
+  bukan `null`. Kosong berarti "subjek tunggal", bukan "tidak diketahui".
+- Nilai disimpan sebagai **string** (`"1"`, `"2"`, `"S2"` boleh) karena
+  `dataset_io.Recording.subject_id` bertipe `str | None`; spasi di tepi dipangkas.
+- Nilai yang pernah diisi dipertahankan di `localStorage` (`csiRecorder.subjectId`)
+  sehingga tidak perlu diketik ulang tiap reload. Bila field kosong, default efektif
+  ditampilkan sebagai *placeholder* — kolomnya tetap kosong secara jujur sementara
+  take yang dihasilkan tetap mendapat `"1"`.
+- Rekaman lama yang tidak punya field ini tetap sah; `dataset_io` mengembalikannya
+  sebagai `None` dan pemuat dataset memperlakukannya sebagai subjek tak dikenal
+  (tidak dipakai untuk split per-subjek), bukan sebagai subjek `"1"`.
 
 ---
 
@@ -779,20 +873,21 @@ Variasi fase yang dapat dipilih harus ditentukan sebelum recording dimulai agar 
 
 ### 9.1 Fall detection
 
-Durasi 10 detik.
+Durasi 12 detik (fall; boundary [0, 4, 8, 12]).
 
 | Waktu | Fase | Instruksi |
 |---|---|---|
 | 0–4 detik | Pre-action | Diam atau berjalan, sesuai pilihan |
-| 4–6 detik | Fall action | Jatuh ke arah yang dipilih |
-| 6–10 detik | Post-action | Diam, merangkak, atau bergerak perlahan |
+| 4–8 detik | Fall action | Jatuh (arah atau cara, sesuai label) |
+| 8–12 detik | Post-action | Diam, merangkak, atau bergerak perlahan |
 
-Empat variasi arah:
+Empat kelas jatuh — dua berdasar arah, dua berdasar cara (manner):
 
-- Jatuh ke depan.
-- Jatuh ke belakang.
-- Jatuh ke kiri.
-- Jatuh ke kanan.
+- `fall_forward` — Jatuh ke depan (arah; pre-action diam).
+- `fall_backward` — Jatuh ke belakang (arah; pre-action diam).
+- `fall_lemas` — Jatuh lemas, collapse lunglai (manner; **pre-action diam**).
+- `fall_keseleo` — Jatuh keseleo, collapse lateral terkontrol (manner;
+  **pre-action berjalan** + post-action bergerak perlahan).
 
 Pilihan sebelum recording:
 
@@ -844,6 +939,24 @@ Pilihan pre-action dan post-action dibuat sebelum recording.
 | 6–10 detik | Post-action | Diam atau berjalan |
 
 Pilihan pre-action dan post-action dibuat sebelum recording.
+
+### 9.6 Label jangkar idle (empty_room, still_standing, still_sitting)
+
+Label jangkar merekam kondisi tanpa kejadian: satu fase `hold` memanjang sepanjang
+rekaman (batas `[0, 10]`), tanpa pilihan pre/post-action (UI menyembunyikannya), dan
+tanpa cue di tengah take — hanya cue mulai dan cue selesai.
+
+| Label | Instruksi seluruh take |
+|---|---|
+| `empty_room` | Ruangan kosong — tidak ada orang |
+| `still_standing` | Berdiri diam sepanjang rekaman |
+| `still_sitting` | Duduk diam sepanjang rekaman |
+
+Fungsinya adalah lantai noise, normalisasi antar-sesi, dan referensi level
+"manusia ada tetapi diam" untuk logika konfirmasi stillness. Kategori binernya
+`non_fall`, tetapi saat training keduanya sebaiknya dipetakan ke kelas sendiri
+(mis. `--class idle=still_standing,still_sitting`) agar tidak menjadi jalur pintas
+klasifikasi fall/non_fall.
 
 ---
 
@@ -924,14 +1037,15 @@ Contoh untuk `fall_forward`, dengan pre-action diam dan post-action diam:
 |---|---|
 | 0 detik | "Mulai. Tetap diam." |
 | 4 detik | "Jatuh ke depan sekarang!" |
-| 6 detik | "Selesai. Tetap diam." |
-| 10 detik | "Rekaman selesai." |
+| 8 detik | "Selesai jatuh. Tetap diam." (post-action diam) |
+| 12 detik | "Rekaman selesai." |
 
-Untuk arah lain, ganti bagian arah secara otomatis:
+Kelas manner tidak memakai arah; cue-nya menyebut cara, didefinisikan penuh
+di `FALL_ACTION_CUES`:
 
-- "Jatuh ke belakang sekarang!"
-- "Jatuh ke kiri sekarang!"
-- "Jatuh ke kanan sekarang!"
+- "Jatuh ke belakang sekarang!"  (arah)
+- "Jatuh lemas sekarang!"  (manner, `fall_lemas`)
+- "Jatuh keseleo sekarang!"  (manner, `fall_keseleo`)
 
 Jika pre-action adalah berjalan:
 
@@ -1262,6 +1376,24 @@ Tangani kondisi berikut:
 
 Setiap kondisi tersebut harus menghasilkan status dan metadata yang akurat. Jangan menganggap file berhasil hanya karena file sudah terbentuk.
 
+### 13.1 Jalur penyimpanan dan fallback unduhan
+
+Sasaran utama selalu `POST /api/recordings` ke `csi_recorder_server.py`. Server
+memeriksa kontrak dua file sebelum menulis apa pun dan menolak take tanpa baris
+frame (`frames.csv has no data rows`, HTTP 400) supaya tidak ada artefak parsial.
+
+- POST gagal dan take berisi frame: browser mengunduh file yang sama
+  (`*.frames.csv` + `*.meta.json`) agar tidak ada take yang hilang diam-diam.
+  Unduhan ganda memicu izin "automatic downloads" di browser; itu konsekuensi
+  yang diterima demi menyelamatkan data.
+- POST gagal dan frame nol: fallback unduhan **dilewati**. CSV header-only tidak
+  menyelamatkan apa pun, hanya meninggalkan sampah di folder unduhan, dan tetap
+  memicu prompt tanpa manfaat. Yang dicatat hanya kegagalan beserta alasan dari
+  server (`saved: "failed"`), sehingga operator tahu take itu harus diulang.
+
+Pesan kegagalan harus menyertakan alasan validasi dari body respons server; HTTP
+status saja ("HTTP 400") menyembunyikan penyebab sebenarnya.
+
 ---
 
 ## 14. Penghapusan dataset recording lama
@@ -1344,7 +1476,8 @@ Implementasikan automated test atau pengujian yang sesuai dengan arsitektur proy
 - `schema_version` tersedia.
 - `recording_id` konsisten.
 - `activity_label` benar.
-- `target_duration_s` adalah 10.
+- `target_duration_s` diturunkan dari boundary terakhir `timeline` (10 s untuk
+  mayoritas label; **12 s untuk fall**), bukan konstanta global tetap.
 - `actual_duration_s` berasal dari pengukuran aktual.
 - Status recording akurat.
 - Informasi Wi-Fi dan AP tetap tersedia.
@@ -1359,8 +1492,8 @@ Uji seluruh delapan label:
 
 - `fall_forward`
 - `fall_backward`
-- `fall_left`
-- `fall_right`
+- `fall_lemas`
+- `fall_keseleo`
 - `walking`
 - `fast_sitting`
 - `bending`
@@ -1374,13 +1507,14 @@ Pastikan instruksi fase, label, dan metadata selalu konsisten.
 
 Periksa setiap batas fase:
 
-- Fall: 0, 4, 6, 10 detik.
+- Fall: 0, 4, 8, 12 detik (take 12 s per keputusan ACTION_PLAN rev 2.6).
 - Walking: 0, 3, 7, 10 detik.
 - Fast sitting: 0, 4, 6, 10 detik.
 - Bending: 0, 3, 7, 10 detik.
 - Object drop: 0, 4, 6, 10 detik.
+- Jangkar idle (empty_room, still_standing, still_sitting): 0, 10 detik (satu fase).
 
-Pastikan durasi tetap 10 detik dan keterlambatan callback GUI tidak menyebabkan akumulasi pergeseran waktu.
+Pastikan durasi take mengikuti boundary terakhir timeline label (fall 12 s, lainnya 10 s) dan keterlambatan callback GUI tidak menyebabkan akumulasi pergeseran waktu.
 
 ### F. Pengujian audio
 
@@ -1422,6 +1556,20 @@ Uji setidaknya satu recording untuk setiap jenis aktivitas dan setiap variasi ar
 
 Pastikan tidak ada recording gagal yang dilabeli `complete`.
 
+### I. Pengujian batch dan gap
+
+- Jumlah slot jadwal sama dengan jumlah take yang diminta.
+- Setiap slot membawa pre-roll sebesar gap yang dikonfigurasi, **termasuk slot
+  pertama** (`takes=3, gap=5` → tiga slot, semuanya `pre_roll_s=5`).
+- Batch satu take tetap mendapat pre-roll (`takes=1, gap=8` → `pre_roll_s=8`).
+- `gap=0` menghasilkan `pre_roll_s=0` pada semua slot.
+- Konfigurasi tidak valid (take > 100, gap < 0 atau > 60) menghasilkan `null`
+  dan sesi tidak dimulai.
+- `meta.recording.gap_before_s` terisi untuk take batch maupun single.
+- Pre-roll tidak menambah durasi take: tetap tepat 10 detik.
+- Hitungan mundur memakai clock monotonik yang sama dengan fase lain, bukan
+  `Date.now()`.
+
 ---
 
 ## 17. Kriteria penerimaan akhir
@@ -1437,7 +1585,7 @@ Implementasi dinyatakan selesai apabila seluruh kriteria berikut terpenuhi:
 7. Dataset recording lama sudah dihapus dengan aman.
 8. Seluruh delapan aktivitas tersedia.
 9. Seluruh variasi fase dapat dipilih sebelum recording.
-10. Durasi setiap recording tetap 10 detik.
+10. Durasi setiap recording sesuai boundary terakhir timeline label (fall 12 s, lainnya 10 s).
 11. Instruksi visual berubah sesuai timeline.
 12. Instruksi suara berbahasa Indonesia berjalan pada pergantian fase.
 13. Tone cue dan speech cue tersinkronisasi dengan timeline.
@@ -1466,7 +1614,7 @@ Kerjakan berdasarkan urutan berikut:
 - Hapus dataset lama dengan aman.
 
 **Prioritas 3 — Recording lifecycle**
-- Terapkan durasi tetap 10 detik.
+- Terapkan durasi per-take dari boundary terakhir timeline (fall 12 s, lainnya 10 s).
 - Sinkronkan timeline dengan clock monotonik.
 - Tangani buffer dan kondisi kegagalan.
 
