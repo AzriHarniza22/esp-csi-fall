@@ -4025,3 +4025,19 @@ API (init/open/read/close/cleanup lifecycle and keep_alive_enable semantics).
   (`fall_shape`=0,89, `still_confirm`=0,01 arah terbalik) + tabel threshold
   direproduksi stabil. Tidak ada mutasi dataset; tidak ada flash; `--write` tidak
   pernah disentuh.
+
+## 2026-11-11 — Recording quality audit report artifacts
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/reports/recording_quality_audit/`
+- Perubahan: menambahkan laporan, data ringkasan, plot, dan script analisis
+  untuk audit kualitas recording dan analisis motion lintas sumber.
+- Alasan: menyimpan artefak audit yang telah dihasilkan agar bukti analisis,
+  hasil terukur, dan script reproduksi tersedia di repository tanpa mengubah
+  firmware, dataset sumber, atau konfigurasi runtime.
+- Dokumen: `docs/agent-preflight.md` — "Setiap perubahan kode wajib dicatat
+  di `docs/agent-changes.md` sebelum commit."
+- Verifikasi: tidak menjalankan build, flash, training, atau eksperimen ulang;
+  `git diff --cached --check` mendeteksi trailing whitespace pada CSV hasil
+  generator, yang dipertahankan sebagai artefak data apa adanya.
