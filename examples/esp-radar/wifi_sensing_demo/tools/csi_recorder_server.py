@@ -16,6 +16,7 @@ import binascii
 import csv
 import io
 import json
+import math
 import os
 import posixpath
 import re
@@ -29,6 +30,7 @@ TOOLS_DIR = Path(__file__).resolve().parent
 DEFAULT_RECORDINGS_DIR = TOOLS_DIR.parent / "recordings"
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,120}$")
 SLUG_RE = re.compile(r"^[a-z0-9_][a-z0-9_-]{0,47}$")
+MIN_RECORDING_FRAMES = 250
 
 # Must match FRAMES_HEADER in tools/csi_recorder.js byte for byte (spec §4).
 FRAMES_HEADER = [
@@ -62,6 +64,7 @@ INDEX_HEADER = [
     "started_at_utc",
     "target_duration_s",
     "actual_duration_s",
+    "motion_peak_scaled",
     "frames",
     "complete",
     "status",
@@ -113,6 +116,23 @@ def _meta_recording_node(meta: dict) -> dict:
     return node if isinstance(node, dict) else {}
 
 
+def _motion_peak_scaled(meta: dict) -> int | float | None:
+    events = meta.get("events")
+    samples = events.get("motion_samples") if isinstance(events, dict) else None
+    if not isinstance(samples, list):
+        return None
+    values = [
+        value
+        for sample in samples
+        if isinstance(sample, dict)
+        for value in (sample.get("smooth_scaled"),)
+        if isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    ]
+    return max(values) if values else None
+
+
 def _index_row(meta: dict, rec_id: str, folder: str) -> dict:
     label = _meta_label(meta, folder)
     recording = _meta_recording_node(meta)
@@ -126,6 +146,7 @@ def _index_row(meta: dict, rec_id: str, folder: str) -> dict:
         "started_at_utc": meta.get("started_at_utc", ""),
         "target_duration_s": meta.get("target_duration_s", ""),
         "actual_duration_s": actual,
+        "motion_peak_scaled": _motion_peak_scaled(meta),
         "frames": frames,
         "complete": complete,
         "status": meta.get("status", "complete" if complete in (True, "true") else ""),
@@ -253,6 +274,10 @@ def validate_frames_csv(frames_csv: str, meta: dict) -> list[str]:
         errors.append(f"meta.recording.frames={expected_frames} but frames.csv has {rows} rows")
     if rows == 0:
         errors.append("frames.csv has no data rows")
+    elif rows < MIN_RECORDING_FRAMES:
+        errors.append(
+            f"recording has {rows} frames; minimum accepted is {MIN_RECORDING_FRAMES}"
+        )
     return errors
 
 

@@ -1,0 +1,45 @@
+{
+  "experiment": "phase_annotated_window_oof",
+  "algorithm": "linear-svm",
+  "group_by": "take",
+  "fold_count": 5,
+  "class_order": [
+    "fall",
+    "non_fall"
+  ],
+  "window_frames": 24,
+  "window_stride_frames": 12,
+  "window_label_rule": "A window is labeled only when its first and last kept frame timestamps are both inside one explicitly mapped phase or annotation interval.",
+  "feature_definition": "Canonical train_activity_model.extract_window_features",
+  "group_count": 189,
+  "take_count": 189,
+  "window_counts_by_class": {
+    "fall": 101,
+    "non_fall": 3160
+  },
+  "oof_metrics": {
+    "window_count": 3261,
+    "accuracy": 0.9754676479607483,
+    "macro_f1": 0.7831565648169698,
+    "per_class": {
+      "fall": {
+        "support": 101,
+        "precision": 0.6179775280898876,
+        "recall": 0.5445544554455446,
+        "f1": 0.5789473684210527
+      },
+      "non_fall": {
+        "support": 3160,
+        "precision": 0.9854981084489282,
+        "recall": 0.989240506329114,
+        "f1": 0.9873657612128869
+      }
+    }
+  },
+  "skipped_take_reasons": {
+    "excluded session by label policy": 4
+  },
+  "final_model_fit": true,
+  "final_model_exported": false,
+  "final_model_artifact": "reports/activity_classifier_benchmark/20261108T073910Z/phase_aware_run_20261114/final_model_phase_linear_svm.json"
+}

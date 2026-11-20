@@ -1036,10 +1036,10 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   **Diuji di perangkat:** `idf.py -p /dev/ttyUSB0 flash` exit 0 ("Hash of data
   verified"), konsol UART berjalan pada 921600 baud
   (`CONFIG_ESP_CONSOLE_UART_BAUDRATE`). Smoke test serial membuktikan: boot bersih
-  tanpa panic, AP connected (gateway 192.168.1.1), default `GET_STIMULUS` =
+  tanpa panic, AP connected (gateway <IP_REDACTED>), default `GET_STIMULUS` =
   `mode=off, running=false` (tidak ada co-run saat boot),
   `SET_STIMULUS_MODE icmp_ping 100` -> `mode=icmp_ping_gateway, running=true,
-  configured_frequency_hz=100, configured_interval_ms=10.0, target_ip=192.168.1.1`
+  configured_frequency_hz=100, configured_interval_ms=10.0, target_ip=<IP_REDACTED>`
   dengan counter ping `null` + `metrics_reason` (bukan diisi dari config), ack
   `off -> icmp_ping_gateway`, lalu `SET_STIMULUS_MODE off` -> ack
   `icmp_ping_gateway -> off`. Fase 4 (rekaman penuh HTTP vs Ping 50/100 Hz,
@@ -1065,7 +1065,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   metrik timing/PHY/amplitudo/fase/repeatability dan 15 plot wajib dari file
   recording saja.
 - Alasan: Spec §8 mengasumsikan Ping menghasilkan CSI. Pengamatan menyanggah:
-  pada ESP32 classic + AP `f8:73:1a:59:23:f4`, `ping_reply_hz` terukur 50,50/100,00
+  pada ESP32 classic + AP `<MAC_REDACTED>`, `ping_reply_hz` terukur 50,50/100,00
   (ping terkirim & dibalas gateway) TETAPI `csi_ap_frame_count` delta = 0 dan
   `esp_radar_csi_rx_cb` tidak melihat event RX dari AP kita selama fase Ping.
   HTTP menghasilkan ~31 fps usable (5 take: 303-308 frame, payload 100% utuh,
@@ -1149,7 +1149,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   contoh resmi LLTF-only pun hanya menghasilkan ≈10 frame `CSI_DATA` selama
   ~145 s aktif (≈0,07 Hz) vs beban ping 100 Hz — jeda antar callback skala
   detik, bukan ~10 ms, campuran sig_mode legacy+HT, semua dari BSSID AP
-  `f8:73:1a:59:23:f4`. Kesimpulan: H1 **bukan penyebab tunggal**; konfig
+  `<MAC_REDACTED>`. Kesimpulan: H1 **bukan penyebab tunggal**; konfig
   paling "router-compatible" versi Espressif pun tidak mengubah balasan ping
   menjadi CSI pada rig ini. Penjelasan dominan bergeser ke H6 (balasan ping
   tidak masuk jalur ekstraksi CSI). Power save aktif (`pm type=1`) dicatat
@@ -1163,11 +1163,11 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   WIFI_INFO` pada perangkat hidup sebelum dipakai (SSID `"kos mutiara "`
   dengan trailing space, bssid cocok eksperimen) — bukan tebakan dari NVS.
 - Verifikasi: build OK v5.5.3 target esp32; flash + boot bersih →
-  `got ip:192.168.1.56 gw:192.168.1.1` + header `CSI RECV` tercetak ⇒
+  `got ip:<IP_REDACTED> gw:<IP_REDACTED>` + header `CSI RECV` tercetak ⇒
   ketiga API CSI mengembalikan `ESP_OK` (ESP_ERROR_CHECK tidak panic).
   10 baris `CSI_DATA` termuat parser (`parsed_csi_rows.csv`): len=128,
   first_word_invalid=1, RSSI −58…−63 dBm. Kehidupan STA dibuktikan terpisah:
-  ping host → 192.168.1.56 membalik (seq s/d ~393, RTT ≈ 6 ms). Prosedur
+  ping host → <IP_REDACTED> membalik (seq s/d ~393, RTT ≈ 6 ms). Prosedur
   pemulihan firmware utama **didokumentasikan, belum dieksekusi** — perangkat
   masih menjalankan `csi_recv_router`; hash artefak utama tersimpan di
   `main_firmware_restore_hashes.txt` (`wifi_sensing_demo.bin b17fd292…`).
@@ -1203,7 +1203,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   tebakan).
 - Verifikasi: esptool `Hash of data verified.` (3/3 region). Boot log:
   `Project name: wifi_sensing_demo`; `connected with kos mutiara , aid=3,
-  channel 11, BW20, bssid=f8:73:1a:59:23:f4`; `got ip 192.168.1.56
+  channel 11, BW20, bssid=<MAC_REDACTED>`; `got ip <IP_REDACTED>
   rssi=-59`; `HMSCMD WIFI_INFO` → state GOT_IP + `ack ok=true`; `HMSCMD
   GET_STIMULUS` → `mode=off` + `ack ok=true`. Boot tunggal (0 reboot
   tambahan selama observasi 12 s; uptime ts_ms 128105→140091 terus naik);
@@ -1969,7 +1969,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
      kondisi divariasikan (stream off/on via `SET_CSI_PERIOD 0`+`START_CSI_STREAM`,
      stimulus off vs `icmp_ping 10`, trafik AP→device ~240 ping dari host) →
      flash ulang P1 → capture identik. Hasil: **0 jendela `csi_cb` dengan
-     `f8:73:1a:59:23:f4` sebagai sumber di kedua image**; angka terukur
+     `<MAC_REDACTED>` sebagai sumber di kedua image**; angka terukur
      A1 rx=41/10j, A2 rx=485/21j, A3 rx=99/17j, A4 rx=24/4j, B(P1) rx=126/12j,
      sedangkan referensi lama pada image yang sama di 14:34 UTC rx=354/16j dengan
      **4** jendela ber-AP (`queued=2..5`, `sel ok>0`). P1 bersih dari tuduhan
@@ -1978,8 +1978,8 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
      `dtr=False, rts=False` sebelum `open()` — membuka port dengan DTR/RTS default
      membuat chip tertahan dan capture menghasilkan 0 baris):
      `diag_queue=256 items x 56 B (diagnostics enabled)`, 0 baris `E (`, 0 `Guru`,
-     0 loop, heap 144.140–144.840, Wi-Fi `GOT_IP` bssid `f8:73:1a:59:23:f4`
-     channel **1** rssi −56 ip 192.168.1.10. Stack HWM drain task **tidak
+     0 loop, heap 144.140–144.840, Wi-Fi `GOT_IP` bssid `<MAC_REDACTED>`
+     channel **1** rssi −56 ip <IP_REDACTED>. Stack HWM drain task **tidak
      tersedia** (tidak ada yang mem-log `uxTaskGetStackHighWaterMark`) — dilaporkan
      sebagai tidak tersedia, bukan 0.
   5. **Web Serial di view IDE tidak bisa dipakai**: `navigator.serial.requestPort()`
@@ -2036,9 +2036,9 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   `unmatched data size for profile 5` ke satu pemanggil; menyusun eksperimen E1.
 - Alasan (bukti):
   1. Baseline `recordings/walking/20261031T012305Z_walking_001.meta.json`:
-     AP `f8:73:1a:59:23:f4` di **channel 11**, 304 frame, `complete=true`.
+     AP `<MAC_REDACTED>` di **channel 11**, 304 frame, `complete=true`.
      Kondisi starved (A/B 2026-11-01): AP pindah **channel 1**, `srcs{}` hanya
-     STA uplink (`48:45:20:ee:be:b1`, `d4:53:2a:61:a2:c1`, `dmac=`AP), `okmac`
+     STA uplink (`<MAC_REDACTED>`, `<MAC_REDACTED>`, `dmac=`AP), `okmac`
      tak pernah AP, `queued=0` — pada **rollback dan P1 identik** (bukan regresi).
   2. Lapisan 1 & 2 hidup: ICMP reply 95/110 @5Hz, `promisc=1`, `promis=52–83`/2s.
      Lapisan 3 mati utk AP: `esp_radar_csi_rx_cb` tak pernah menerima src=AP.
@@ -2435,7 +2435,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
 - Alasan: user menyetujui E1 penuh. Verifikasi dua sisi menunjukkan router `kos mutiara `
   tetap **channel 1** (beacon radio host 2412 MHz/HT20 + `WIFI_INFO` perangkat), dengan
   co-channel `_plus` juga di ch1. `iw`/`iwconfig` tidak terpasang, host hanya klien WiFi,
-  tidak ada kredensial admin `192.168.1.1`; instruksi melarang agent mengubah router produksi.
+  tidak ada kredensial admin `<IP_REDACTED>`; instruksi melarang agent mengubah router produksi.
  arm-11 **tidak** dipalsukan (ch1 tidak dilabeli ulang) dan variabel lain tidak diubah.
 - Temuan terukur (arm-1): Domain A `DL(fromAP)` 464 frame / 25 window 2 s (9.3/s), **100%
   sig0, sig1=0**, `UL=0`. Domain B `csi_phy_probe` 702 AP-frame / 40 window 1 s (17.6/s),
@@ -2917,7 +2917,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
 - Verifikasi: `python3 -m py_compile` pada harness; leg live A/B1/B2/B3/C/E/F/G/G1/G2/H1/H2
   dengan hasil tercetak VALID/INVALID + alasan-nya di `measurement/*.summary.json`;
   identitas akuntansi dihitung ulang dari file itu; koneksi AP dikonfirmasi
-  (`GOT_IP`, ch1, rssi −53, ip 192.168.1.10, bssid f8:73:1a:59:23:f4); build/flash **tidak**
+  (`GOT_IP`, ch1, rssi −53, ip <IP_REDACTED>, bssid <MAC_REDACTED>); build/flash **tidak**
   dijalankan karena tidak ada file firmware yang berubah. Tidak ada commit.
 - Catatan ketidakpastian yang jujur: RSSI hari ini −53 (pagi tadi −60) dan satu GOT_IP
   sempat muncul selama percobaan passphrase salah; keduanya dicatat sebagai observasi, bukan
@@ -2940,7 +2940,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
      `WIFI_INFO`; balasan `wifi` (state/bssid/channel/rssi/ip,
      `web_serial_monitor.c:1819–1832`) dirangkum jadi `phy_watch` dan **gerbang
      invalid baru** menolak leg yang device-nya asosiasi ke BSSID selain
-     `f8:73:1a:59:23:f4` (mandat §2.1). Alasan: RSSI/channel adalah metrik §11E
+     `<MAC_REDACTED>` (mandat §2.1). Alasan: RSSI/channel adalah metrik §11E
      dan empat leg BL0–BL3 terlanjur jalan tanpa bukti kondisi radio per-leg.
   2. Ladder Phase B: empat leg @60 s tepat (BL0 off, BL1–BL3 http
      `burst=200000 pause=100`, p0, hud off) dengan flock serial; semua VALID.
@@ -2985,7 +2985,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   2. **Bug pacing ditemukan dan diperbaiki**: preflight pertama (interval terkofnfigurasi 100 ms) menghasilkan 748 query/20 s ≈ 37 qps. Akar: `CONFIG_FREERTOS_HZ=100` (`sdkconfig:1371`, tick 10 ms) membuat `pdMS_TO_TICKS(5)` = 0 tick → `vTaskDelay(0)` tidak tidur → loop slice habis seketika. Fix: slice clamp ≥1 tick dan `remaining` dikurangi waktu tidur sesungguhnya. Pola identik masih ada di `tcp_stimulus.c` (komentar `:177–179` mengakui); TIDAK diubah di tengah kampanye — angka 49,5 Hz TCP lama harus dibaca dengan pemahaman ini (catatan untuk Phase D/E).
 - Alasan: mandat §6.2 meminta mode DNS terukur sebelum screening; verifikasi pasca-fix: 157 query/20 s window (steady-state 182 rounds ≈ 8,2 qps ≈ 1/(100 ms + latency 23 ms)), 0 bad/0 timeout/0 error, latensi min 22,3 ms — pacing 100 ms kini diberlakukan nyata, ceiling 100 qps aman untuk tangga 10 ms (siklus ≈33 ms ≈ 30 qps).
 - Dokumen: `docs/agent-preflight.md` (dibaca ulang gerbang absolut); sumber otoritatif = pohon IDF v5.5.3 terpasang (MCP espressif-docs/context7 tidak tersedia sesi ini; MCP esp-idf terdaftar menunjuk v6.0 — tidak dipakai). Kutipan `esp_netif.h:704,740`: "The default Main DNS server is typically the IP of the DHCP server itself." / `esp_err_t esp_netif_get_dns_info(esp_netif_t *esp_netif, esp_netif_dns_type_t dns_type, esp_netif_dns_info_t *dns);`; `lwip/prot/dns.h:103–116`: `DNS_SERVER_PORT 53`, `DNS_RRTYPE_A 1`; tick `sdkconfig:1371` `CONFIG_FREERTOS_HZ=100`. Tidak ada dokumen eksternal yang menyatakan pacing slice-loop — itu bug kami sendiri.
-- Verifikasi: build sukses (bin `0xf1490`, 6 % partisi free), flash `Hash of data verified` (exit 0); preflight 20 s VALID pasca-fix dengan telemetri `server=192.168.1.1` (cocok dengan audit host C1 `dns_audit.md`); identitas akuntansi exact (163+0=163/cb=163). Catatan integritas: log build/flash C2 pra-fix (`20261103T0840_*`) ditemukan **hilang** dari `firmware/` saat langkah ini — di regenerate untuk bin pasca-fix; bin pra-fix tidak dapat direkonstruksi (sha lama `53893f38…` hanya tersimpan di catatan sesi).
+- Verifikasi: build sukses (bin `0xf1490`, 6 % partisi free), flash `Hash of data verified` (exit 0); preflight 20 s VALID pasca-fix dengan telemetri `server=<IP_REDACTED>` (cocok dengan audit host C1 `dns_audit.md`); identitas akuntansi exact (163+0=163/cb=163). Catatan integritas: log build/flash C2 pra-fix (`20261103T0840_*`) ditemukan **hilang** dari `firmware/` saat langkah ini — di regenerate untuk bin pasca-fix; bin pra-fix tidak dapat direkonstruksi (sha lama `53893f38…` hanya tersimpan di catatan sesi).
 
 ## 2026-11-03 — Phase C3: screening tangga pacing DNS + defect gerbang BSSID harness
 
@@ -3005,7 +3005,7 @@ hilang di riwayat chat dan bisa ditinjau tanpa membedah diff.
   jalan integrasi dropdown web; diputuhkan setelah Phase G agar opsi UI ikut
   hasil akhir, dicatat eksplisit.
 - Insiden: CL0/CL5 invalid — gerbang BSSID (ditambahkan Phase B) menghitung
-  probe `00:00:00:00:00:00` (device fasa transisi tidak terasosiasi setelah
+  probe `<MAC_REDACTED>` (device fasa transisi tidak terasosiasi setelah
   stimulus→off) sebagai asosiasi asing, dan window off penuh tanpa baris csi
   membuat `device_cb=None`. Defect gerbang di harness, bukan firmware;
   diperbaiki sebelum A-B-A Phase G dengan entri changelog sendiri. Observasi
@@ -3146,7 +3146,7 @@ API (init/open/read/close/cleanup lifecycle and keep_alive_enable semantics).
 - Perubahan: tidak ada kode runtime. Ini **pembatalan sebagian** dari entri Phase G
   sebelumnya yang menyatakan "64 KB menang di konsistensi peer (no_peer 0,16)".
 - Alasan: audit esplog `check_no_peer_source.py` atas 14 leg membuktikan `no_peer` HANYA
-  berasal dari sumber co-channel asing `d4:53:2a:61:a2:c1` (no_peer≈0 di window target-only;
+  berasal dari sumber co-channel asing `<MAC_REDACTED>` (no_peer≈0 di window target-only;
   melonjak saat asing hadir). `foreign%` berubah sepanjang waktu nyata dan menjelaskan
   device_cb antar-leg. Pada **blok tenang terkontrol** (A6-C2-A7-C3, radio sama, back-to-back):
   baseline 200KB 36,2/36,1 ≡ 64KB 36,0/36,5 (selisih <1,5%) → **tidak ada keunggulan
@@ -3244,7 +3244,7 @@ API (init/open/read/close/cleanup lifecycle and keep_alive_enable semantics).
     markup.
   - `node --check` JS inline (baris 880-5584) → SYNTAX_OK.
   - Suite existing lolos: csi_recorder.test.js exit 0, diag_session.test.js exit 0.
-  - Server `127.0.0.1:8000` masih melayani halaman terupdate (curl HTTP 200).
+  - Server `<IP_REDACTED>:8000` masih melayani halaman terupdate (curl HTTP 200).
   - E2 (ESP32 nyata) & E3 (Brave nyata) tetap BELUM dilakukan: tidak ada perangkat terpasang.
 
 ## 2026-11-03 — Cleanup repository + konsolidasi temuan eksperimen (host-only, tanpa perubahan runtime)
@@ -4041,3 +4041,404 @@ API (init/open/read/close/cleanup lifecycle and keep_alive_enable semantics).
 - Verifikasi: tidak menjalankan build, flash, training, atau eksperimen ulang;
   `git diff --cached --check` mendeteksi trailing whitespace pada CSV hasil
   generator, yang dipertahankan sebagai artefak data apa adanya.
+
+## 2026-11-14 — Integrasi Linear SVM Experiment B ke ESP32
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / `8f43df5f720fb9f7f1291073c35f776e8d927c41` (belum di-commit)
+- File: `fall_detection/export_activity_model.py`,
+  `fall_detection/tests/test_export_activity_model.py`,
+  `fall_detection/tests/test_activity_model_c_parity.py`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.h`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_model_inference.h`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_model_inference.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_classifier.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/CMakeLists.txt`,
+  `docs/DATA_CONTRACT.md`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/ESP32_LINEAR_SVM_INTEGRATION_PLAN.md`,
+  `docs/agent-changes.md`
+- Perubahan: menambahkan exporter deterministik yang hanya menerima artifact
+  Experiment B dengan SHA-256 dan kontrak preprocessing yang disetujui;
+  mengganti model data aktif dengan Linear SVM biner `fall, non_fall`; dan
+  memisahkan helper host-testable untuk gate layout, magnitudo I/Q,
+  standardisasi, fitur, skor, argmax, validasi segmen LTF, dan reset history.
+  Runtime hanya menerima LLTF int8 51-pasangan/102-byte dengan
+  `first_word_invalid=true`; layout 52 dan mismatch flag/panjang tidak
+  dinormalisasi. Output tetap event aktivitas terpisah dari Motion Graph/FSM.
+  Kontrak fisik dikoreksi: output berurutan `-26..-1,+2..+26`, pasangan `+1`
+  yang hilang ada di raw bytes 2–3.
+- Alasan: artifact final Experiment B menggunakan 51 pasangan dan pembagian
+  band `/51`, sedangkan header aktif lama adalah SVM tiga kelas 52 pasangan.
+  ESP-IDF v5.5.3 menempatkan CSI sesuai urutan tabel subcarrier; rentang
+  `esp-radar` ESP32 secondary NONE memilih byte `[76,128)` lalu `[2,54)`, dan
+  clamp first-word-invalid membuang raw pair 1 pada rentang kedua. Jalur
+  rekaman mengekspor `valid_data` dan `valid_lltf_len` hasil filter yang sama.
+- Dokumen:
+  - ESP-IDF v5.5.3
+    `/home/azri/.espressif/v5.5.3/esp-idf/docs/en/api-guides/wifi.rst` /
+    <https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-guides/wifi.html#wi-fi-channel-state-information>
+    — “The order of each item is the same as the sub-carrier in the table.”
+    serta “first four bytes of CSI data is invalid”.
+  - esp-radar 0.3.4
+    `examples/esp-radar/wifi_sensing_demo/esp-radar/include/esp_radar.h` —
+    `valid_lltf_len`: “Length of the LL-LTF data after filtering”.
+  - `docs/DATA_CONTRACT.md` §1 dan laporan integrasi pada path di atas.
+- Verifikasi: 89 tes `fall_detection/tests` lulus. Parity C/Python pada 3.088
+  window: galat skor absolut maksimum `1.71700898e-6`, 0 prediksi berbeda;
+  test memakai batas galat `2e-5`. Exporter `--check`, Python syntax, dan
+  `git diff --check` lulus. Build ESP-IDF v5.5.3 target `esp32` dicoba dan
+  object classifier/inference berhasil dikompilasi, tetapi link terblokir
+  karena `main/web_serial_monitor.c` memakai ping-event API yang tidak tersedia
+  pada komponen lokal `esp_wifi_sensing` 0.1.1~3; file mismatch tidak diubah
+  karena di luar scope. Partition table hasil build menunjukkan app `factory`
+  1 MiB; ukuran image final tidak tersedia. Object target: parameter model
+  `.rodata` 264 B, label/string/pointer 25 B, buffer history `.bss` 4.896 B.
+  Pengukuran stack, image final, inference pada perangkat, flash, dan capture
+  hardware tidak dilakukan.
+
+## 2026-11-14 — Verifikasi build dan parity CSI Linear SVM
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / `8f43df5` (belum di-commit)
+- File: `examples/esp-radar/wifi_sensing_demo/main/web_serial_monitor.c`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/ESP32_LINEAR_SVM_INTEGRATION_PLAN.md`,
+  `docs/agent-changes.md`
+- Perubahan: menghapus callback ping-per-reply dan registrasinya dari aplikasi
+  karena tipe/fungsi itu tidak disediakan API publik komponen; ping router
+  start/stop dan classifier tidak berubah. Memperbarui plan dengan hasil build
+  dan parity CSI-ke-fitur.
+- Alasan: `esp_wifi_sensing` 0.1.1~3 hanya mengekspos API start/stop ping router
+  di header publik. Komponen memang memiliki callback `esp_ping` internal,
+  tetapi tidak menyediakan API aplikasi untuk mendaftar observer. Hook lama
+  mereferensikan `esp_wifi_sensing_ping_event_t` dan
+  `esp_wifi_sensing_fsm_register_ping_event_cb`, sehingga `web_serial_monitor.c`
+  gagal dikompilasi. Tidak dibuat sesi ping kedua karena komponen sudah
+  mengelola sesi ping-nya sendiri.
+- Dokumen:
+  - esp_wifi_sensing 0.1.1~3
+    `examples/esp-radar/wifi_sensing_demo/esp_wifi_sensing/include/esp_wifi_sensing.h:495-518`
+    — “Start internal router ping” dan “Stop the internal router ping session”.
+  - Firmware memotong `info->valid_data` ke `valid_lltf_len` pada
+    `main/activity_classifier.c`; Python menggunakan `valid_b64` dan
+    `lltf_len` pada `fall_detection/train_activity_model.py`.
+- Verifikasi: ESP-IDF v5.5.3 `idf.py -C examples/esp-radar/wifi_sensing_demo build`
+  lulus. Image `0xf1850` byte, partisi app terkecil `0x100000`, sisa `0xe7b0`
+  (6%). Parity dari 137 rekaman yang ada, 40.722 frame LLTF dan 3.192 window:
+  semua 51 pasangan int8, `lltf_len=102`, `first_word_invalid=true`; maksimum
+  galat amplitudo absolut `3.70076764e-6`, maksimum galat fitur
+  `4.61979598e-7`. Galat maksimum fitur indeks 0–15:
+  `4.29821586e-7, 3.83603655e-7, 4.5126888e-7, 3.91611698e-7,
+  4.42960545e-7, 4.1482217e-7, 3.93822464e-7, 4.61979598e-7,
+  4.43615911e-7, 4.12687728e-7, 4.25823124e-7, 4.37930713e-7,
+  4.42891793e-7, 4.12485033e-7, 3.61742125e-7, 3.83041611e-7`.
+  Tidak menjalankan ulang 89 regression tests. `git diff --check` bersih.
+  Tidak flash/capture hardware dan tidak mengubah `managed_components/`.
+
+## 2026-11-14 — Pipeline training window berlabel fase
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / `8f43df5` (belum di-commit)
+- File: `fall_detection/train_activity_model.py`,
+  `fall_detection/train_phase_activity_model.py`,
+  `fall_detection/phase_label_policy.json`,
+  `fall_detection/tests/test_train_phase_activity_model.py`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/PHASE_AWARE_TRAINING.md`,
+  `docs/agent-changes.md`
+- Perubahan: menambahkan reader yang mempertahankan pasangan amplitudo CSI dan
+  waktu host, loader policy fase yang eksplisit, pemilihan window utuh di
+  dalam interval fase/anotasi, evaluasi OOF grouped K-fold yang menjaga take
+  atau grup tetap utuh, metrik per-window, serta
+  ekspor CSV/JSON prediksi dan ringkasan. Policy awal menggunakan
+  `fall_start`→`fall_impact` sebagai positif; fase `fall_action` terjadwal
+  tanpa label eksplisit serta `post_action` pada take jatuh tidak otomatis
+  dilabeli. Tidak ada ekspor model final atau perubahan firmware.
+- Alasan: trainer sebelumnya memakai label aktivitas take untuk semua window,
+  sedangkan recorder menyimpan fase terjadwal dan anotasi jatuh terpisah.
+  Pipeline baru menolak window lintas batas fase dan menghindari kebocoran
+  antar-window dari grup yang sama pada fold evaluasi.
+- Dokumen: `reports/activity_classifier_benchmark/20261108T073910Z/DATASET_AUDIT.md`
+  — “LOTO per take bukan validasi lintas-subjek”; `.../EXPERIMENT_DESIGN.md`
+  — “satu take penuh dipegang keluar”; `recordings` metadata v3 menyimpan
+  `timeline` dan anotasi `fall_start`/`fall_impact`.
+- Verifikasi: 21 tes trainer kanonik dan phase-aware lulus sebelum evaluasi
+  grouped K-fold; tes grouped K-fold dijalankan ulang setelah perubahan dan
+  lulus. Eksperimen Linear SVM lima-fold per-take: 3.300 window, 192 take,
+  101 positif/3.199 negatif, accuracy 97,48%, macro-F1 0,793, recall fall
+  61,39% (62/101), precision fall 58,49%. Grouped OOF per `subject_id`:
+  tiga grup, 1.745 window dari 103 take, 89 take tanpa subject ID dilewati,
+  macro-F1 0,520, fall precision 14,13% dan recall 90,10%. Hasil OOF
+  sementara ada di `/tmp/phase-svm-take-oof/` dan
+  `/tmp/phase-svm-subject-loo/`; tidak ada model final diekspor, build
+  firmware, flash, atau perubahan perilaku runtime.
+
+## 2026-11-15 — Ekspor model fase dan stabilisasi label di ESP32
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / `8f43df5` (belum di-commit)
+- File: `fall_detection/train_phase_activity_model.py`,
+  `fall_detection/phase_label_policy.json`,
+  `fall_detection/export_phase_activity_model.py`,
+  `fall_detection/tests/test_train_phase_activity_model.py`,
+  `fall_detection/tests/test_export_phase_activity_model.py`,
+  `fall_detection/tests/test_activity_model_c_parity.py`,
+  `fall_detection/tests/test_activity_prediction_stability.py`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/phase_aware_run_20261114_stabilized/final_model_phase_linear_svm.json`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.h`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_model_data.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_classifier.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_prediction_stability.h`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_prediction_stability.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/CMakeLists.txt`,
+  `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `docs/DATA_CONTRACT.md`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/PHASE_AWARE_TRAINING.md`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/ESP32_LINEAR_SVM_INTEGRATION_PLAN.md`,
+  `docs/agent-changes.md`
+- Perubahan: menyimpan artifact Linear SVM full-fit terpisah dari OOF,
+  mengekspor parameter ke source C dengan validasi 51-pair LLTF, urutan kelas,
+  formula fitur/band, standardisasi, margin skor, dan aturan argmax. Output
+  label classifier aktivitas distabilkan (2 dari 3 window untuk FALL; 3
+  NON_FALL berurutan untuk pelepasan); skor yang ditampilkan tetap margin
+  mentah. Perilaku ini tidak terhubung ke atau mengubah Motion Graph/FSM.
+- Alasan: label per-window yang overlap dapat berubah cepat. Policy fase
+  menggunakan interval anotasi `fall_start`–`fall_impact`, dan hanya model
+  yang di-fit ulang pada semua window berlabel boleh diekspor. OOF per-take
+  terkini berisi 3.261 window (101 FALL, 3.160 NON_FALL): stabilisasi
+  mengurangi transisi 61→17, tetapi macro-F1 turun 0,783→0,755 dan recall
+  FALL turun 54,46%→51,49%; trade-off dicatat, bukan dinyatakan sebagai
+  peningkatan kualitas.
+- Dokumen: ESP-IDF v5.5.3
+  `/home/azri/.espressif/v5.5.3/esp-idf/docs/en/api-guides/wifi.rst` —
+  “the first four bytes of CSI data is invalid due to a hardware limitation”;
+  esp-radar 0.3.4
+  `examples/esp-radar/wifi_sensing_demo/esp-radar/include/esp_radar.h` —
+  `valid_lltf_len`: “Length of the LL-LTF data after filtering”;
+  `docs/DATA_CONTRACT.md` §1 dan laporan `PHASE_AWARE_TRAINING.md` untuk
+  layout, fitur, kelas, skor, dan batasan evaluasi. Aturan 2/3 dan 3-window
+  dipilih sebagai stabilisasi temporal eksperimen, bukan klaim dari dokumen
+  Espressif.
+- Verifikasi: 102 tes `fall_detection/tests` lulus; C/Python parity lulus
+  pada 3.088 cached windows dengan batas galat skor `2e-5`; exporter
+  `--check`, Python compile, dan `git diff --check` lulus. Build ESP-IDF
+  v5.5.3 lulus: image `0xf1a20` byte, partisi app `0x100000`, sisa
+  `0xe5e0` byte (6%). Linker map: parameter model `.rodata` 264 B,
+  stabilizer `.bss` 20 B, buffer history `.bss` 4.896 B; DRAM seluruh image
+  48.104 B, IRAM 87.075 B. Inferensi pada target, stack puncak, dan flash
+  hardware tidak diukur; firmware   tidak di-flash.
+
+## 2026-11-15 — Memperluas label jatuh sampai akhir rekaman
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `fall_detection/phase_label_policy.json`,
+  `fall_detection/train_phase_activity_model.py`,
+  `fall_detection/tests/test_train_phase_activity_model.py`,
+  `reports/activity_classifier_benchmark/20261108T073910Z/PHASE_AWARE_TRAINING.md`,
+  `docs/agent-changes.md`
+- Perubahan: untuk take jatuh, window utuh sebelum offset 4 detik tetap
+  `non_fall`; window utuh mulai offset 4 detik hingga frame valid terakhir
+  menjadi `fall`. Label positif tidak lagi dibatasi interval `fall_start`–
+  `fall_impact`. Evaluasi grouped OOF dijalankan pada policy baru. OOF/model
+  artifact lama ditandai sebagai hasil policy lama; tidak dibuat model
+  full-fit/export dan tidak ada perubahan firmware.
+- Alasan: permintaan eksperimen menghendaki target jatuh meliputi bagian
+  setelah impact sampai recording selesai. Rekaman jatuh yang diperiksa
+  menggunakan timeline `pre_action` 0–4 s, `fall_action` 4–6 s, dan
+  `post_action` 6–10 s; implementasi menggunakan offset 4 s pada clock yang
+  sudah disejajarkan pipeline, bukan batas anotasi point-event.
+- Dokumen: tidak ada dokumentasi eksternal yang dibutuhkan (perubahan offline
+  pada policy label); bukti format waktu berasal dari metadata rekaman:
+  `recordings/fall_backward/20261104T160100Z_fall_backward_001.meta.json`
+  — timeline `pre_action` 0–4, `fall_action` 4–6, `post_action` 6–10.
+- Verifikasi: 6 tes targeted phase-training lulus, grouped OOF 5-fold per-take
+  menghasilkan 4.098 window (938 `fall`, 3.160 `non_fall`), macro-F1 OOF
+  0,686 mentah dan 0,701 setelah stabilisasi; `git diff --check` bersih.
+  Tidak ada model full-fit/export, build, atau flash.
+
+## 2026-11-16 — Menyusun ulang panel daftar rekaman
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `docs/agent-changes.md`
+- Perubahan: pada layar lebar, tabel rekaman dan visualisasi ditampilkan
+  berdampingan; pada layar sempit tetap bertumpuk. Tabel menampilkan nomor
+  urut setelah filter/sort dan memberi sorotan serta status pilihan pada baris
+  rekaman yang visualisasinya sedang ditampilkan.
+- Alasan: daftar dan visualisasi sebelumnya ditumpuk sehingga mengambil ruang
+  vertikal; tidak ada indikator visual pada baris rekaman yang dipilih.
+- Dokumen: proyek (preflight UI web serial)
+  `docs/agent-preflight.md` — “`examples/esp-radar/wifi_sensing_demo/tools/**`
+  (UI web serial)”. README esp-radar 0.3.4 yang dirujuk preflight tidak
+  ditemukan di `managed_components/`; perubahan ini tidak mengubah API atau
+  perilaku radio.
+- Verifikasi: `git diff --check` lulus. Uji tampilan browser dan interaksi
+  daftar/visualisasi dijalankan setelah perubahan. Tidak ada build firmware
+  atau flash.
+
+## 2026-11-16 — Merapikan tabel dan filter rekaman
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `docs/agent-changes.md`
+- Perubahan: mengganti filter teks dengan dropdown sampel yang menampilkan
+  jumlah rekaman per label; menyederhanakan tabel menjadi nomor, rekaman,
+  detail, dan aksi; menata tombol aksi dalam grid, serta menampilkan petunjuk
+  pada area visualisasi sebelum satu rekaman dipilih.
+- Alasan: tangkapan layar menunjukkan tabel multi-kolom dan tombol aksi
+  terjepit pada kolom kiri layout dua panel, sementara sisi visualisasi tampak
+  kosong sebelum ada pilihan.
+- Dokumen: proyek (preflight UI web serial)
+  `docs/agent-preflight.md` — “`examples/esp-radar/wifi_sensing_demo/tools/**`
+  (UI web serial)”. README esp-radar 0.3.4 yang dirujuk preflight tidak
+  ditemukan di `managed_components/`; tidak ada perubahan API atau radio.
+- Verifikasi: browser lokal menunjukkan 193 rekaman, jumlah per label di
+  dropdown, 4 kolom tanpa overflow horizontal, serta layout dua kolom; filter,
+  pilihan rekaman, dan sorotan baris diverifikasi. `git diff --check` lulus.
+- Lanjutan 2026-11-16: daftar kini diregangkan agar setinggi area visualisasi,
+  dengan scroll internal dan batas tinggi 440 px. Pengukuran browser pada mode
+  heatmap: keduanya 440 px, selisih 0 px.
+
+## 2026-11-16 — Menolak recording dengan kurang dari 250 frame
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder.js`,
+  `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder_server.py`,
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/csi_recorder.test.js`,
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/test_csi_recorder_server.py`,
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`,
+  `docs/agent-changes.md`
+- Perubahan: recorder menolak take di bawah 250 frame sebelum membuat file,
+  mengirim ke server, atau memicu fallback download. Endpoint juga menolak
+  payload berisi kurang dari 250 baris sebelum menulis file. Pesan penolakan
+  menampilkan jumlah frame aktual dan meminta pengulangan.
+- Alasan: rekaman sangat pendek (termasuk take still-standing yang ditemukan
+  operator) berisiko masuk library/dataset meskipun tidak mewakili durasi
+  pengambilan yang diharapkan. Batas diterapkan di UI dan server agar tidak
+  dapat dilewati oleh klien lain.
+- Dokumen: proyek (preflight UI web serial)
+  `docs/agent-preflight.md` — “`examples/esp-radar/wifi_sensing_demo/tools/**`
+  (UI web serial)”; kontrak recorder diperbarui di
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`
+  §13.1. Tidak ada perubahan driver atau API radio.
+- Verifikasi: `node .../tools/tests/csi_recorder.test.js` lulus;
+  `python3 -m unittest examples.esp-radar.wifi_sensing_demo.tools.tests.test_csi_recorder_server`
+  lulus (18 tes), termasuk penerimaan tepat 250 frame dan penolakan 249
+  frame tanpa file parsial. `node --check`, `py_compile`, dan
+  `git diff --check` lulus.
+
+## 2026-11-16 — Menambahkan gate amplitudo pada output Linear SVM fall
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/main/activity_motion_gate.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_motion_gate.h`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_classifier.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/activity_classifier.h`,
+  `examples/esp-radar/wifi_sensing_demo/main/CMakeLists.txt`,
+  `examples/esp-radar/wifi_sensing_demo/main/web_serial_monitor.c`,
+  `examples/esp-radar/wifi_sensing_demo/main/web_serial_monitor.h`,
+  `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `fall_detection/tests/test_activity_motion_gate.py`,
+  `fall_detection/README.md`, `docs/agent-changes.md`
+- Perubahan: output FALL dari model biner dibatalkan menjadi NON_FALL jika
+  `smooth_scaled < 3,850,000` (nilai Motion Graph < 3850). Marker `confident
+  fall` hanya muncul bila kelas model yang sudah distabilkan FALL dan
+  `smooth_scaled > 5,000,000` (Motion Graph > 5000); amplitudo tinggi sendiri
+  tidak memaksa prediksi FALL. Monitor mengambil diagnostik tiap 50 ms dan
+  classifier memakai sampel peer yang berumur paling lama 250 ms; jika sampel
+  segar tidak tersedia, output aktivitas dilewati. JSON/UI membedakan kelas
+  hasil gate dan kelas model. FSM, smoothing, threshold, sensitivity, debounce,
+  serta baseline tidak diubah.
+- Alasan: pengguna meminta veto FALL di bawah 3850 dan penanda confident di
+  atas 5000 hanya bila model juga menyatakan FALL. Nilai ini mengikuti skala
+  Motion Graph yang berasal dari `smooth_scaled / 1000`; cut-off tetap
+  heuristik eksploratif, bukan ambang keselamatan atau hasil validasi
+  independen.
+- Dokumen: `esp_wifi_sensing` 0.1.1~3
+  `examples/esp-radar/wifi_sensing_demo/esp_wifi_sensing/include/esp_wifi_sensing.h`
+  — “Current smoothed feature value in internal scaled units.”
+- Verifikasi: 18 tes host untuk gate, stabilitas prediksi, dan parity model
+  lulus; Node recorder regression tests lulus; browser lokal memverifikasi
+  veto `<3850` dan marker `>5000`; build ESP-IDF v5.5.3 sukses tanpa warning.
+  `wifi_sensing_demo.bin` berukuran `0xf1fe0` byte, partisi aplikasi terkecil
+  `0x100000` byte dengan `0xe020` byte (5%) tersisa; `git diff --check`
+  lulus. `idf.py size` melaporkan IRAM 87,075/131,072 byte dan DRAM
+  48,504/180,736 byte untuk image ini; ini total build, bukan delta terisolasi
+  gate. Tidak ada flash, pengukuran inferensi perangkat, atau commit.
+
+## 2026-11-16 — Pengurutan library recording berdasarkan peak Motion
+
+- Agent/tool: Copilot SDK in VS Code
+- Branch/commit: default / belum di-commit
+- File: `examples/esp-radar/wifi_sensing_demo/tools/csi_recorder_server.py`,
+  `examples/esp-radar/wifi_sensing_demo/tools/web_serial_monitor.html`,
+  `examples/esp-radar/wifi_sensing_demo/tools/tests/test_csi_recorder_server.py`,
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`,
+  `docs/agent-changes.md`
+- Perubahan: API library menyertakan maksimum `smooth_scaled` dari
+  `events.motion_samples` sebagai `motion_peak_scaled`; dropdown mengurutkan
+  rekaman terbaru, Motion peak descending, atau Motion peak ascending.
+  Rekaman tanpa telemetri ditempatkan terakhir pada kedua arah peak.
+- Alasan: pengguna ingin menemukan rekaman berdasarkan puncak grafik Motion.
+  Nilai maksimum dihitung dari sampel yang sama dengan grafik dan tidak
+  direkonstruksi dari CSI; fitur hanya mengubah penyajian library.
+- Dokumen: CSI Recorder v3
+  `examples/esp-radar/wifi_sensing_demo/docs/recording-pipeline-implementation.md`
+  — “`motion_samples[]`”. README esp-radar 0.3.4 yang dirujuk preflight tidak
+  ditemukan di `managed_components`; tidak ada perubahan API radio atau
+  firmware.
+- Verifikasi: menunggu tes server/API, pemeriksaan JavaScript, pemeriksaan
+  browser untuk kedua arah sorting, dan `git diff --check`.
+
+## 2026-11-20 — Development-only automatic annotation proposals
+
+- Agent/tool: Qoder
+- Branch/commit: default / uncommitted
+- Files: `fall_detection/automatic_annotations.py`,
+  `fall_detection/tests/test_automatic_annotations.py`,
+  `examples/esp-radar/wifi_sensing_demo/plan/rencana-perbaikan-dataset-dan-training.md`,
+  `reports/automatic_annotations/20261120_development_run01/*`,
+  `docs/agent-changes.md`.
+- Change: added and executed an offline, non-destructive annotation-assistance CLI.
+  It validates canonical 51-pair LLTF input and observer-clock consistency, coalesces
+  duplicate host receipt times, rejects reversed times/flat signals/host gaps >0.5s,
+  and aligns time-grid trajectories using fixed NCC and slope/time-constrained DTW.
+  Three source-disjoint same-subtype donors supply median proposals; source overlap
+  is checked against the target and between selected donors. Target boundaries are
+  masked before validation, including raw annotation metadata. Partial manual marks
+  are preserved, never repaired/replaced; unsupported alignment abstains. Sidecars
+  record source hashes, donor paths/grid axes, uncertainty and explicit unverified,
+  uncalibrated, training-ineligible status. Existing output directories and paths
+  overlapping the recordings tree are refused. No source recording is written.
+- Reason: the user requested automatic annotations after approving the unified
+  HTTP/TCP dataset policy. No detector split or numeric acceptance tolerance was
+  approved, so all results are quarantined development proposals. This run does not
+  waive A10/A11 ownership/clock gates, complete fold-local A14 calibration, or authorize
+  weak-label training. Method settings remained fixed before observing outcomes;
+  DTW remained primary even where NCC had smaller impact-only observer error.
+- Documents: `fall_detection/dataset_io.py` — "The raw payload is never mutated."
+  Official tslearn DTW guide, https://tslearn.readthedocs.io/en/stable/user_guide/dtw.html
+  — "The set of temporal deformations to which DTW is invariant can be reduced by
+  setting additional constraints on the set of acceptable paths."
+  This code uses its own constrained recurrence and NumPy correlation, not tslearn
+  or SciPy APIs. `docs/agent-preflight.md` was read; no firmware/UI/radio changes.
+- Verification: 63 focused unittest tests passed (annotation, dataset I/O and
+  structural validation), including saved-study verification of all source hashes,
+  donor provenance/path mappings, exact manual preservation and aggregate metrics.
+  Actual run:232 recordings,101 FALL,79 complete observer references,22 incomplete
+  targets;20 AUTO_PROPOSED takes/40 new boundary proposals and2 ABSTAINED sidecars.
+  The2 abstentions are forward010 (November4; host gap0.6335s) and backward027
+  (November19; host gap0.7379s); backward027 retains its manual start5.229s.
+  Masked validation produced632 rows,60/79 predictions per variant; DTW both-missing
+  start/impact MAE0.245/0.350s with profile preference and0.348/0.452s with other-day
+  donors. These are observer-agreement errors, not independent physical truth;
+  November4 target error is unknown. All467 input files matched before/after hashes
+  and the later verification rehash. Run metadata records Python3.11.2/NumPy2.4.6;
+  no dependencies installed. Original metadata/manual marks, split assignments and
+  classifier artifacts were not changed; no training, detector ablation, build,
+  flash, deployment or commit. Plan records results and remaining review/approval gates.

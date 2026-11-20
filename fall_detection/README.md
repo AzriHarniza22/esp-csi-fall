@@ -100,6 +100,32 @@ lower-priority FreeRTOS task. Its model-specific score is only used to rank
 classes; it is not a probability or calibrated confidence. The CSI callback
 only copies supported frames to a bounded queue.
 
+### Experimental motion gate on the ESP32
+
+The phase-aware binary fall output has an additional gate based on the
+`esp_wifi_sensing` channel diagnostic `smooth_scaled`, displayed by the Motion
+Graph as `smooth_scaled / 1000`:
+
+- A smoothed Motion Graph value below `3850` vetoes a model `fall` output to
+  `non_fall`.
+- A value above `5000` adds a `confident fall` marker only when the stabilized
+  model output is already `fall`; high motion alone never forces a fall class.
+- Values exactly `3850` or `5000` do not cross their respective strict bounds.
+
+The monitor samples this diagnostic every 50 ms independently of browser
+streaming. Classification uses the latest sample for the CSI peer when it is
+no more than 250 ms old. If no fresh sample is available, the activity output
+is skipped and a throttled warning is logged. The serial message reports the
+gated class separately from the stabilized model class; model scores remain raw
+margins, and `confident fall` is a heuristic marker, not a calibrated
+probability. The existing motion FSM, sensitivity, thresholds, debounce, and
+smoothing are unchanged.
+
+These cutoffs are exploratory and were selected from the current recording
+set. They are not validated as universal bounds or safety criteria; the
+classifier and gate require independent, representative evaluation before
+being relied on.
+
 ## Data limitations
 
 The current recording set has one complete take for each of seven activity

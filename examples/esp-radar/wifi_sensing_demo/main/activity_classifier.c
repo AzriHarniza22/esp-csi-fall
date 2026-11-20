@@ -7,7 +7,11 @@
 #include <string.h>
 
 #include "activity_model_data.h"
+#include "activity_model_inference.h"
+#include "activity_motion_gate.h"
+#include "activity_prediction_stability.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -16,6 +20,8 @@
 #define ACTIVITY_QUEUE_DEPTH 4
 #define ACTIVITY_TASK_STACK_SIZE 4096
 #define ACTIVITY_TASK_PRIORITY 3
+#define ACTIVITY_MOTION_PEER_SLOTS 16
+#define ACTIVITY_MOTION_SAMPLE_MAX_AGE_US 250000LL
 
 static const char *TAG = "activity_classifier";
 
@@ -50,8 +56,16 @@ typedef struct {
     bool reset_history;
     uint8_t lltf_pairs;
     bool model_compat;
+    uint8_t peer_mac[6];
     int8_t samples[ACTIVITY_MODEL_LLTF_BYTES];
 } activity_frame_t;
+
+typedef struct {
+    bool valid;
+    uint8_t peer_mac[6];
+    int64_t timestamp_us;
+    uint32_t smooth_scaled;
+} activity_motion_sample_t;
 
 static QueueHandle_t s_frame_queue;
 static uint32_t s_queue_drops;
@@ -59,9 +73,78 @@ static uint32_t s_frames_processed;
 static bool s_reset_on_next_frame;
 static portMUX_TYPE s_stats_mux = portMUX_INITIALIZER_UNLOCKED;
 static float s_amplitude_history[ACTIVITY_MODEL_WINDOW_FRAMES][ACTIVITY_MODEL_SUBCARRIERS];
+static activity_prediction_stability_t s_prediction_stability;
 static int s_last_layout_reason = -1;
 static uint32_t s_layout_reason_count;
 static uint32_t s_model_width_mismatch_count;
+static activity_motion_sample_t s_motion_samples[ACTIVITY_MOTION_PEER_SLOTS];
+static portMUX_TYPE s_motion_mux = portMUX_INITIALIZER_UNLOCKED;
+static uint32_t s_motion_gate_unavailable_count;
+static uint8_t s_latest_window_peer_mac[6];
+
+void activity_classifier_note_motion_sample(
+    const uint8_t peer_mac[6],
+    int64_t timestamp_us,
+    uint32_t smooth_scaled)
+{
+    if (!peer_mac || timestamp_us < 0) {
+        ESP_LOGW(TAG, "Ignoring invalid motion telemetry sample");
+        return;
+    }
+
+    size_t target = ACTIVITY_MOTION_PEER_SLOTS;
+    size_t oldest = 0;
+    taskENTER_CRITICAL(&s_motion_mux);
+    for (size_t i = 0; i < ACTIVITY_MOTION_PEER_SLOTS; ++i) {
+        if (s_motion_samples[i].valid &&
+                memcmp(s_motion_samples[i].peer_mac, peer_mac, 6) == 0) {
+            target = i;
+            break;
+        }
+        if (!s_motion_samples[i].valid) {
+            target = i;
+            break;
+        }
+        if (s_motion_samples[i].timestamp_us < s_motion_samples[oldest].timestamp_us) {
+            oldest = i;
+        }
+    }
+    if (target == ACTIVITY_MOTION_PEER_SLOTS) {
+        target = oldest;
+    }
+
+    s_motion_samples[target].valid = true;
+    memcpy(s_motion_samples[target].peer_mac, peer_mac, 6);
+    s_motion_samples[target].timestamp_us = timestamp_us;
+    s_motion_samples[target].smooth_scaled = smooth_scaled;
+    taskEXIT_CRITICAL(&s_motion_mux);
+}
+
+static bool get_recent_motion_sample(
+    const uint8_t peer_mac[6],
+    int64_t now_us,
+    uint32_t *smooth_scaled)
+{
+    if (!peer_mac || !smooth_scaled || now_us < 0) {
+        return false;
+    }
+
+    bool found = false;
+    taskENTER_CRITICAL(&s_motion_mux);
+    for (size_t i = 0; i < ACTIVITY_MOTION_PEER_SLOTS; ++i) {
+        const activity_motion_sample_t *sample = &s_motion_samples[i];
+        const int64_t age_us = now_us - sample->timestamp_us;
+        if (sample->valid &&
+                memcmp(sample->peer_mac, peer_mac, 6) == 0 &&
+                age_us >= 0 && age_us <= ACTIVITY_MOTION_SAMPLE_MAX_AGE_US) {
+            *smooth_scaled = sample->smooth_scaled;
+            found = true;
+            break;
+        }
+    }
+    taskEXIT_CRITICAL(&s_motion_mux);
+    return found;
+}
 
 static void count_queue_drop(void)
 {
@@ -83,8 +166,6 @@ static csi_layout_verdict_t classify_csi_layout(const wifi_csi_filtered_info_t *
     csi_layout_verdict_t verdict = {0};
     const esp_radar_rx_ctrl_info_t *rx = &info->rx_ctrl_info;
     const bool first_word_invalid = info->info ? info->info->first_word_invalid : false;
-    uint8_t pairs = 0;
-
     if (info->data_type != WIFI_CSI_DATA_TYPE_INT8) {
         verdict.reason = LAYOUT_DIAG_UNSUPPORTED_DATA_TYPE;
         return verdict;
@@ -98,47 +179,25 @@ static csi_layout_verdict_t classify_csi_layout(const wifi_csi_filtered_info_t *
         return verdict;
     }
 
-    verdict.valid = true;
-    if (first_word_invalid) {
-        if (info->valid_lltf_len != 102) {
+    const uint8_t pairs = activity_model_lltf_pair_count(
+        true, first_word_invalid, info->valid_lltf_len);
+    if (pairs == 0) {
+        if (first_word_invalid) {
             verdict.valid = false;
             verdict.reason = LAYOUT_DIAG_FIRST_WORD_FLAG_LEN_MISMATCH;
-            return verdict;
+        } else {
+            verdict.reason = LAYOUT_DIAG_UNKNOWN_LLTF_LENGTH;
         }
-        pairs = 51;
-    } else if (info->valid_lltf_len == ACTIVITY_MODEL_LLTF_BYTES) {
-        pairs = ACTIVITY_MODEL_SUBCARRIERS;
-    } else if (info->valid_lltf_len == 104) {
-        pairs = 52;
-    } else {
-        verdict.valid = false;
-        verdict.reason = LAYOUT_DIAG_UNKNOWN_LLTF_LENGTH;
         return verdict;
     }
+    verdict.valid = true;
     verdict.pairs = pairs;
 
-    if (rx->signal_mode == WIFI_SIGNAL_MODE_NON_HT) {
-        if (rx->stbc ||
-                info->valid_len != info->valid_lltf_len ||
-                info->valid_ht_ltf_len != 0 ||
-                info->valid_stbc_ht_ltf_len != 0) {
-            verdict.valid = false;
-            verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
-        }
-    } else if (rx->signal_mode == WIFI_SIGNAL_MODE_HT) {
-        const uint32_t expected = (uint32_t)info->valid_lltf_len +
-                                  info->valid_ht_ltf_len + info->valid_stbc_ht_ltf_len;
-        if (rx->stbc) {
-            if (info->valid_len != expected) {
-                verdict.valid = false;
-                verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
-            }
-        } else if (info->valid_stbc_ht_ltf_len != 0 ||
-                   info->valid_len != expected) {
-            verdict.valid = false;
-            verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
-        }
-    } else {
+    if (!activity_model_ltf_segments_valid(
+            rx->signal_mode == WIFI_SIGNAL_MODE_NON_HT,
+            rx->signal_mode == WIFI_SIGNAL_MODE_HT,
+            rx->stbc, info->valid_len, info->valid_lltf_len,
+            info->valid_ht_ltf_len, info->valid_stbc_ht_ltf_len)) {
         verdict.valid = false;
         verdict.reason = LAYOUT_DIAG_SIGNAL_MODE;
     }
@@ -147,7 +206,8 @@ static csi_layout_verdict_t classify_csi_layout(const wifi_csi_filtered_info_t *
         return verdict;
     }
 
-    verdict.model_compat = (pairs == ACTIVITY_MODEL_SUBCARRIERS);
+    verdict.model_compat = activity_model_lltf_compatible(
+        true, first_word_invalid, info->valid_lltf_len);
     if (!verdict.model_compat) {
         verdict.reason = LAYOUT_DIAG_MODEL_REASON_BASE + (int)pairs;
     }
@@ -211,6 +271,7 @@ void activity_classifier_enqueue(const wifi_csi_filtered_info_t *info)
         .secondary_channel = info->rx_ctrl_info.secondary_channel,
         .reset_history = s_reset_on_next_frame,
     };
+    memcpy(frame.peer_mac, info->mac, sizeof(frame.peer_mac));
     csi_layout_verdict_t verdict = classify_csi_layout(info);
     frame.supported_layout = verdict.valid && verdict.model_compat;
     frame.model_compat = verdict.model_compat;
@@ -243,39 +304,14 @@ static bool frame_to_amplitude(const activity_frame_t *frame, float *amplitudes)
         return false;
     }
 
-    for (uint8_t i = 0; i < frame->lltf_pairs; ++i) {
-        const float real = frame->samples[i * 2];
-        const float imag = frame->samples[i * 2 + 1];
-        amplitudes[i] = hypotf(real, imag);
-    }
-    return true;
+    return activity_model_iq_to_amplitude(
+        frame->samples, frame->lltf_pairs, amplitudes);
 }
 
 static void extract_window_features(float features[ACTIVITY_MODEL_FEATURE_COUNT])
 {
-    float band_delta[ACTIVITY_MODEL_FEATURE_COUNT] = {0};
-    uint16_t band_counts[ACTIVITY_MODEL_FEATURE_COUNT] = {0};
     const size_t oldest = s_frames_processed % ACTIVITY_MODEL_WINDOW_FRAMES;
-
-    for (size_t frame = 1; frame < ACTIVITY_MODEL_WINDOW_FRAMES; ++frame) {
-        const size_t previous_index =
-            (oldest + frame - 1) % ACTIVITY_MODEL_WINDOW_FRAMES;
-        const size_t current_index =
-            (oldest + frame) % ACTIVITY_MODEL_WINDOW_FRAMES;
-        for (size_t subcarrier = 0; subcarrier < ACTIVITY_MODEL_SUBCARRIERS; ++subcarrier) {
-            const size_t band =
-                subcarrier * ACTIVITY_MODEL_FEATURE_COUNT / ACTIVITY_MODEL_SUBCARRIERS;
-            band_delta[band] += fabsf(
-                s_amplitude_history[current_index][subcarrier] -
-                s_amplitude_history[previous_index][subcarrier]);
-            band_counts[band]++;
-        }
-    }
-
-    for (size_t band = 0; band < ACTIVITY_MODEL_FEATURE_COUNT; ++band) {
-        const float mean_delta = band_delta[band] / (float)band_counts[band];
-        features[band] = log1pf(mean_delta);
-    }
+    activity_model_extract_features(&s_amplitude_history[0][0], oldest, features);
 }
 
 #if ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_DECISION_TREE || \
@@ -302,10 +338,14 @@ static int predict_tree(int16_t root, const float *normalized)
 static void classify_window(void)
 {
     float features[ACTIVITY_MODEL_FEATURE_COUNT];
+#if ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_NEAREST_CENTROID || \
+    ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_DECISION_TREE || \
+    ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_RANDOM_FOREST
     float normalized[ACTIVITY_MODEL_FEATURE_COUNT];
+#endif
     float scores[ACTIVITY_MODEL_CLASS_COUNT] = {0};
     size_t best_class = 0;
-    size_t second_class = 0;
+    size_t second_class = SIZE_MAX;
 
     extract_window_features(features);
 #if ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_NEAREST_CENTROID
@@ -325,17 +365,9 @@ static void classify_window(void)
     }
 #elif ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_LOGISTIC_REGRESSION || \
     ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_LINEAR_SVM
-    for (size_t feature_index = 0; feature_index < ACTIVITY_MODEL_FEATURE_COUNT; ++feature_index) {
-        normalized[feature_index] =
-            (features[feature_index] - activity_model_means[feature_index]) /
-            activity_model_scales[feature_index];
-    }
-    for (size_t class_index = 0; class_index < ACTIVITY_MODEL_CLASS_COUNT; ++class_index) {
-        scores[class_index] = activity_model_biases[class_index];
-        for (size_t feature_index = 0; feature_index < ACTIVITY_MODEL_FEATURE_COUNT; ++feature_index) {
-            scores[class_index] += activity_model_weights[class_index][feature_index] *
-                                   normalized[feature_index];
-        }
+    if (!activity_model_linear_scores(features, scores)) {
+        ESP_LOGE(TAG, "Activity model produced a non-finite score");
+        return;
     }
 #elif ACTIVITY_MODEL_ALGORITHM == ACTIVITY_MODEL_ALGORITHM_DECISION_TREE
     for (size_t feature_index = 0; feature_index < ACTIVITY_MODEL_FEATURE_COUNT; ++feature_index) {
@@ -367,18 +399,45 @@ static void classify_window(void)
 #error "Unsupported generated activity model algorithm"
 #endif
 
-    float best_score = -INFINITY;
-    float second_score = -INFINITY;
-    for (size_t class_index = 0; class_index < ACTIVITY_MODEL_CLASS_COUNT; ++class_index) {
-        if (scores[class_index] > best_score) {
-            second_score = best_score;
-            second_class = best_class;
-            best_score = scores[class_index];
-            best_class = class_index;
-        } else if (scores[class_index] > second_score) {
-            second_score = scores[class_index];
-            second_class = class_index;
+    best_class = activity_model_argmax(scores);
+    if (best_class == SIZE_MAX) {
+        ESP_LOGE(TAG, "Activity model produced invalid class scores");
+        return;
+    }
+    size_t stable_class = SIZE_MAX;
+    if (!activity_prediction_stability_update(
+            &s_prediction_stability, best_class, ACTIVITY_MODEL_CLASS_COUNT,
+            ACTIVITY_MODEL_FALL_CLASS_INDEX,
+            ACTIVITY_MODEL_NON_FALL_CLASS_INDEX, &stable_class)) {
+        ESP_LOGE(TAG, "Activity prediction stabilizer rejected model output");
+        return;
+    }
+    second_class = stable_class == ACTIVITY_MODEL_FALL_CLASS_INDEX
+                       ? ACTIVITY_MODEL_NON_FALL_CLASS_INDEX
+                       : ACTIVITY_MODEL_FALL_CLASS_INDEX;
+    const float stable_score = scores[stable_class];
+    const float other_score = scores[second_class];
+    uint32_t motion_scaled = 0;
+    if (!get_recent_motion_sample(
+            s_latest_window_peer_mac, esp_timer_get_time(), &motion_scaled)) {
+        s_motion_gate_unavailable_count++;
+        if (s_motion_gate_unavailable_count == 1 ||
+                (s_motion_gate_unavailable_count % 100) == 0) {
+            ESP_LOGW(TAG,
+                     "Motion gate unavailable for peer; skipping activity output "
+                     "count=%" PRIu32,
+                     s_motion_gate_unavailable_count);
         }
+        return;
+    }
+    activity_motion_gate_result_t gated = {0};
+    if (!activity_motion_gate_apply(
+            stable_class, ACTIVITY_MODEL_CLASS_COUNT,
+            ACTIVITY_MODEL_FALL_CLASS_INDEX,
+            ACTIVITY_MODEL_NON_FALL_CLASS_INDEX,
+            motion_scaled, &gated)) {
+        ESP_LOGE(TAG, "Activity motion gate rejected model output");
+        return;
     }
 
     uint32_t queue_drops;
@@ -386,11 +445,18 @@ static void classify_window(void)
     queue_drops = s_queue_drops;
     taskEXIT_CRITICAL(&s_stats_mux);
     web_serial_monitor_publish_activity(
-        activity_model_labels[best_class], best_score,
-        activity_model_labels[second_class], second_score);
-    ESP_LOGI(TAG, "DEMO only: algorithm=%s class=%s score=%.3f runner_up=%s score=%.3f frames=%" PRIu32 " queue_drops=%" PRIu32,
-             ACTIVITY_MODEL_NAME, activity_model_labels[best_class], (double)best_score,
-             activity_model_labels[second_class], (double)second_score,
+        activity_model_labels[gated.output_class], stable_score,
+        activity_model_labels[second_class], other_score,
+        activity_model_labels[stable_class], motion_scaled,
+        gated.amplitude_vetoed, gated.confident_fall);
+    ESP_LOGI(TAG, "DEMO only: algorithm=%s class=%s model_class=%s raw_class=%s motion=%.3f amplitude_vetoed=%s confident_fall=%s raw_score=%.3f other_score=%.3f frames=%" PRIu32 " queue_drops=%" PRIu32,
+             ACTIVITY_MODEL_NAME, activity_model_labels[gated.output_class],
+             activity_model_labels[stable_class], activity_model_labels[best_class],
+             (double)motion_scaled / 1000.0,
+             gated.amplitude_vetoed ? "true" : "false",
+             gated.confident_fall ? "true" : "false",
+             (double)scores[best_class],
+             (double)scores[second_class],
              s_frames_processed, queue_drops);
 }
 
@@ -398,16 +464,18 @@ static void activity_classifier_task(void *arg)
 {
     (void)arg;
     activity_frame_t frame;
-    float amplitudes[ACTIVITY_MODEL_SUBCARRIERS];
 
     for (;;) {
         if (xQueueReceive(s_frame_queue, &frame, portMAX_DELAY) != pdTRUE) {
             continue;
         }
-        if (frame.reset_history) {
+        float amplitudes[ACTIVITY_MODEL_SUBCARRIERS];
+        const bool frame_valid = frame_to_amplitude(&frame, amplitudes);
+        if (activity_model_should_reset_history(frame.reset_history, frame_valid)) {
             s_frames_processed = 0;
+            activity_prediction_stability_reset(&s_prediction_stability);
         }
-        if (!frame_to_amplitude(&frame, amplitudes)) {
+        if (!frame_valid) {
             /* Layout diagnostics (length/flag/reason) are emitted once at the
              * enqueue gate; frames here are only unsupported or model-width
              * mismatches, so reset the window and drop without re-logging. */
@@ -417,6 +485,8 @@ static void activity_classifier_task(void *arg)
 
         const size_t write_index = s_frames_processed % ACTIVITY_MODEL_WINDOW_FRAMES;
         memcpy(s_amplitude_history[write_index], amplitudes, sizeof(amplitudes));
+        memcpy(s_latest_window_peer_mac, frame.peer_mac,
+               sizeof(s_latest_window_peer_mac));
         s_frames_processed++;
 
         if (s_frames_processed >= ACTIVITY_MODEL_WINDOW_FRAMES &&

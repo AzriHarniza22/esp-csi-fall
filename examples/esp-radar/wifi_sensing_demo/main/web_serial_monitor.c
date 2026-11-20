@@ -57,6 +57,7 @@
 #define WEB_SERIAL_TX_BUF_SIZE       4096
 #define WEB_SERIAL_RX_POLL_BUF_SIZE  64
 #define WEB_SERIAL_DEFAULT_PERIOD_MS 50
+#define ACTIVITY_MOTION_SAMPLE_PERIOD_MS 50
 #define WEB_SERIAL_CSI_DEFAULT_PERIOD_MS 100
 #define WEB_SERIAL_CSI_MAX_RAW_LEN 612
 #define WEB_SERIAL_CSI_MAX_ENCODED_LEN (((WEB_SERIAL_CSI_MAX_RAW_LEN + 2) / 3) * 4 + 1)
@@ -426,12 +427,12 @@ static char s_csi_b64_raw[WEB_SERIAL_CSI_MAX_ENCODED_LEN];
 static char s_csi_b64_valid[WEB_SERIAL_CSI_MAX_ENCODED_LEN];
 
 /* ------------------------------------------------------------------ *
- * Ping/CSI diagnostic instrumentation (Prioritas 1, §17/§18).
+ * CSI diagnostic instrumentation (Prioritas 1, §17/§18).
  *
- * One MPSC FreeRTOS queue carries ping success/timeout events and CSI
- * diagnostic (throttle-dropped) events to a dedicated drain task, which is the
- * sole consumer. Frames stay on the existing direct-write path (2). The STOP
- * barrier must quiesce BOTH paths before emitting the final ACK.
+ * One MPSC FreeRTOS queue carries CSI diagnostic (throttle-dropped) events to
+ * a dedicated drain task, which is the sole consumer. Frames stay on the
+ * existing direct-write path (2). The STOP barrier must quiesce both paths
+ * before emitting the final ACK.
  *
  * Concurrency model (ESP-IDF 5.5.3, single-core ESP32, producers in task
  * context — evidenced by the 50 ms s_tx_lock timeout already used from the CSI
@@ -689,23 +690,33 @@ static bool json_escape_string(const char *source, char *destination, size_t cap
 
 void web_serial_monitor_publish_activity(const char *label, float score,
                                          const char *runner_up_label,
-                                         float runner_up_score)
+                                         float runner_up_score,
+                                         const char *model_label,
+                                         uint32_t motion_scaled,
+                                         bool amplitude_vetoed,
+                                         bool confident_fall)
 {
     char escaped_label[96];
     char escaped_runner_up[96];
+    char escaped_model_label[96];
 
     if (!isfinite(score) || !isfinite(runner_up_score) ||
             !json_escape_string(label, escaped_label, sizeof(escaped_label)) ||
-            !json_escape_string(runner_up_label, escaped_runner_up, sizeof(escaped_runner_up))) {
+            !json_escape_string(runner_up_label, escaped_runner_up, sizeof(escaped_runner_up)) ||
+            !json_escape_string(model_label, escaped_model_label, sizeof(escaped_model_label))) {
         ESP_LOGW(TAG, "Skipping activity result with invalid label or score");
         return;
     }
 
     (void)write_line(
-        "{\"type\":\"activity\",\"class\":\"%s\",\"score\":%.3f,"
+        "{\"type\":\"activity\",\"class\":\"%s\",\"model_class\":\"%s\",\"score\":%.3f,"
         "\"runner_up\":\"%s\",\"runner_up_score\":%.3f,"
+        "\"motion_amplitude\":%.3f,\"amplitude_vetoed\":%s,\"confident_fall\":%s,"
         "\"confidence_available\":false}\n",
-        escaped_label, (double)score, escaped_runner_up, (double)runner_up_score);
+        escaped_label, escaped_model_label, (double)score, escaped_runner_up,
+        (double)runner_up_score, (double)motion_scaled / 1000.0,
+        amplitude_vetoed ? "true" : "false",
+        confident_fall ? "true" : "false");
 }
 
 void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *info)
@@ -1092,29 +1103,6 @@ static void drain_task(void *arg)
              * notify races past it. */
             ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
         }
-    }
-}
-
-/* Per-reply ping hook invoked from the LWIP ping task (vendored component). */
-static void web_serial_monitor_ping_event_cb(const esp_wifi_sensing_ping_event_t *ev, void *user_data)
-{
-    (void)user_data;
-    if (!ev || !s_diag_queue) {
-        return;
-    }
-    diag_item_t it = {0};
-    it.type = DIAG_EVT_PING;
-    it.ts_us = ev->ts_us;
-    it.u.ping.success = ev->success ? 1 : 0;
-    it.u.ping.seqno = ev->seqno;
-    it.u.ping.timegap_ms = ev->timegap_ms;
-    it.u.ping.ip4 = ev->ip4_addr;
-    it.u.ping.ttl = ev->ttl;
-    it.u.ping.recv_size = ev->recv_size;
-    it.u.ping.transmitted = ev->transmitted;
-    it.u.ping.received = ev->received;
-    if (diag_admit_and_enqueue(&it)) {
-        s_ping_event_persisted_count++;
     }
 }
 
@@ -2056,6 +2044,20 @@ static void send_channel_sample(const web_serial_monitor_peer_t *peer)
         init_stage_name(diag.init_stage));
 }
 
+static void sample_channel_activity_motion(const web_serial_monitor_peer_t *peer)
+{
+    if (!peer || !s_ctx.sensing_ready) {
+        return;
+    }
+
+    esp_wifi_sensing_fsm_channel_diag_t diag = {0};
+    if (esp_wifi_sensing_fsm_get_channel_diag(s_ctx.fsm, peer->mac, &diag) != ESP_OK) {
+        return;
+    }
+    activity_classifier_note_motion_sample(
+        peer->mac, esp_timer_get_time(), diag.smooth_scaled);
+}
+
 static void apply_cfg_value(esp_wifi_sensing_fsm_channel_config_t *cfg, const char *key, const char *value)
 {
     if (!cfg || !key || !value) {
@@ -2479,6 +2481,7 @@ static void web_serial_monitor_task(void *arg)
 {
     (void)arg;
     int64_t last_stream_us = 0;
+    int64_t last_activity_motion_us = 0;
     int64_t last_status_us = 0;
     uint32_t last_frame_count = 0;
 
@@ -2495,6 +2498,15 @@ static void web_serial_monitor_task(void *arg)
         poll_rx_and_handle_commands();
 
         int64_t now_us = esp_timer_get_time();
+        if (s_ctx.sensing_ready &&
+                (last_activity_motion_us == 0 ||
+                 (now_us - last_activity_motion_us) >=
+                     (int64_t)ACTIVITY_MOTION_SAMPLE_PERIOD_MS * 1000LL)) {
+            last_activity_motion_us = now_us;
+            for (size_t i = 0; i < s_ctx.peer_num; i++) {
+                sample_channel_activity_motion(&s_ctx.peers[i]);
+            }
+        }
         if (s_ctx.stream_enabled && s_ctx.sensing_ready &&
                 (last_stream_us == 0 || (now_us - last_stream_us) >= ((int64_t)s_ctx.stream_period_ms * 1000LL))) {
             last_stream_us = now_us;
@@ -2674,14 +2686,6 @@ esp_err_t web_serial_monitor_attach_sensing(const web_serial_monitor_config_t *c
     memcpy(s_ctx.peers, config->peers, config->peer_num * sizeof(web_serial_monitor_peer_t));
     s_ctx.sensing_ready = true;
     s_ctx.stream_enabled = true;
-
-    /* Prioritas 1: receive every ping success/timeout with per-reply seqno/ts.
-     * Optional hook on the vendored component; harmless if ping is not started. */
-    esp_err_t ping_cb_err = esp_wifi_sensing_fsm_register_ping_event_cb(
-        config->fsm, web_serial_monitor_ping_event_cb, NULL);
-    if (ping_cb_err != ESP_OK) {
-        ESP_LOGW(TAG, "ping event cb registration failed: %s", esp_err_to_name(ping_cb_err));
-    }
 
     ESP_LOGI(TAG, "sensing attached, peers=%u, period=%" PRIu32 "ms",
              (unsigned)s_ctx.peer_num, s_ctx.stream_period_ms);

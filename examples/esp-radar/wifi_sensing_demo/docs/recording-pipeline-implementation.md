@@ -1380,7 +1380,10 @@ Setiap kondisi tersebut harus menghasilkan status dan metadata yang akurat. Jang
 
 Sasaran utama selalu `POST /api/recordings` ke `csi_recorder_server.py`. Server
 memeriksa kontrak dua file sebelum menulis apa pun dan menolak take tanpa baris
-frame (`frames.csv has no data rows`, HTTP 400) supaya tidak ada artefak parsial.
+frame (`frames.csv has no data rows`, HTTP 400) atau dengan kurang dari 250
+baris frame (HTTP 400) supaya tidak ada artefak parsial. UI recorder menerapkan
+batas minimum yang sama sebelum mengirim atau mengunduh file; take di bawah
+batas ditolak dengan jumlah frame dan instruksi untuk mengulang.
 
 - POST gagal dan take berisi frame: browser mengunduh file yang sama
   (`*.frames.csv` + `*.meta.json`) agar tidak ada take yang hilang diam-diam.
@@ -1662,3 +1665,13 @@ Jangan mengklaim audio berfungsi hanya karena API berhasil dipanggil. Lakukan pe
 
 **Target akhir:** fitur recording yang menghasilkan dataset Wi-Fi CSI berkualitas tinggi, mempertahankan payload mentah secara utuh, memiliki anotasi aktivitas yang jelas, memberikan instruksi visual dan suara secara terkoordinasi, serta menghasilkan tepat dua file per recording yang siap digunakan untuk berbagai proses preprocessing dan training selanjutnya.
 
+## 20. Urutan recording berdasarkan puncak Motion
+
+Panel Recordings menyediakan pengurutan berdasarkan waktu terbaru (default)
+atau nilai Motion peak secara descending/ascending. Peak didefinisikan sebagai
+nilai maksimum `smooth_scaled` di dalam `events.motion_samples` pada metadata
+rekaman, mengikuti sampel yang dipakai grafik Motion; nilai itu tidak
+direkonstruksi dari CSI. API daftar menyertakan `motion_peak_scaled` sebagai
+ringkasan opsional. Rekaman tanpa sampel Motion berada setelah rekaman yang
+memiliki peak pada kedua arah pengurutan, dan waktu terbaru menjadi
+tie-breaker. Pengurutan tidak mengubah data rekaman atau keputusan detektor.

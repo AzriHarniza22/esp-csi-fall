@@ -9,20 +9,32 @@
 
 ## 1. Format payload CSI dan layout LLTF
 
-| Layout | Panjang payload | Jumlah pasangan kompleks | `first_word_invalid` | Keterangan |
-|--------|----------------|--------------------------|----------------------|------------|
-| A (kompaksi) | 102 B | 51 | `true` | klamp-di-sumber (commit `3ac4a35`); 4 byte pertama hardware-corrupt sudah dibuang SEBELUM sampai ke ring buffer |
-| B (legacy) | 104 B | 52 | `false` | frame tanpa kerusakan 4-byte pertama (jarang; hanya jika hardware lolos) |
+**Scope tabel**: ESP32 klasik, CSI int8, LLTF 20 MHz, secondary channel NONE.
+
+| Layout | Panjang LLTF | Jumlah pasangan kompleks | `first_word_invalid` | Urutan subcarrier fisik |
+|--------|--------------|--------------------------|----------------------|-------------------------|
+| A (kompaksi) | 102 B | 51 | `true` | -26..-1, +2..+26 |
+| B (utuh) | 104 B | 52 | `false` | -26..-1, +1..+26 |
 
 **Kontrak**:
 
 - Panjang ↔ flag **terikat 1-ke-1**. Kombinasi lain = error eksplisit dengan
   log diagnostik: `length`, `first_word_invalid`, `reason`.
-- Layout B yang lolos gerbang panjang **tetap menghasilkan offset 52 pasangan**;
-  decoding TIDAK menggeser indeks. Tool wajib menyimpan kedua fixture uji.
-- Indeks subcarrier setelah klamp (layout A): pasangan-0 = LLTF indeks-2 fisik,
-  dst. Ini dibakar dalam konstanta `CLAMP_OFFSET = 2` di decoder bersama
-  assertion bahwa flag = true hanya bila panjang = 102.
+- Untuk ESP32 20 MHz / secondary NONE, urutan raw LLTF mengikuti tabel
+  ESP-IDF `0..31, -32..-1`. Tabel `esp-radar` memilih byte `[76,128)` lalu
+  `[2,54)`: pasangan raw `[38,64)` (subcarrier `-26..-1`) diikuti pasangan
+  `[1,27)` (`+1..+26`).
+- Saat `first_word_invalid=true`, `esp-radar` menjepit awal rentang kedua dari
+  byte 2 ke byte 4. Yang dibuang adalah pasangan raw 1 (byte 2–3), yakni
+  subcarrier `+1`; pasangan-0 pada hasil 51-pasangan tetap `-26`, dan
+  pasangan-26 adalah `+2`. Ini bukan pemotongan dua pasangan dari awal
+  `valid_data`.
+- Layout B mempertahankan 52 pasangan pada urutan `-26..-1, +1..+26`.
+  Decoder tidak boleh menggeser atau menormalkan layout B menjadi A.
+- Pemetaan ini diturunkan dari tabel urutan CSI ESP-IDF v5.5.3 dan rentang
+  byte pada `esp-radar` 0.3.4. Payload rekaman mentah yang dipakai benchmark
+  tidak tersedia pada checkout ini, sehingga pemetaan historis tiap baris tidak
+  dapat direkonstruksi byte-per-byte.
 
 ## 2. Sumbu waktu kanonik dan anchor
 
@@ -47,13 +59,21 @@
 | 2 | Temporal phase label | `normal_still` / `fall_transition` / `fallen_still` / `other_action` / `other_still` | Trainer (input labeling), dataset turunan |
 | 3 | Binary target | `fall` / `non_fall` | Output eksternal firmware, evaluator event-level |
 
-- Firmware **hanya** memuat kelas lapisan-2 yang diekspor trainer ke header.
+- Kelas firmware ditentukan oleh artifact model, bukan otomatis oleh lapisan
+  label tertentu. Kandidat Linear SVM fase yang saat ini ada di source firmware
+  mengeluarkan target biner lapisan-3 dalam urutan `fall`, `non_fall`; label
+  tersebut bukan status gerak Motion Graph/FSM dan model belum di-flash.
   Jangan menulis 11 preset recorder ke `ACTIVITY_MODEL_LABELS` bila model tidak
   dilatih untuk memprediksi 11 kelas.
 - Trainer menerima `--class-spec` yang memetakan lapisan-1 → lapisan-2;
   mapping default: semua `fall_*` action phase → `fall_transition`, `fall_*`
   post-phase → `fallen_still`, pre + idle → `normal_still`, non-fall action →
   `other_action`, non-fall post → `other_still`.
+- Pipeline phase-aware saat ini adalah eksperimen terpisah: ia memetakan
+  interval anotasi `fall_start`–`fall_impact` ke target `fall`, dan fase normal
+  yang dipetakan policy ke `non_fall`; `post_action` jatuh tanpa label tidak
+  dianggap sebagai salah satu kelas. Detail policy dan hasil validasinya ada
+  di `reports/activity_classifier_benchmark/20261108T073910Z/PHASE_AWARE_TRAINING.md`.
 
 ## 4. Skema anotasi kandidat
 

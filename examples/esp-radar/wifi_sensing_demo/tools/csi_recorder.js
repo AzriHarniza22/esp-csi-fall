@@ -62,6 +62,7 @@
    * never from this constant (ACTION_PLAN rev 2.6 binding decision:
    * fall [0,4,8,12]; all other labels stay 10 s). */
   const TARGET_DURATION_S = 10;
+  const MIN_RECORDING_FRAMES = 250;
 
   /* Per-take duration in seconds = the last timeline boundary. Falls back to
    * the 10 s default for idle anchors or a missing timeline so nothing ever
@@ -1940,6 +1941,7 @@
     TIMELINE_DEFS,
     TONE_PATTERNS,
     TARGET_DURATION_S,
+    MIN_RECORDING_FRAMES,
     durationFromTimeline,
     binaryLabelOf,
     isFallLabel,

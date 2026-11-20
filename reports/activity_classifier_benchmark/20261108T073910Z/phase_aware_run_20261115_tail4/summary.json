@@ -1,0 +1,93 @@
+{
+  "experiment": "phase_annotated_window_oof",
+  "algorithm": "linear-svm",
+  "group_by": "take",
+  "fold_count": 5,
+  "class_order": [
+    "fall",
+    "non_fall"
+  ],
+  "window_frames": 24,
+  "window_stride_frames": 12,
+  "window_label_rule": "A window is labeled only when its first and last kept frame timestamps are inside one mapped phase or annotation interval, or inside a configured recording-tail interval through the last valid frame.",
+  "feature_definition": "Canonical train_activity_model.extract_window_features",
+  "group_count": 189,
+  "take_count": 189,
+  "window_counts_by_class": {
+    "fall": 938,
+    "non_fall": 3160
+  },
+  "oof_metrics": {
+    "window_count": 4098,
+    "accuracy": 0.8055148853099072,
+    "macro_f1": 0.6855777581112481,
+    "per_class": {
+      "fall": {
+        "support": 938,
+        "precision": 0.6120826709062003,
+        "recall": 0.41044776119402987,
+        "f1": 0.4913848117421825
+      },
+      "non_fall": {
+        "support": 3160,
+        "precision": 0.8405880657249928,
+        "recall": 0.9227848101265823,
+        "f1": 0.8797707044803138
+      }
+    },
+    "temporal_stability": {
+      "raw_transitions": 382,
+      "stabilized_transitions": 141
+    },
+    "stabilized": {
+      "window_count": 4098,
+      "accuracy": 0.8094192288921425,
+      "macro_f1": 0.7010942314813474,
+      "per_class": {
+        "fall": {
+          "support": 938,
+          "precision": 0.6132756132756133,
+          "recall": 0.453091684434968,
+          "f1": 0.5211526670754137
+        },
+        "non_fall": {
+          "support": 3160,
+          "precision": 0.8493392070484581,
+          "recall": 0.9151898734177215,
+          "f1": 0.8810357958872811
+        }
+      }
+    }
+  },
+  "oof_stabilized_metrics": {
+    "window_count": 4098,
+    "accuracy": 0.8094192288921425,
+    "macro_f1": 0.7010942314813474,
+    "per_class": {
+      "fall": {
+        "support": 938,
+        "precision": 0.6132756132756133,
+        "recall": 0.453091684434968,
+        "f1": 0.5211526670754137
+      },
+      "non_fall": {
+        "support": 3160,
+        "precision": 0.8493392070484581,
+        "recall": 0.9151898734177215,
+        "f1": 0.8810357958872811
+      }
+    }
+  },
+  "temporal_stability": {
+    "fall_activation": "at least 2 fall predictions in the last 3 windows",
+    "fall_release": "3 consecutive non_fall predictions",
+    "state_reset": "reset on a gap in labeled window indices",
+    "raw_transitions": 382,
+    "stabilized_transitions": 141
+  },
+  "skipped_take_reasons": {
+    "excluded session by label policy": 4
+  },
+  "final_model_fit": false,
+  "final_model_exported": false
+}

@@ -363,12 +363,20 @@
 
     .recordings-table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: 12px;
     }
 
+    .recordings-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: stretch;
+      gap: 16px;
+    }
+
     #libTableViewport {
-      max-height: 320px;
+      max-height: 440px;
       overflow: auto;
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -377,9 +385,10 @@
     .recordings-table th,
     .recordings-table td {
       text-align: left;
-      padding: 8px 6px;
+      padding: 7px 5px;
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
+      overflow-wrap: anywhere;
     }
 
     .recordings-table thead th {
@@ -389,9 +398,73 @@
       background: var(--panel);
     }
 
+    .recordings-table th:nth-child(1),
+    .recordings-table td:nth-child(1) {
+      width: 8%;
+      text-align: center;
+    }
+
+    .recordings-table th:nth-child(2),
+    .recordings-table td:nth-child(2) {
+      width: 34%;
+    }
+
+    .recordings-table th:nth-child(3),
+    .recordings-table td:nth-child(3) {
+      width: 28%;
+    }
+
+    .recordings-table th:nth-child(4),
+    .recordings-table td:nth-child(4) {
+      width: 30%;
+    }
+
+    .recording-details {
+      color: var(--muted);
+      white-space: pre-line;
+    }
+
+    .recording-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .recordings-table tbody tr.selected {
+      background: rgba(83, 199, 255, 0.14);
+      box-shadow: inset 3px 0 var(--accent);
+    }
+
     .recordings-table button {
-      padding: 6px 8px;
-      font-size: 11px;
+      width: 100%;
+      min-width: 0;
+      padding: 5px 4px;
+      font-size: 10px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    #recordingVisualizer {
+      min-width: 0;
+    }
+
+    #recordingVisualizer[hidden] {
+      display: none;
+    }
+
+    .recording-empty {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    #libVisualEmpty[hidden] {
+      display: none;
     }
 
     canvas.heatmap {
@@ -453,7 +526,8 @@
 
     @media (max-width: 760px) {
       .stat-grid,
-      .config-form {
+      .config-form,
+      .recordings-layout {
         grid-template-columns: 1fr;
       }
     }
@@ -527,7 +601,7 @@
 
       <section class="panel section">
         <h2 id="activityPanelTitle">Live Activity Classification</h2>
-        <div id="activityPanelDesc" class="muted">Experimental CSI activity model. Scores are model-specific, not confidence. This is not fall detection.</div>
+        <div id="activityPanelDesc" class="muted">Experimental phase-aware CSI activity model. Displayed class is temporally stabilized; scores are raw model margins, not confidence. Not a safety alarm.</div>
         <div style="height: 10px;"></div>
         <div class="status-pill">
           <span id="activityClassLabel">Current activity</span>
@@ -536,6 +610,7 @@
         <div style="height: 8px;"></div>
         <div id="activityDistanceValue" class="wifi-status">Model score: -</div>
         <div id="activityRunnerUpValue" class="wifi-status">Runner-up: -</div>
+        <div id="activityMotionValue" class="wifi-status">Motion graph: -</div>
         <div id="activityConfidenceValue" class="wifi-status">Confidence: unavailable</div>
       </section>
 
@@ -746,53 +821,60 @@
         <div id="libPanelDesc" class="muted">Manage saved CSI takes. Requires csi_recorder_server.py.</div>
         <div style="height: 10px;"></div>
         <div class="button-row">
-          <label><span id="libFilterLabel">Filter label</span><input id="libFilterInput" type="text" autocomplete="off" /></label>
+          <label><span id="libFilterLabel">Filter sample</span><select id="libFilterInput"></select></label>
+          <label><span id="libSortLabel">Sort recordings</span>
+            <select id="libSortInput">
+              <option value="newest" id="libSortNewest">Newest first</option>
+              <option value="motion_desc" id="libSortMotionDesc">Motion peak: high to low</option>
+              <option value="motion_asc" id="libSortMotionAsc">Motion peak: low to high</option>
+            </select>
+          </label>
           <button id="libRefreshBtn" class="secondary">Refresh</button>
         </div>
         <div id="libStatusText" class="csi-status"></div>
         <div id="libCountText" class="csi-status"></div>
         <div style="height: 10px;"></div>
-        <div id="libTableViewport">
-          <table class="recordings-table">
-            <thead>
-              <tr>
-                <th id="libColLabel">Label</th>
-                <th id="libColTime">Time</th>
-                <th id="libColDuration">Duration</th>
-                <th id="libColFrames">Frames</th>
-                <th id="libColComplete">Complete</th>
-                <th id="libColActions">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="libTableBody"></tbody>
-          </table>
-        </div>
-        <div id="recordingVisualizer" hidden>
-          <div style="height: 12px;"></div>
-          <div id="libVisualTitle" class="muted"></div>
-          <div id="libVisualSelection" class="muted"></div>
-          <div id="libVisualDesc" class="muted"></div>
-          <div class="legend" id="recMotionLegend" hidden></div>
-          <div id="recCsiToolbar" class="csi-toolbar" hidden>
-            <label><span id="recCsiViewLabel">View</span>
-              <select id="recCsiViewSelect">
-                <option value="amplitude">Amplitude</option>
-                <option value="real">Real</option>
-                <option value="imaginary">Imaginary</option>
-              </select>
-            </label>
-            <label class="csi-step-control"><span id="recCsiStepLabel">Subcarrier step</span>
-              <select id="recCsiStepSelect">
-                <option value="5">5 (light)</option>
-                <option value="1">1 (all)</option>
-              </select>
-            </label>
+        <div class="recordings-layout">
+          <div id="libTableViewport">
+            <table class="recordings-table">
+              <thead>
+                <tr>
+                  <th id="libColNumber">#</th>
+                  <th id="libColRecording">Recording</th>
+                  <th id="libColDetails">Details</th>
+                  <th id="libColActions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="libTableBody"></tbody>
+            </table>
           </div>
-          <canvas id="recHeatmap" class="heatmap" width="1200" height="220" hidden></canvas>
-          <canvas id="recCsiChart" width="1200" height="280" hidden></canvas>
-          <div id="recMotionStateTitle" class="muted" hidden></div>
-          <div class="legend" id="recMotionStateLegend" hidden></div>
-          <canvas id="recMotionState" width="1200" height="44" hidden></canvas>
+          <div id="recordingVisualizer">
+            <div id="libVisualEmpty" class="recording-empty">Select a recording to view its CSI visualization.</div>
+            <div id="libVisualTitle" class="muted"></div>
+            <div id="libVisualSelection" class="muted"></div>
+            <div id="libVisualDesc" class="muted"></div>
+            <div class="legend" id="recMotionLegend" hidden></div>
+            <div id="recCsiToolbar" class="csi-toolbar" hidden>
+              <label><span id="recCsiViewLabel">View</span>
+                <select id="recCsiViewSelect">
+                  <option value="amplitude">Amplitude</option>
+                  <option value="real">Real</option>
+                  <option value="imaginary">Imaginary</option>
+                </select>
+              </label>
+              <label class="csi-step-control"><span id="recCsiStepLabel">Subcarrier step</span>
+                <select id="recCsiStepSelect">
+                  <option value="5">5 (light)</option>
+                  <option value="1">1 (all)</option>
+                </select>
+              </label>
+            </div>
+            <canvas id="recHeatmap" class="heatmap" width="1200" height="220" hidden></canvas>
+            <canvas id="recCsiChart" width="1200" height="280" hidden></canvas>
+            <div id="recMotionStateTitle" class="muted" hidden></div>
+            <div class="legend" id="recMotionStateLegend" hidden></div>
+            <canvas id="recMotionState" width="1200" height="44" hidden></canvas>
+          </div>
         </div>
       </section>
 
@@ -1098,6 +1180,7 @@
         recAnnotNA: "not applicable (non-fall activity)",
         recResultOk: "Recording complete",
         recResultNotOk: "Recording NOT complete",
+        recRejectedFewFrames: "Recording rejected: {frames} frames received; at least {minimum} are required. Please repeat the take.",
         recResFiles: "Files",
         recResDuration: "Actual duration",
         recResFrames: "Frames received",
@@ -1135,13 +1218,18 @@
         libPanelTitle: "Recordings",
         libPanelDesc: "List, visualize, or delete takes stored under recordings/.",
         libCount: "{shown} of {total} recordings",
-        libFilterLabel: "Filter label",
+        libFilterLabel: "Filter sample",
+        libSortLabel: "Sort recordings",
+        libSortNewest: "Newest first",
+        libSortMotionDesc: "Motion peak: high to low",
+        libSortMotionAsc: "Motion peak: low to high",
+        libAllSamples: "All samples",
+        libVisualEmpty: "Select a recording to view its CSI visualization.",
         libRefreshBtn: "Refresh",
-        libColLabel: "Label",
-        libColTime: "Time",
-        libColDuration: "Duration",
-        libColFrames: "Frames",
-        libColComplete: "Complete",
+        libColNumber: "#",
+        libColRecording: "Recording",
+        libColDetails: "Details",
+        libRecordingDetails: "{duration} s · {frames} frames\nComplete: {complete}",
         libColActions: "Actions",
         libHeatmapTitle: "CSI amplitude heatmap",
         libMotionGraphTitle: "Recorded motion detection",
@@ -1200,11 +1288,14 @@
         wifiConnected: "Connected",
         wifiInvalid: "Enter an SSID.",
         activityPanelTitle: "Live Activity Classification",
-        activityPanelDesc: "Experimental CSI activity model. Scores are model-specific, not confidence. This is not fall detection.",
+        activityPanelDesc: "Experimental phase-aware CSI activity model. Displayed class is temporally stabilized; scores are raw model margins, not confidence. Not a safety alarm.",
         activityClassLabel: "Current activity",
         activityWaiting: "Waiting for classifier...",
         activityDistance: "Model score: {value}",
         activityRunnerUp: "Runner-up: {label} (score {value})",
+        activityMotionValue: "Motion graph: {value}",
+        activityConfidentFall: "Confident fall marker (model + motion > 5000; heuristic, not probability)",
+        activityAmplitudeVeto: "Gate vetoed model {label} because motion is below 3850",
         activityConfidenceUnavailable: "Confidence: unavailable (not calibrated)",
         activityConfidence: "Confidence: {value}%",
         stimulusPanelTitle: "Traffic Stimulus (HTTP vs Ping)",
@@ -1418,11 +1509,14 @@
         wifiConnected: "已连接",
         wifiInvalid: "请输入 SSID。",
         activityPanelTitle: "实时活动分类",
-        activityPanelDesc: "实验性 CSI 活动模型。分数因模型而异，不代表置信度；不用于跌倒检测。",
+        activityPanelDesc: "实验性阶段标注 CSI 活动模型。显示类别经过时间稳定处理；分数是原始模型边际值，不代表置信度，不可作为安全警报。",
         activityClassLabel: "当前活动",
         activityWaiting: "等待分类器结果...",
         activityDistance: "模型分数：{value}",
         activityRunnerUp: "次高类别：{label}（分数 {value}）",
+        activityMotionValue: "动作图数值：{value}",
+        activityConfidentFall: "高置信跌倒标记（模型 + 动作值 > 5000；启发式，不是概率）",
+        activityAmplitudeVeto: "动作值低于 3850，门控否决模型 {label}",
         activityConfidenceUnavailable: "置信度：不可用（未校准）",
         activityConfidence: "置信度：{value}%",
         stimulusPanelTitle: "流量激励（HTTP 对比 Ping）",
@@ -1568,6 +1662,7 @@
         recAnnotNA: "不适用（非跌倒活动）",
         recResultOk: "采集完成",
         recResultNotOk: "采集未完成",
+        recRejectedFewFrames: "采集已拒绝：收到 {frames} 帧，至少需要 {minimum} 帧。请重新采集。",
         recResFiles: "文件",
         recResDuration: "实际时长",
         recResFrames: "接收帧数",
@@ -1605,13 +1700,18 @@
         libPanelTitle: "采集库",
         libPanelDesc: "列出、可视化或删除 recordings/ 中的样本。",
         libCount: "显示 {shown} / 共 {total} 条记录",
-        libFilterLabel: "按标签筛选",
+        libFilterLabel: "筛选样本",
+        libSortLabel: "排序记录",
+        libSortNewest: "最新优先",
+        libSortMotionDesc: "运动峰值：从高到低",
+        libSortMotionAsc: "运动峰值：从低到高",
+        libAllSamples: "全部样本",
+        libVisualEmpty: "选择一条记录以查看 CSI 可视化。",
         libRefreshBtn: "刷新",
-        libColLabel: "标签",
-        libColTime: "时间",
-        libColDuration: "时长",
-        libColFrames: "帧数",
-        libColComplete: "完整",
+        libColNumber: "序号",
+        libColRecording: "记录",
+        libColDetails: "详情",
+        libRecordingDetails: "{duration} 秒 · {frames} 帧\n完整：{complete}",
         libColActions: "操作",
         libHeatmapTitle: "CSI 幅度热力图",
         libMotionGraphTitle: "录制的运动检测",
@@ -1773,8 +1873,10 @@
     const libCountText = document.getElementById("libCountText");
     const libStatusText = document.getElementById("libStatusText");
     const libFilterInput = document.getElementById("libFilterInput");
+    const libSortInput = document.getElementById("libSortInput");
     const recordingVisualization = {
       id: "",
+      selectedId: "",
       mode: "",
       frames: [],
       subcarriers: 0,
@@ -2271,13 +2373,16 @@
       renderAudioStatus();
       document.getElementById("libPanelTitle").textContent = t("libPanelTitle");
       document.getElementById("libPanelDesc").textContent = t("libPanelDesc");
+      document.getElementById("libVisualEmpty").textContent = t("libVisualEmpty");
       document.getElementById("libFilterLabel").textContent = t("libFilterLabel");
+      document.getElementById("libSortLabel").textContent = t("libSortLabel");
+      document.getElementById("libSortNewest").textContent = t("libSortNewest");
+      document.getElementById("libSortMotionDesc").textContent = t("libSortMotionDesc");
+      document.getElementById("libSortMotionAsc").textContent = t("libSortMotionAsc");
       document.getElementById("libRefreshBtn").textContent = t("libRefreshBtn");
-      document.getElementById("libColLabel").textContent = t("libColLabel");
-      document.getElementById("libColTime").textContent = t("libColTime");
-      document.getElementById("libColDuration").textContent = t("libColDuration");
-      document.getElementById("libColFrames").textContent = t("libColFrames");
-      document.getElementById("libColComplete").textContent = t("libColComplete");
+      document.getElementById("libColNumber").textContent = t("libColNumber");
+      document.getElementById("libColRecording").textContent = t("libColRecording");
+      document.getElementById("libColDetails").textContent = t("libColDetails");
       document.getElementById("libColActions").textContent = t("libColActions");
       updateRecordingVisualizationLabels();
       document.getElementById("recCsiViewLabel").textContent = t("recCsiViewLabel");
@@ -2783,6 +2888,14 @@
         return;
       }
       recResult.hidden = false;
+      if (result.saved === "rejected") {
+        recResultTitle.textContent = `⚠ ${t("recResultNotOk")}`;
+        recResultTitle.style.color = "#ffb454";
+        recResultBody.textContent = t("recRejectedFewFrames")
+          .replace("{frames}", String(result.frames))
+          .replace("{minimum}", String(CsiRecorder.MIN_RECORDING_FRAMES));
+        return;
+      }
       const ok = meta.status === "complete";
       recResultTitle.textContent = ok ? `✓ ${t("recResultOk")}` : `⚠ ${t("recResultNotOk")} — ${meta.status}`;
       recResultTitle.style.color = ok ? "#7bffb6" : "#ffb454";
@@ -3327,6 +3440,8 @@
 
     async function showRecordingVisualization(recording, mode) {
       const id = recording.id;
+      recordingVisualization.selectedId = id;
+      renderRecordingsTable();
       const request = ++recordingVisualization.request;
       try {
         if (recordingVisualization.id !== id) {
@@ -3375,6 +3490,7 @@
         }
         recordingVisualization.recording = recording;
         recordingVisualization.mode = mode;
+        document.getElementById("libVisualEmpty").hidden = true;
         const showHeatmap = mode === "heatmap";
         recordingVisualizer.hidden = false;
         recHeatmap.hidden = !showHeatmap;
@@ -3399,6 +3515,15 @@
         captureStartMono, captureStartMs, captureEndMono, captureEndMs,
         cueEvents, annotations, diag, earlyStop, statusOverride,
       } = takeCtx;
+      if (frames.length < CsiRecorder.MIN_RECORDING_FRAMES) {
+        const recId = CsiRecorder.makeRecordingId(
+          plan.label, new Date(captureStartMs), plan.takeIndex
+        );
+        logEvent(t("recRejectedFewFrames")
+          .replace("{frames}", String(frames.length))
+          .replace("{minimum}", String(CsiRecorder.MIN_RECORDING_FRAMES)));
+        return { saved: "rejected", recId, frames: frames.length };
+      }
       /* Fetch the end-of-take stimulus counters from the device before writing
        * meta, so meta.stimulus carries what actually ran during this take. */
       await sendCommand("GET_STIMULUS");
@@ -3922,29 +4047,78 @@
     }
 
     function renderRecordingsTable() {
-      const filter = (libFilterInput.value || "").trim().toLowerCase();
+      const selectedFilter = libFilterInput.value || "";
+      const labelCounts = new Map();
+      for (const row of csiRecorder.library) {
+        const label = String(row.activity_label || row.label || "unknown");
+        labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+      }
+      libFilterInput.replaceChildren();
+      const allOption = document.createElement("option");
+      allOption.value = "";
+      allOption.textContent = `${t("libAllSamples")} (${csiRecorder.library.length})`;
+      libFilterInput.appendChild(allOption);
+      for (const [label, count] of [...labelCounts].sort(([a], [b]) => a.localeCompare(b))) {
+        const option = document.createElement("option");
+        option.value = label;
+        option.textContent = `${label} (${count})`;
+        libFilterInput.appendChild(option);
+      }
+      libFilterInput.value = labelCounts.has(selectedFilter) ? selectedFilter : "";
+      const sortMode = libSortInput.value || "newest";
       const rows = csiRecorder.library
-        .filter((row) => !filter || String(row.activity_label || row.label || "").toLowerCase().includes(filter))
-        .sort((a, b) => String(b.started_at_utc || "").localeCompare(String(a.started_at_utc || "")));
+        .filter((row) => !libFilterInput.value ||
+          String(row.activity_label || row.label || "unknown") === libFilterInput.value)
+        .sort((a, b) => {
+          if (sortMode === "motion_desc" || sortMode === "motion_asc") {
+            const aPeak = Number.isFinite(a.motion_peak_scaled) ? a.motion_peak_scaled : null;
+            const bPeak = Number.isFinite(b.motion_peak_scaled) ? b.motion_peak_scaled : null;
+            if (aPeak === null && bPeak !== null) {
+              return 1;
+            }
+            if (aPeak !== null && bPeak === null) {
+              return -1;
+            }
+            if (aPeak !== null && bPeak !== null && aPeak !== bPeak) {
+              return sortMode === "motion_desc" ? bPeak - aPeak : aPeak - bPeak;
+            }
+          }
+          return String(b.started_at_utc || "").localeCompare(String(a.started_at_utc || ""));
+        });
       libTableBody.replaceChildren();
       libCountText.textContent = t("libCount")
         .replace("{shown}", String(rows.length))
         .replace("{total}", String(csiRecorder.library.length));
-      for (const row of rows) {
+      rows.forEach((row, index) => {
         const tr = document.createElement("tr");
+        const selected = String(row.id) === String(recordingVisualization.selectedId);
+        tr.classList.toggle("selected", selected);
+        tr.setAttribute("aria-selected", String(selected));
+        const label = row.activity_label || row.label || row.id;
+        const started = row.started_at_utc || "";
+        const time = started ? new Date(started).toLocaleString() : "";
+        const duration = row.actual_duration_s ?? row.duration_s ?? "";
+        const frames = row.frames ?? "";
+        const complete = row.complete ?? "";
         const cells = [
-          row.activity_label || row.label || "",
-          row.started_at_utc || "",
-          String(row.actual_duration_s ?? row.duration_s ?? ""),
-          String(row.frames ?? ""),
-          String(row.complete ?? ""),
+          String(index + 1),
+          `${label}\n${time}`,
+          t("libRecordingDetails")
+            .replace("{duration}", String(duration))
+            .replace("{frames}", String(frames))
+            .replace("{complete}", String(complete)),
         ];
-        for (const text of cells) {
+        for (const [cellIndex, text] of cells.entries()) {
           const td = document.createElement("td");
           td.textContent = text;
+          if (cellIndex === 2) {
+            td.className = "recording-details";
+          }
           tr.appendChild(td);
         }
         const actions = document.createElement("td");
+        const actionButtons = document.createElement("div");
+        actionButtons.className = "recording-actions";
         const makeBtn = (labelKey, handler) => {
           const btn = document.createElement("button");
           btn.className = "secondary";
@@ -3952,13 +4126,14 @@
           btn.addEventListener("click", handler);
           return btn;
         };
-        actions.appendChild(makeBtn("libHeatmap", () => showRecordingVisualization(row, "heatmap")));
-        actions.appendChild(makeBtn("libCsiGraph", () => showRecordingVisualization(row, "csi")));
-        actions.appendChild(makeBtn("libMotionGraph", () => showRecordingVisualization(row, "motion")));
-        actions.appendChild(makeBtn("libDelete", () => deleteRecording(row.id)));
+        actionButtons.appendChild(makeBtn("libHeatmap", () => showRecordingVisualization(row, "heatmap")));
+        actionButtons.appendChild(makeBtn("libCsiGraph", () => showRecordingVisualization(row, "csi")));
+        actionButtons.appendChild(makeBtn("libMotionGraph", () => showRecordingVisualization(row, "motion")));
+        actionButtons.appendChild(makeBtn("libDelete", () => deleteRecording(row.id)));
+        actions.appendChild(actionButtons);
         tr.appendChild(actions);
         libTableBody.appendChild(tr);
-      }
+      });
     }
 
     async function fetchRecording(id) {
@@ -5102,11 +5277,13 @@
       const classValue = document.getElementById("activityClassValue");
       const scoreValue = document.getElementById("activityDistanceValue");
       const runnerUpValue = document.getElementById("activityRunnerUpValue");
+      const motionValue = document.getElementById("activityMotionValue");
       const confidenceValue = document.getElementById("activityConfidenceValue");
       if (!activityClassification) {
         classValue.textContent = t("activityWaiting");
         scoreValue.textContent = t("activityDistance").replace("{value}", "-");
         runnerUpValue.textContent = t("activityRunnerUp").replace("{label}", "-").replace("{value}", "-");
+        motionValue.textContent = t("activityMotionValue").replace("{value}", "-");
         confidenceValue.textContent = t("activityConfidenceUnavailable");
         return;
       }
@@ -5119,12 +5296,25 @@
       runnerUpValue.textContent = t("activityRunnerUp")
         .replace("{label}", activityClassification.runnerUp || "-")
         .replace("{value}", activityClassification.runnerUpScore.toFixed(2));
-      confidenceValue.textContent = activityClassification.confidence === null
-        ? t("activityConfidenceUnavailable")
-        : t("activityConfidence").replace(
-          "{value}",
-          (activityClassification.confidence * 100).toFixed(1),
-        );
+      motionValue.textContent = t("activityMotionValue").replace(
+        "{value}",
+        activityClassification.motionAmplitude === null
+          ? "-"
+          : activityClassification.motionAmplitude.toFixed(1),
+      );
+      confidenceValue.textContent = activityClassification.confidentFall
+        ? t("activityConfidentFall")
+        : activityClassification.amplitudeVetoed
+          ? t("activityAmplitudeVeto").replace(
+            "{label}",
+            activityClassification.modelClass || "fall",
+          )
+          : activityClassification.confidence === null
+            ? t("activityConfidenceUnavailable")
+            : t("activityConfidence").replace(
+              "{value}",
+              (activityClassification.confidence * 100).toFixed(1),
+            );
     }
 
     function handleActivityMessage(msg) {
@@ -5141,9 +5331,14 @@
       }
       activityClassification = {
         className: msg.class,
+        modelClass: typeof msg.model_class === "string" ? msg.model_class : msg.class,
         score: msg.score,
         runnerUp: msg.runner_up,
         runnerUpScore: msg.runner_up_score,
+        motionAmplitude: typeof msg.motion_amplitude === "number"
+          && Number.isFinite(msg.motion_amplitude) ? msg.motion_amplitude : null,
+        amplitudeVetoed: msg.amplitude_vetoed === true,
+        confidentFall: msg.confident_fall === true,
         confidence: msg.confidence_available === true && typeof msg.confidence === "number"
           && Number.isFinite(msg.confidence) && msg.confidence >= 0 && msg.confidence <= 1
           ? msg.confidence : null,
@@ -5753,7 +5948,8 @@
         }
       });
       document.getElementById("libRefreshBtn").addEventListener("click", refreshRecordingsLibrary);
-      libFilterInput.addEventListener("input", renderRecordingsTable);
+      libFilterInput.addEventListener("change", renderRecordingsTable);
+      libSortInput.addEventListener("change", renderRecordingsTable);
       csiViewSelect.addEventListener("change", () => {
         resetChartScale(`csiChart:${csiViewSelect.value}`);
         markChartsDirty();

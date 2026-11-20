@@ -1,0 +1,321 @@
+{
+  "artifact_type": "final_full_fit_model",
+  "experiment_id": "B",
+  "model": {
+    "algorithm": "linear-svm",
+    "class_order": [
+      "fall",
+      "non_fall"
+    ],
+    "feature_count": 16,
+    "intercepts": [
+      -0.10238914720056583,
+      0.10238914720056583
+    ],
+    "means": [
+      1.278986086920681,
+      1.2374361030490932,
+      1.3108712326223109,
+      1.3102775009025847,
+      1.2692358004557627,
+      1.1915905793048744,
+      1.1388487126049465,
+      1.2436791967707317,
+      1.2089340173732612,
+      1.1454645152656193,
+      1.184869945817957,
+      1.302514846188157,
+      1.2746007371180719,
+      1.2867956340772215,
+      1.2671243508480596,
+      1.2850180223409382
+    ],
+    "scales": [
+      0.23391256567792154,
+      0.24521195255650774,
+      0.22311082059327103,
+      0.21126547860008307,
+      0.21664569121047017,
+      0.21020187124807174,
+      0.2393049664944435,
+      0.23053761808802573,
+      0.2460154560253367,
+      0.22846311785378748,
+      0.21188549674706908,
+      0.2203437841418106,
+      0.21653706013393634,
+      0.23024854376491619,
+      0.24189944718763776,
+      0.2433604218861322
+    ],
+    "weights": [
+      [
+        0.2878070005604619,
+        0.4268730212572037,
+        0.9493337910012247,
+        -0.9722975508993023,
+        0.6167394019194304,
+        -0.500505438097258,
+        0.5872575755866308,
+        0.17154492127145782,
+        0.14367073013579765,
+        0.089823441585762,
+        -0.6256836710774304,
+        -0.4379005788723324,
+        -0.28024304849246745,
+        0.2744355658134123,
+        -1.0101633939652261,
+        0.7627493911838421
+      ],
+      [
+        -0.2878070005604619,
+        -0.4268730212572037,
+        -0.9493337910012247,
+        0.9722975508993023,
+        -0.6167394019194304,
+        0.500505438097258,
+        -0.5872575755866308,
+        -0.17154492127145782,
+        -0.14367073013579765,
+        -0.089823441585762,
+        0.6256836710774304,
+        0.4379005788723324,
+        0.28024304849246745,
+        -0.2744355658134123,
+        1.0101633939652261,
+        -0.7627493911838421
+      ]
+    ]
+  },
+  "provenance": {
+    "class_mapping": {
+      "class_order": [
+        "fall",
+        "non_fall"
+      ],
+      "fall_source_labels": [
+        "fall_forward",
+        "fall_backward",
+        "fall_lemas",
+        "fall_keseleo"
+      ],
+      "mapping_rule": "fall iff activity_label is one of fall_source_labels; otherwise non_fall"
+    },
+    "dataset": {
+      "counts_by_class": {
+        "fall": {
+          "takes": 61,
+          "windows": 1526
+        },
+        "non_fall": {
+          "takes": 69,
+          "windows": 1562
+        }
+      },
+      "eligible_take_count": 130,
+      "feature_cache_path": "reports/activity_classifier_benchmark/20261108T073910Z/features_cache.pkl",
+      "feature_cache_sha256": "e4fcbf79bcaf43685bcf4077b34ad50549a684f821786b8d042593480101495e",
+      "feature_window_count": 3088,
+      "manifest_cache_labels_and_window_counts_match": true,
+      "manifest_cache_take_ids_match": true,
+      "manifest_path": "reports/activity_classifier_benchmark/20261108T073910Z/dataset_manifest.csv",
+      "manifest_sha256": "e9842d6fd961199e29b7cd7825a160ca409e35127ab3e6e4d2027c272bbe2269",
+      "raw_recording_hashes": {
+        "expected_files": 260,
+        "found_files": 0,
+        "mismatches": 0,
+        "note": "Raw recording files are absent from this checkout; model fit uses the existing benchmark feature cache, checked against manifest IDs, labels, window counts, dimensions, and finite values.",
+        "rechecked": false
+      },
+      "snapshot_hashes_path": "reports/activity_classifier_benchmark/20261108T073910Z/dataset_snapshot_hashes.csv",
+      "snapshot_hashes_sha256": "e744ed6d5835e827586719265449bd32eb345693e413ef9437a9066741b4d812",
+      "subcarrier_width_distribution": {
+        "51": 130
+      }
+    },
+    "fit_scope": "one final refit on all eligible Experiment B takes and all canonical windows",
+    "preprocessing": {
+      "amplitude_formula": "sqrt(I*I + Q*Q)",
+      "band_assignment": "band = floor(subcarrier_index * 16 / 51)",
+      "feature_count": 16,
+      "feature_formula": "For each 24-frame window, take 23 adjacent-frame differences in amplitude; within each frequency band calculate mean absolute amplitude difference over frame transitions and subcarriers, then apply natural log1p.",
+      "feature_order": [
+        {
+          "index": 0,
+          "name": "band_00_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 4,
+          "subcarrier_start_inclusive": 0
+        },
+        {
+          "index": 1,
+          "name": "band_01_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 7,
+          "subcarrier_start_inclusive": 4
+        },
+        {
+          "index": 2,
+          "name": "band_02_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 10,
+          "subcarrier_start_inclusive": 7
+        },
+        {
+          "index": 3,
+          "name": "band_03_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 13,
+          "subcarrier_start_inclusive": 10
+        },
+        {
+          "index": 4,
+          "name": "band_04_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 16,
+          "subcarrier_start_inclusive": 13
+        },
+        {
+          "index": 5,
+          "name": "band_05_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 20,
+          "subcarrier_start_inclusive": 16
+        },
+        {
+          "index": 6,
+          "name": "band_06_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 23,
+          "subcarrier_start_inclusive": 20
+        },
+        {
+          "index": 7,
+          "name": "band_07_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 26,
+          "subcarrier_start_inclusive": 23
+        },
+        {
+          "index": 8,
+          "name": "band_08_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 29,
+          "subcarrier_start_inclusive": 26
+        },
+        {
+          "index": 9,
+          "name": "band_09_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 32,
+          "subcarrier_start_inclusive": 29
+        },
+        {
+          "index": 10,
+          "name": "band_10_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 36,
+          "subcarrier_start_inclusive": 32
+        },
+        {
+          "index": 11,
+          "name": "band_11_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 39,
+          "subcarrier_start_inclusive": 36
+        },
+        {
+          "index": 12,
+          "name": "band_12_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 42,
+          "subcarrier_start_inclusive": 39
+        },
+        {
+          "index": 13,
+          "name": "band_13_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 45,
+          "subcarrier_start_inclusive": 42
+        },
+        {
+          "index": 14,
+          "name": "band_14_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 48,
+          "subcarrier_start_inclusive": 45
+        },
+        {
+          "index": 15,
+          "name": "band_15_log1p_mean_abs_delta",
+          "subcarrier_end_exclusive": 51,
+          "subcarrier_start_inclusive": 48
+        }
+      ],
+      "standardization": {
+        "fit_scope": "all 3088 Experiment B training windows",
+        "formula": "(feature - mean) / scale",
+        "mean": "arithmetic mean per feature",
+        "scale": "population standard deviation (variance divisor N); scale=1 if std <= 1e-6"
+      },
+      "subcarrier_width": 51,
+      "window_frames": 24,
+      "window_stride_frames": 12
+    },
+    "reproducibility": {
+      "benchmark_recorded_commit": "74032e7f862a0ac1d7b73ac6eb45063e41e3b789",
+      "benchmark_recorded_dirty": true,
+      "classifier_models_sha256_at_benchmark_and_fit": "fee65e05a39078cc69a7978c495061f17a1396db6f22047a5ec034eeef17f6c5",
+      "created_at_utc": "2026-11-14T08:18:42.973655+00:00",
+      "current_repo_head": "8f43df5f720fb9f7f1291073c35f776e8d927c41",
+      "current_tracked_worktree_changes": false,
+      "feature_extraction_environment_from_benchmark": {
+        "numpy": "2.3.5",
+        "python": "3.11.2"
+      },
+      "feature_extractor_sha256_at_benchmark_commit": "be7350e30124a3e3b02ced6d896002f25229490d1ff4b5a52d85a48af7aec8dc",
+      "feature_extractor_sha256_at_current_head": "0f8ced026ca4d2551dc6c18ee3a38084ebe1d3fc2f7c532bcbb3032ca14f8f13",
+      "oof_files_modified": false,
+      "oof_fold_results_path": "reports/activity_classifier_benchmark/20261108T073910Z/fold_results.csv",
+      "oof_fold_results_sha256": "687f873e041d3f4f91cdfd572d27d55f45323832bcf9d5bc5a30f346762267e5",
+      "oof_predictions_path": "reports/activity_classifier_benchmark/20261108T073910Z/predictions_oof.csv",
+      "oof_predictions_sha256": "8e0d2429570bd725df66f2d6877faef8444eb4d54a2658b9a19a641b156f2614",
+      "platform_at_fit": "Linux-6.18.16-2-liquorix-amd64-x86_64-with-glibc2.36",
+      "python_executable_at_fit": "/usr/bin/python3",
+      "python_version_at_fit": "3.11.2",
+      "raw_recordings_available_in_checkout": false
+    },
+    "training": {
+      "algorithm": "one_vs_rest_hinge_sgd",
+      "decision_rule": "argmax score in class_order; ties select the first class.",
+      "epochs": 500,
+      "fit_seconds_host": 42.60866199999964,
+      "implementation": "fall_detection.classifier_models.fit_classifier",
+      "implementation_matches_recorded_benchmark_commit": true,
+      "implementation_sha256": "fee65e05a39078cc69a7978c495061f17a1396db6f22047a5ec034eeef17f6c5",
+      "l2": 0.002,
+      "learning_rate": 0.08,
+      "learning_rate_decay": "lr/(1+0.01*epoch)",
+      "row_order": "recording_id sorted ascending, then canonical window order",
+      "score_semantics": "One-vs-rest hinge margins; score_c = dot(weights[c], standardized_features) + intercept[c].",
+      "seed": 20261026,
+      "shuffle": "random.Random(RANDOM_SEED) per epoch",
+      "sklearn_reference": "Not used. User approved canonical Python trainer and inference reference; benchmark records do not specify a sklearn estimator.",
+      "training_row_count": 3088
+    },
+    "uses_oof_fold_model": false,
+    "uses_oof_predictions_as_training_input": false
+  },
+  "schema_version": 1,
+  "verification": {
+    "dimensions": {
+      "intercepts": [
+        2
+      ],
+      "means": [
+        16
+      ],
+      "scales": [
+        16
+      ],
+      "weights": [
+        2,
+        16
+      ]
+    },
+    "full_score_values_checked": 6176,
+    "input_rows_checked": 3088,
+    "max_absolute_score_delta": 0.0,
+    "note": "This is serialization/inference parity on training feature rows, not independent evaluation or an accuracy claim.",
+    "prediction_agreement_count": 3088,
+    "prediction_agreement_fraction": 1.0,
+    "reference": "same fitted canonical Python model via fall_detection.classifier_models.predict_scores",
+    "score_values_exactly_equal": true,
+    "serialization_roundtrip": "passed"
+  }
+}

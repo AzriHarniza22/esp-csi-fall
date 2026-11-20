@@ -177,7 +177,25 @@ def read_amplitude_frames_from_frames_csv(frames_path: Path) -> list[list[float]
     layouts. Frames whose layout is not one of the supported LLTF/HT/STBC
     shapes are skipped, never zero-filled.
     """
+    frames, _ = _read_amplitude_frames_from_frames_csv(frames_path, include_timestamps=False)
+    return frames
+
+
+def read_timed_amplitude_frames_from_frames_csv(
+    frames_path: Path,
+) -> tuple[list[list[float]], list[float]]:
+    """Return canonical amplitudes paired with host receive timestamps in seconds."""
+    frames, timestamps = _read_amplitude_frames_from_frames_csv(
+        frames_path, include_timestamps=True
+    )
+    return frames, timestamps
+
+
+def _read_amplitude_frames_from_frames_csv(
+    frames_path: Path, *, include_timestamps: bool
+) -> tuple[list[list[float]], list[float]]:
     frames: list[list[float]] = []
+    timestamps: list[float] = []
     with frames_path.open(encoding="utf-8", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
         if reader.fieldnames is None or "valid_b64" not in reader.fieldnames:
@@ -216,7 +234,22 @@ def read_amplitude_frames_from_frames_csv(frames_path: Path) -> list[list[float]
                     f"{frames_path}: non-finite CSI in frame {frame_number}"
                 )
             frames.append(amplitudes)
-    return frames
+            if include_timestamps:
+                stamp = (row.get("host_receive_monotonic_ns") or "").strip()
+                try:
+                    timestamp = float(stamp) / 1e9
+                except ValueError as exc:
+                    raise ValueError(
+                        f"{frames_path}: kept frame {frame_number} has no valid "
+                        "host_receive_monotonic_ns"
+                    ) from exc
+                if not math.isfinite(timestamp):
+                    raise ValueError(
+                        f"{frames_path}: kept frame {frame_number} has a non-finite "
+                        "host_receive_monotonic_ns"
+                    )
+                timestamps.append(timestamp)
+    return frames, timestamps
 
 
 def extract_window_features(amplitude_frames: list[list[float]]) -> list[tuple[float, ...]]:

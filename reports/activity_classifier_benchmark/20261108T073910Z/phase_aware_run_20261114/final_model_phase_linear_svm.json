@@ -1,0 +1,407 @@
+{
+  "artifact_type": "final_full_fit_model",
+  "experiment_id": "PHASE",
+  "model": {
+    "algorithm": "linear-svm",
+    "class_order": [
+      "fall",
+      "non_fall"
+    ],
+    "feature_count": 16,
+    "means": [
+      1.2535986438214923,
+      1.1913414181696251,
+      1.2731756926191748,
+      1.2917686558365353,
+      1.209652849918947,
+      1.167938234828878,
+      1.0812221985135473,
+      1.1711312214310816,
+      1.1480764628574829,
+      1.1134157851364566,
+      1.1474273557535757,
+      1.2565212473726117,
+      1.2439047442536122,
+      1.212812066825111,
+      1.22779765818108,
+      1.2675705687057233
+    ],
+    "scales": [
+      0.2155319333166928,
+      0.22408004990652866,
+      0.22330280915879572,
+      0.18981010010331267,
+      0.20929346453285688,
+      0.18672877971675722,
+      0.21499490920219885,
+      0.22263174168098349,
+      0.25289716209288404,
+      0.21373274150323954,
+      0.1944200629959262,
+      0.23166687662528448,
+      0.2162256504893911,
+      0.23120601523246903,
+      0.24085606749350627,
+      0.24398444892812243
+    ],
+    "weights": [
+      [
+        -0.06769580566212373,
+        0.684062727612114,
+        0.119807384596995,
+        -0.3685712178370706,
+        -0.05980106514665575,
+        -0.09380678822030245,
+        0.6465173050843976,
+        0.019844204923899707,
+        0.45786946539533985,
+        0.1912357429701176,
+        -0.03451338756335111,
+        -0.13819747046456277,
+        -0.0701729782991141,
+        0.2820474095628305,
+        -0.14873174090838562,
+        0.05193602096342424
+      ],
+      [
+        0.06769580566212373,
+        -0.684062727612114,
+        -0.119807384596995,
+        0.3685712178370706,
+        0.05980106514665575,
+        0.09380678822030245,
+        -0.6465173050843976,
+        -0.019844204923899707,
+        -0.45786946539533985,
+        -0.1912357429701176,
+        0.03451338756335111,
+        0.13819747046456277,
+        0.0701729782991141,
+        -0.2820474095628305,
+        0.14873174090838562,
+        -0.05193602096342424
+      ]
+    ],
+    "intercepts": [
+      -3.566282532928844,
+      3.566282532928844
+    ]
+  },
+  "provenance": {
+    "dataset": {
+      "take_count": 189,
+      "group_count": 189,
+      "feature_window_count": 3261,
+      "class_window_counts": {
+        "fall": 101,
+        "non_fall": 3160
+      },
+      "source_recording_ids": [
+        "20261104T043259Z_walking_001",
+        "20261104T043314Z_walking_002",
+        "20261104T043329Z_walking_003",
+        "20261104T043344Z_walking_004",
+        "20261104T043359Z_walking_005",
+        "20261104T043415Z_walking_006",
+        "20261104T043430Z_walking_007",
+        "20261104T043445Z_walking_008",
+        "20261104T043500Z_walking_009",
+        "20261104T043515Z_walking_010",
+        "20261104T115746Z_still_sitting_001",
+        "20261104T115801Z_still_sitting_002",
+        "20261104T115816Z_still_sitting_003",
+        "20261104T115831Z_still_sitting_004",
+        "20261104T115846Z_still_sitting_005",
+        "20261104T115902Z_still_sitting_006",
+        "20261104T115917Z_still_sitting_007",
+        "20261104T115932Z_still_sitting_008",
+        "20261104T115947Z_still_sitting_009",
+        "20261104T120003Z_still_sitting_010",
+        "20261104T120043Z_still_standing_001",
+        "20261104T120058Z_still_standing_002",
+        "20261104T120113Z_still_standing_003",
+        "20261104T120128Z_still_standing_004",
+        "20261104T120143Z_still_standing_005",
+        "20261104T120159Z_still_standing_006",
+        "20261104T120214Z_still_standing_007",
+        "20261104T120229Z_still_standing_008",
+        "20261104T120244Z_still_standing_009",
+        "20261104T120300Z_still_standing_010",
+        "20261104T121450Z_empty_room_001",
+        "20261104T121506Z_empty_room_002",
+        "20261104T121521Z_empty_room_003",
+        "20261104T121536Z_empty_room_004",
+        "20261104T121551Z_empty_room_005",
+        "20261104T121606Z_empty_room_006",
+        "20261104T121622Z_empty_room_007",
+        "20261104T121637Z_empty_room_008",
+        "20261104T121652Z_empty_room_009",
+        "20261104T154253Z_fast_sitting_001",
+        "20261104T154308Z_fast_sitting_002",
+        "20261104T154324Z_fast_sitting_003",
+        "20261104T154339Z_fast_sitting_004",
+        "20261104T154409Z_fast_sitting_006",
+        "20261104T154424Z_fast_sitting_007",
+        "20261104T154440Z_fast_sitting_008",
+        "20261104T154455Z_fast_sitting_009",
+        "20261104T154510Z_fast_sitting_010",
+        "20261104T154615Z_fast_sitting_001",
+        "20261104T154653Z_bending_001",
+        "20261104T154719Z_bending_001",
+        "20261104T154735Z_bending_002",
+        "20261104T154750Z_bending_003",
+        "20261104T154805Z_bending_004",
+        "20261104T154835Z_bending_006",
+        "20261104T154851Z_bending_007",
+        "20261104T154906Z_bending_008",
+        "20261104T154921Z_bending_009",
+        "20261104T155021Z_bending_001",
+        "20261104T155116Z_object_drop_001",
+        "20261104T155131Z_object_drop_002",
+        "20261104T155146Z_object_drop_003",
+        "20261104T155201Z_object_drop_004",
+        "20261104T155217Z_object_drop_005",
+        "20261104T155232Z_object_drop_006",
+        "20261104T155247Z_object_drop_007",
+        "20261104T155302Z_object_drop_008",
+        "20261104T155317Z_object_drop_009",
+        "20261104T155333Z_object_drop_010",
+        "20261104T155713Z_fall_forward_001",
+        "20261104T155733Z_fall_forward_002",
+        "20261104T155753Z_fall_forward_003",
+        "20261104T155813Z_fall_forward_004",
+        "20261104T155834Z_fall_forward_005",
+        "20261104T155854Z_fall_forward_006",
+        "20261104T155914Z_fall_forward_007",
+        "20261104T155934Z_fall_forward_008",
+        "20261104T155954Z_fall_forward_009",
+        "20261104T160014Z_fall_forward_010",
+        "20261104T160100Z_fall_backward_001",
+        "20261104T160120Z_fall_backward_002",
+        "20261104T160140Z_fall_backward_003",
+        "20261104T160200Z_fall_backward_004",
+        "20261104T160220Z_fall_backward_005",
+        "20261104T160241Z_fall_backward_006",
+        "20261104T160301Z_fall_backward_007",
+        "20261104T160321Z_fall_backward_008",
+        "20261104T160341Z_fall_backward_009",
+        "20261104T160401Z_fall_backward_010",
+        "20261107T150308Z_fall_forward_015",
+        "20261107T150330Z_fall_forward_016",
+        "20261107T150352Z_fall_forward_017",
+        "20261107T150415Z_fall_forward_018",
+        "20261107T150437Z_fall_forward_019",
+        "20261107T150459Z_fall_forward_020",
+        "20261107T150521Z_fall_forward_021",
+        "20261107T150543Z_fall_forward_022",
+        "20261107T150606Z_fall_forward_023",
+        "20261107T150628Z_fall_forward_024",
+        "20261107T150927Z_fall_backward_011",
+        "20261107T150949Z_fall_backward_012",
+        "20261107T151011Z_fall_backward_013",
+        "20261107T151033Z_fall_backward_014",
+        "20261107T151055Z_fall_backward_015",
+        "20261107T151118Z_fall_backward_016",
+        "20261107T151140Z_fall_backward_017",
+        "20261107T151202Z_fall_backward_018",
+        "20261107T151224Z_fall_backward_019",
+        "20261107T151246Z_fall_backward_020",
+        "20261107T151658Z_fall_left_007",
+        "20261107T151730Z_fall_left_008",
+        "20261107T151802Z_fall_left_009",
+        "20261107T151834Z_fall_left_010",
+        "20261107T151907Z_fall_left_011",
+        "20261107T151939Z_fall_left_012",
+        "20261107T152043Z_fall_left_014",
+        "20261107T152115Z_fall_left_015",
+        "20261107T152147Z_fall_left_016",
+        "20261107T152320Z_fall_left_017",
+        "20261107T153329Z_fall_right_002",
+        "20261107T153429Z_fall_right_003",
+        "20261107T153501Z_fall_right_004",
+        "20261107T153533Z_fall_right_005",
+        "20261107T153606Z_fall_right_006",
+        "20261107T153638Z_fall_right_007",
+        "20261107T153710Z_fall_right_008",
+        "20261107T153742Z_fall_right_009",
+        "20261107T153815Z_fall_right_010",
+        "20261107T153847Z_fall_right_011",
+        "20261107T153919Z_fall_right_012",
+        "20261114T145648Z_empty_room_010",
+        "20261114T145703Z_empty_room_011",
+        "20261114T145718Z_empty_room_012",
+        "20261114T145733Z_empty_room_013",
+        "20261114T145749Z_empty_room_014",
+        "20261114T145804Z_empty_room_015",
+        "20261114T145819Z_empty_room_016",
+        "20261114T145834Z_empty_room_017",
+        "20261114T145850Z_empty_room_018",
+        "20261114T145905Z_empty_room_019",
+        "20261114T150212Z_still_sitting_011",
+        "20261114T150256Z_still_sitting_013",
+        "20261114T150311Z_still_sitting_014",
+        "20261114T150327Z_still_sitting_015",
+        "20261114T150342Z_still_sitting_016",
+        "20261114T150357Z_still_sitting_017",
+        "20261114T150413Z_still_sitting_018",
+        "20261114T150428Z_still_sitting_019",
+        "20261114T150443Z_still_sitting_020",
+        "20261114T150539Z_still_standing_017",
+        "20261114T150554Z_still_standing_018",
+        "20261114T150610Z_still_standing_019",
+        "20261114T150625Z_still_standing_020",
+        "20261114T150641Z_still_standing_021",
+        "20261114T150656Z_still_standing_022",
+        "20261114T150711Z_still_standing_023",
+        "20261114T150726Z_still_standing_024",
+        "20261114T150741Z_still_standing_025",
+        "20261114T150757Z_still_standing_026",
+        "20261114T152424Z_walking_011",
+        "20261114T152439Z_walking_012",
+        "20261114T152455Z_walking_013",
+        "20261114T152510Z_walking_014",
+        "20261114T152525Z_walking_015",
+        "20261114T152540Z_walking_016",
+        "20261114T152556Z_walking_017",
+        "20261114T152611Z_walking_018",
+        "20261114T152626Z_walking_019",
+        "20261114T152642Z_walking_020",
+        "20261114T152729Z_bending_010",
+        "20261114T152745Z_bending_011",
+        "20261114T152800Z_bending_012",
+        "20261114T152815Z_bending_013",
+        "20261114T152831Z_bending_014",
+        "20261114T152846Z_bending_015",
+        "20261114T152901Z_bending_016",
+        "20261114T152916Z_bending_017",
+        "20261114T152931Z_bending_018",
+        "20261114T152946Z_bending_019",
+        "20261114T153023Z_fast_sitting_011",
+        "20261114T153038Z_fast_sitting_012",
+        "20261114T153054Z_fast_sitting_013",
+        "20261114T153109Z_fast_sitting_014",
+        "20261114T153124Z_fast_sitting_015",
+        "20261114T153140Z_fast_sitting_016",
+        "20261114T153155Z_fast_sitting_017",
+        "20261114T153210Z_fast_sitting_018",
+        "20261114T153225Z_fast_sitting_019",
+        "20261114T153240Z_fast_sitting_020"
+      ],
+      "subcarrier_width_distribution": {
+        "51": 3261
+      }
+    },
+    "preprocessing": {
+      "subcarrier_width": 51,
+      "feature_count": 16,
+      "window_frames": 24,
+      "window_stride_frames": 12,
+      "amplitude_formula": "sqrt(I*I + Q*Q)",
+      "band_assignment": "band = floor(subcarrier_index * 16 / 51)",
+      "feature_formula": "For each 24-frame window, take 23 adjacent-frame differences in amplitude; within each frequency band calculate mean absolute amplitude difference over frame transitions and subcarriers, then apply natural log1p.",
+      "phase_window_rule": "Keep only windows whose first and last kept frame timestamps are inside one mapped timeline phase or annotation interval.",
+      "label_policy_sha256": "22c5123a8b7b4c06027f09e4bef8437bca12d9f44b2c2e5064c01fb1e0f7b607",
+      "label_policy": {
+        "description": "Binary exploratory policy: fall positives use the recorded fall_start-to-fall_impact interval; mapped timeline phases supply non-fall windows. Scheduled fall_action windows without point annotations are intentionally unlabeled.",
+        "class_order": [
+          "fall",
+          "non_fall"
+        ],
+        "preprocessing": {
+          "subcarrier_width": 51,
+          "feature_count": 16,
+          "window_frames": 24,
+          "window_stride_frames": 12
+        },
+        "excluded_session_ids": [
+          "SMOKE01"
+        ],
+        "excluded_subject_ids": [
+          "TEST01"
+        ],
+        "phase_labels": {
+          "fall_forward": {
+            "pre_action": "non_fall"
+          },
+          "fall_backward": {
+            "pre_action": "non_fall"
+          },
+          "fall_lemas": {
+            "pre_action": "non_fall"
+          },
+          "fall_keseleo": {
+            "pre_action": "non_fall"
+          },
+          "walking": {
+            "pre_action": "non_fall",
+            "walking": "non_fall",
+            "post_action": "non_fall"
+          },
+          "fast_sitting": {
+            "pre_action": "non_fall",
+            "action": "non_fall",
+            "post_action": "non_fall"
+          },
+          "bending": {
+            "pre_action": "non_fall",
+            "action": "non_fall",
+            "post_action": "non_fall"
+          },
+          "object_drop": {
+            "pre_action": "non_fall",
+            "action": "non_fall",
+            "post_action": "non_fall"
+          },
+          "empty_room": {
+            "hold": "non_fall"
+          },
+          "still_standing": {
+            "hold": "non_fall"
+          },
+          "still_sitting": {
+            "hold": "non_fall"
+          }
+        },
+        "annotation_intervals": {
+          "fall_forward": [
+            {
+              "start": "fall_start",
+              "end": "fall_impact",
+              "label": "fall"
+            }
+          ],
+          "fall_backward": [
+            {
+              "start": "fall_start",
+              "end": "fall_impact",
+              "label": "fall"
+            }
+          ],
+          "fall_lemas": [
+            {
+              "start": "fall_start",
+              "end": "fall_impact",
+              "label": "fall"
+            }
+          ],
+          "fall_keseleo": [
+            {
+              "start": "fall_start",
+              "end": "fall_impact",
+              "label": "fall"
+            }
+          ]
+        }
+      }
+    },
+    "training": {
+      "implementation": "fall_detection.classifier_models.fit_classifier",
+      "algorithm": "one_vs_rest_hinge_sgd",
+      "optimizer": "canonical deterministic Linear SVM",
+      "score_semantics": "One-vs-rest hinge margins; score_c = dot(weights[c], standardized_features) + intercept[c].",
+      "decision_rule": "argmax score in class_order; ties select the first class."
+    },
+    "uses_oof_fold_model": false,
+    "uses_oof_predictions_as_training_input": false
+  }
+}

@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -50,11 +51,16 @@ void web_serial_monitor_csi_callback(void *ctx, const wifi_csi_filtered_info_t *
  * @brief Publish an experimental activity classification to the browser.
  *
  * Scores are specific to the selected model and must not be interpreted as
- * probabilities or confidence scores.
+ * probabilities or confidence scores. `confident_fall` is a heuristic marker
+ * requiring both a stabilized model fall and high smoothed motion.
  */
 void web_serial_monitor_publish_activity(const char *label, float score,
                                          const char *runner_up_label,
-                                         float runner_up_score);
+                                         float runner_up_score,
+                                         const char *model_label,
+                                         uint32_t motion_scaled,
+                                         bool amplitude_vetoed,
+                                         bool confident_fall);
 
 /**
  * @brief Start the serial transport and command loop without a sensing FSM.

@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT))
 import csi_recorder_server as srv  # noqa: E402
 
 LEGACY_SUFFIXES = (".csi_data.csv", ".iq.csv", ".raw_iq.csv", ".events.json")
+VALID_FRAME_COUNT = srv.MIN_RECORDING_FRAMES
 
 
 def _b64(n: int, seed: int) -> str:
@@ -108,26 +109,33 @@ class ValidateTests(unittest.TestCase):
 
     def test_valid_frames_and_meta_pass(self):
         rec_id = "20261030T000000Z_fall_forward_001"
-        frames = make_frames_csv(rec_id, 3)
-        meta = make_meta(rec_id, "fall_forward", 3)
+        frames = make_frames_csv(rec_id, VALID_FRAME_COUNT)
+        meta = make_meta(rec_id, "fall_forward", VALID_FRAME_COUNT)
         self.assertEqual(srv.validate_frames_csv(frames, meta), [])
         self.assertEqual(srv.validate_meta(meta, rec_id), [])
+
+    def test_rejects_recording_below_minimum_frame_count(self):
+        rec_id = "20261030T000000Z_empty_room_002"
+        frames = make_frames_csv(rec_id, VALID_FRAME_COUNT - 1)
+        meta = make_meta(rec_id, "empty_room", VALID_FRAME_COUNT - 1)
+        errors = srv.validate_frames_csv(frames, meta)
+        self.assertTrue(any("minimum accepted is 250" in error for error in errors), errors)
 
     def test_accepts_12s_fall_take(self):
         """target_duration_s is derived from the timeline (fall = 12 s), so the
         server must not reject it for != 10 (ACTION_PLAN 2.1/2.8)."""
         rec_id = "20261030T000000Z_fall_forward_001"
-        meta = make_meta(rec_id, "fall_forward", 3, target_duration_s=12,
+        meta = make_meta(rec_id, "fall_forward", VALID_FRAME_COUNT, target_duration_s=12,
                          actual_duration_s=12.0)
         self.assertEqual(srv.validate_meta(meta, rec_id), [])
 
     def test_rejects_nonpositive_target_duration(self):
         rec_id = "20261030T000000Z_fall_forward_001"
         self.assertTrue(any("target_duration_s" in e for e in
-                            srv.validate_meta(make_meta(rec_id, "fall_forward", 3,
+                            srv.validate_meta(make_meta(rec_id, "fall_forward", VALID_FRAME_COUNT,
                                                         target_duration_s=0), rec_id)))
         self.assertTrue(any("target_duration_s" in e for e in
-                            srv.validate_meta(make_meta(rec_id, "fall_forward", 3,
+                            srv.validate_meta(make_meta(rec_id, "fall_forward", VALID_FRAME_COUNT,
                                                         target_duration_s="ten"), rec_id)))
 
     def test_rejects_header_only_frames_csv(self):
@@ -190,8 +198,8 @@ class HttpApiTests(unittest.TestCase):
             "/api/recordings",
             {
                 "id": rec_id,
-                "frames_csv": make_frames_csv(rec_id, 4),
-                "meta": make_meta(rec_id, "fall_forward", 4),
+                "frames_csv": make_frames_csv(rec_id, VALID_FRAME_COUNT),
+                "meta": make_meta(rec_id, "fall_forward", VALID_FRAME_COUNT),
             },
         )
         self.assertEqual(status, 200, payload)
@@ -209,13 +217,31 @@ class HttpApiTests(unittest.TestCase):
         self.assertIn("fall_forward", index)
         self.assertIn("fall", index)
 
+    def test_post_rejects_recording_below_minimum_without_writing(self):
+        rec_id = "20261030T000000Z_empty_room_003"
+        count = VALID_FRAME_COUNT - 1
+        status, payload = self._json(
+            "POST",
+            "/api/recordings",
+            {
+                "id": rec_id,
+                "frames_csv": make_frames_csv(rec_id, count),
+                "meta": make_meta(rec_id, "empty_room", count),
+            },
+        )
+        self.assertEqual(status, 400, payload)
+        self.assertIn("minimum accepted is 250", payload["error"])
+        folder = self.recordings / "empty_room"
+        self.assertFalse((folder / f"{rec_id}.frames.csv").exists())
+        self.assertFalse((folder / f"{rec_id}.meta.json").exists())
+
     def test_post_persists_diagnostic_events_in_meta(self):
         """Prioritas 1: meta.events.ping/csi_diag + session_stats + boundary
         round-trip through the server while the take still stores exactly two
         files (frames.csv + meta.json)."""
         rec_id = "20261101T000000Z_walking_001"
         diag_meta = make_meta(
-            rec_id, "walking", 3,
+            rec_id, "walking", VALID_FRAME_COUNT,
             events={
                 "segments": [],
                 "motion_samples": [],
@@ -248,7 +274,8 @@ class HttpApiTests(unittest.TestCase):
         )
         status, payload = self._json(
             "POST", "/api/recordings",
-            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, 3), "meta": diag_meta},
+            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, VALID_FRAME_COUNT),
+             "meta": diag_meta},
         )
         self.assertEqual(status, 200, payload)
         folder = self.recordings / "walking"
@@ -273,7 +300,7 @@ class HttpApiTests(unittest.TestCase):
         as 0 by the server."""
         rec_id = "20261101T000100Z_walking_002"
         degraded_meta = make_meta(
-            rec_id, "walking", 2,
+            rec_id, "walking", VALID_FRAME_COUNT,
             events={"segments": [], "motion_samples": [], "ping": None, "csi_diag": None},
             session_stats={
                 "diagnostics_unavailable": True,
@@ -289,7 +316,8 @@ class HttpApiTests(unittest.TestCase):
         )
         status, payload = self._json(
             "POST", "/api/recordings",
-            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, 2), "meta": degraded_meta},
+            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, VALID_FRAME_COUNT),
+             "meta": degraded_meta},
         )
         self.assertEqual(status, 200, payload)
         status, one = self._json("GET", f"/api/recordings/{rec_id}")
@@ -305,7 +333,7 @@ class HttpApiTests(unittest.TestCase):
 
         staged_id = "20261101T000200Z_walking_003"
         staged_meta = make_meta(
-            staged_id, "walking", 2,
+            staged_id, "walking", VALID_FRAME_COUNT,
             session_stats={
                 "diagnostic_event_loss_count": 6,
                 "diag_tx_failure_count": 1,
@@ -321,7 +349,8 @@ class HttpApiTests(unittest.TestCase):
         )
         status, payload = self._json(
             "POST", "/api/recordings",
-            {"id": staged_id, "frames_csv": make_frames_csv(staged_id, 2), "meta": staged_meta},
+            {"id": staged_id, "frames_csv": make_frames_csv(staged_id, VALID_FRAME_COUNT),
+             "meta": staged_meta},
         )
         self.assertEqual(status, 200, payload)
         status, one = self._json("GET", f"/api/recordings/{staged_id}")
@@ -334,13 +363,22 @@ class HttpApiTests(unittest.TestCase):
 
     def test_get_and_delete_two_files(self):
         rec_id = "20261030T000100Z_walking_001"
+        meta = make_meta(rec_id, "walking", VALID_FRAME_COUNT)
+        meta["events"] = {
+            "motion_samples": [
+                {"smooth_scaled": 1200},
+                {"smooth_scaled": 5700},
+                {"smooth_scaled": 3900},
+                {"smooth_scaled": "invalid"},
+            ]
+        }
         self._json(
             "POST",
             "/api/recordings",
             {
                 "id": rec_id,
-                "frames_csv": make_frames_csv(rec_id, 2),
-                "meta": make_meta(rec_id, "walking", 2),
+                "frames_csv": make_frames_csv(rec_id, VALID_FRAME_COUNT),
+                "meta": meta,
             },
         )
         status, listed = self._json("GET", "/api/recordings")
@@ -348,6 +386,7 @@ class HttpApiTests(unittest.TestCase):
         row = next(r for r in listed["recordings"] if r["id"] == rec_id)
         self.assertEqual(row["activity_label"], "walking")
         self.assertEqual(row["binary_label"], "non_fall")
+        self.assertEqual(row["motion_peak_scaled"], 5700)
 
         status, one = self._json("GET", f"/api/recordings/{rec_id}")
         self.assertEqual(status, 200)
@@ -369,8 +408,8 @@ class HttpApiTests(unittest.TestCase):
                     "/api/recordings",
                     {
                         "id": rec_id,
-                        "frames_csv": make_frames_csv(rec_id, 1),
-                        "meta": make_meta(rec_id, "bending", 1),
+                        "frames_csv": make_frames_csv(rec_id, VALID_FRAME_COUNT),
+                        "meta": make_meta(rec_id, "bending", VALID_FRAME_COUNT),
                         stale: "x",
                     },
                 )
@@ -380,11 +419,14 @@ class HttpApiTests(unittest.TestCase):
 
     def test_rejects_frame_count_mismatch_without_partial_write(self):
         rec_id = "20261030T000300Z_object_drop_001"
-        meta = make_meta(rec_id, "object_drop", 5)  # claims 5, csv has 3
+        meta = make_meta(
+            rec_id, "object_drop", VALID_FRAME_COUNT + 1
+        )  # claims one more frame than the CSV
         status, payload = self._json(
             "POST",
             "/api/recordings",
-            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, 3), "meta": meta},
+            {"id": rec_id, "frames_csv": make_frames_csv(rec_id, VALID_FRAME_COUNT),
+             "meta": meta},
         )
         self.assertEqual(status, 400)
         self.assertFalse(payload["ok"])
@@ -394,11 +436,14 @@ class HttpApiTests(unittest.TestCase):
 
     def test_rejects_corrupt_base64(self):
         rec_id = "20261030T000400Z_fast_sitting_001"
-        frames = make_frames_csv(rec_id, 1).replace(_b64(128, 0), "!!!not-base64!!!")
+        frames = make_frames_csv(rec_id, VALID_FRAME_COUNT).replace(
+            _b64(128, 0), "!!!not-base64!!!"
+        )
         status, payload = self._json(
             "POST",
             "/api/recordings",
-            {"id": rec_id, "frames_csv": frames, "meta": make_meta(rec_id, "fast_sitting", 1)},
+            {"id": rec_id, "frames_csv": frames,
+             "meta": make_meta(rec_id, "fast_sitting", VALID_FRAME_COUNT)},
         )
         self.assertEqual(status, 400)
         self.assertFalse(payload["ok"])

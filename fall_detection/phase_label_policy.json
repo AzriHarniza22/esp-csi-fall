@@ -1,0 +1,80 @@
+{
+  "description": "Binary exploratory policy: fall recordings label complete windows from recording offset 4 seconds through the last recorded frame as fall; mapped pre-action and non-fall activity phases supply non_fall windows.",
+  "class_order": [
+    "fall",
+    "non_fall"
+  ],
+  "preprocessing": {
+    "subcarrier_width": 51,
+    "feature_count": 16,
+    "window_frames": 24,
+    "window_stride_frames": 12
+  },
+  "excluded_session_ids": [
+    "SMOKE01"
+  ],
+  "excluded_subject_ids": [
+    "TEST01"
+  ],
+  "phase_labels": {
+    "fall_forward": {
+      "pre_action": "non_fall"
+    },
+    "fall_backward": {
+      "pre_action": "non_fall"
+    },
+    "fall_lemas": {
+      "pre_action": "non_fall"
+    },
+    "fall_keseleo": {
+      "pre_action": "non_fall"
+    },
+    "walking": {
+      "pre_action": "non_fall",
+      "walking": "non_fall",
+      "post_action": "non_fall"
+    },
+    "fast_sitting": {
+      "pre_action": "non_fall",
+      "action": "non_fall",
+      "post_action": "non_fall"
+    },
+    "bending": {
+      "pre_action": "non_fall",
+      "action": "non_fall",
+      "post_action": "non_fall"
+    },
+    "object_drop": {
+      "pre_action": "non_fall",
+      "action": "non_fall",
+      "post_action": "non_fall"
+    },
+    "empty_room": {
+      "hold": "non_fall"
+    },
+    "still_standing": {
+      "hold": "non_fall"
+    },
+    "still_sitting": {
+      "hold": "non_fall"
+    }
+  },
+  "recording_tail_labels": {
+    "fall_forward": {
+      "start_offset_s": 4.0,
+      "label": "fall"
+    },
+    "fall_backward": {
+      "start_offset_s": 4.0,
+      "label": "fall"
+    },
+    "fall_lemas": {
+      "start_offset_s": 4.0,
+      "label": "fall"
+    },
+    "fall_keseleo": {
+      "start_offset_s": 4.0,
+      "label": "fall"
+    }
+  }
+}

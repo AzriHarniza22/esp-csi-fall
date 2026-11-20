@@ -20,6 +20,8 @@ function arraysEqual(a, b) {
 
 function main() {
   console.log("csi_recorder.js");
+  report("minimum accepted recording size is 250 frames",
+    CsiRecorder.MIN_RECORDING_FRAMES === 250);
 
   /* ---------------- identity helpers ---------------- */
   report("slug collapses punctuation", CsiRecorder.slugLabel("Jatuh!!  1") === "jatuh_1");
